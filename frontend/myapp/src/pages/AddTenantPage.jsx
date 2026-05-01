@@ -10,7 +10,6 @@ const AddTenantPage = () => {
   const navigate = useNavigate();
 
   const [rooms,       setRooms]       = useState([]);
-  const [properties,  setProperties]  = useState([]);
   const [users,       setUsers]       = useState([]);  // tenant-role users without active tenancy
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [loading,     setLoading]     = useState(true);

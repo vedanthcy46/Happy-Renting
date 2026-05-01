@@ -20,7 +20,7 @@ const StatCard = ({ label, value, sub, icon, color }) => (
 );
 
 const DashboardPage = () => {
-  const { user, isTenant, isSuperAdmin, isOwner, role, refreshUser } = useAuth();
+  const { user, isTenant, isSuperAdmin, isOwner, refreshUser } = useAuth();
   const toast = useToast();
 
   const [stats,    setStats]    = useState(null);
@@ -91,7 +91,7 @@ const DashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isTenant, isSuperAdmin, toast]);
+  }, [isTenant, isSuperAdmin, isOwner, refreshUser, toast]);
 
   useEffect(() => {
     fetchData();

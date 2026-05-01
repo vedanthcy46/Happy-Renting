@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const ProfilePage = () => {
-  const { user, updateUser, refreshUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const toast = useToast();
 
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,7 @@ const ProfilePage = () => {
     }
   });
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const { data } = await api.get('/users/profile');
       const profile = data.user;
@@ -50,11 +50,11 @@ const ProfilePage = () => {
     } catch (err) {
       toast.error('Failed to load profile details.');
     }
-  };
+  }, [updateUser, toast]);
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [fetchProfile]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

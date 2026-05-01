@@ -21,8 +21,6 @@ const PaymentsPage = () => {
   // Proof Modal State
   const [showProofModal, setShowProofModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [proofFile, setProofFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
   const [failureReason, setFailureReason] = useState('');
 
   const [form, setForm] = useState({
@@ -125,10 +123,6 @@ const PaymentsPage = () => {
     }
   };
 
-  const methodBadge = (method) => {
-    const map = { cash: '💵 Cash', bank_transfer: '🏦 Bank', cheque: '📋 Cheque', online: '💻 Online', other: '📦 Other' };
-    return map[method] || method;
-  };
 
   return (
     <div className="space-y-6 animate-fade-in">

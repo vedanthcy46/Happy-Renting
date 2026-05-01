@@ -1,5 +1,3 @@
-'use strict';
-
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
@@ -10,7 +8,7 @@ import Modal from '../components/common/Modal';
 
 const ComplaintsPage = () => {
   const toast = useToast();
-  const { user, isTenant, isOwner } = useAuth();
+  const { isTenant, isOwner } = useAuth();
 
   const [complaints, setComplaints] = useState([]);
   const [loading,    setLoading]    = useState(true);
