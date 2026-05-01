@@ -61,16 +61,9 @@ const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
 
 app.use(
   cors({
-    origin(origin, callback) {
-      // Allow requests with no origin (curl, Postman in dev) or if '*' is in whitelist
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-        return callback(null, true);
-      }
-      logger.warn(`CORS blocked for origin: ${origin}`);
-      return callback(new Error('Not allowed by CORS'));
-    },
+    origin     : true, // Reflect request origin (Allows all)
     credentials: true,
-    methods      : ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods    : ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
