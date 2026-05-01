@@ -38,9 +38,8 @@ const AddTenantPage = () => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [roomsRes, propsRes, usersRes] = await Promise.all([
+        const [roomsRes, usersRes] = await Promise.all([
           api.get('/rooms'),
-          api.get('/properties'),
           api.get('/users?role=tenant'),
         ]);
         if (!cancelled) {
