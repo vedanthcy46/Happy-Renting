@@ -45,7 +45,6 @@ const AddTenantPage = () => {
         ]);
         if (!cancelled) {
           setRooms(roomsRes.data.rooms);
-          setProperties(propsRes.data.properties);
           setUsers(usersRes.data.users);
         }
       } catch (err) {
