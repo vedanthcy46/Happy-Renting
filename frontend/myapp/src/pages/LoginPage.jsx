@@ -140,11 +140,11 @@ const LoginPage = () => {
           </form>
 
           {/* Demo credentials hint */}
-          <div className="mt-6 p-3 rounded-xl bg-brand-500/10 border border-brand-500/20">
-            {/* <p className="text-xs text-slate-400 text-center">
+          {/* <div className="mt-6 p-3 rounded-xl bg-brand-500/10 border border-brand-500/20">
+            <p className="text-xs text-slate-400 text-center">
               Default admin: <span className="text-brand-400 font-mono">admin@happyrent.com</span>
-            </p> */}
-          </div>
+            </p>
+          </div> */}
         </div>
       </div>
     </div>
