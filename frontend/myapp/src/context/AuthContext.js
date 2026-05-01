@@ -1,0 +1,95 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../api/axios';
+
+const AuthContext = createContext(null);
+
+const TOKEN_KEY = 'hr_token';
+const USER_KEY  = 'hr_user';
+
+export const AuthProvider = ({ children }) => {
+  const [user,    setUser]    = useState(null);
+  const [token,   setToken]   = useState(null);
+  const [loading, setLoading] = useState(true); // True until session is restored
+
+  // ── Restore session from localStorage on mount ─────────────────────────
+  useEffect(() => {
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+    const storedUser  = localStorage.getItem(USER_KEY);
+
+    if (storedToken && storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setToken(storedToken);
+        setUser(parsed);
+      } catch {
+        // Corrupted storage — clear it
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  // ── Login ──────────────────────────────────────────────────────────────
+  const login = useCallback(async (email, password) => {
+    const { data } = await api.post('/auth/login', { email, password });
+    const { token: newToken, user: newUser } = data;
+
+    localStorage.setItem(TOKEN_KEY, newToken);
+    localStorage.setItem(USER_KEY,  JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+
+    return newUser;
+  }, []);
+
+  // ── Logout ─────────────────────────────────────────────────────────────
+  const logout = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  // ── Refresh user from server ───────────────────────────────────────────
+  const refreshUser = useCallback(async () => {
+    try {
+      const { data } = await api.get('/auth/me');
+      const updated = data.user;
+      localStorage.setItem(USER_KEY, JSON.stringify(updated));
+      setUser(updated);
+    } catch {
+      logout();
+    }
+  }, [logout]);
+
+  const updateUser = useCallback((updatedUser) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  }, []);
+
+  const isAuthenticated = Boolean(token && user);
+  const role = user?.role || null;
+
+  // ── Role helpers ───────────────────────────────────────────────────────
+  const isSuperAdmin = role === 'superadmin';
+  const isOwner      = role === 'owner';
+  const isTenant     = role === 'tenant';
+
+  return (
+    <AuthContext.Provider
+      value={{ user, token, loading, isAuthenticated, role, isSuperAdmin, isOwner, isTenant, login, logout, refreshUser, updateUser }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+/** Hook — throws if used outside AuthProvider */
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
+  return ctx;
+};
+
+export default AuthContext;

@@ -1,0 +1,467 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../api/axios';
+import { useToast } from '../context/ToastContext';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import StatusBadge from '../components/common/StatusBadge';
+import Modal from '../components/common/Modal';
+
+const TenantsPage = () => {
+  const toast = useToast();
+  const [tenants,    setTenants]    = useState([]);
+  const [tab,        setTab]        = useState('active');
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState('');
+  
+  // Move-out modal state
+  const [moveOut,    setMoveOut]    = useState({ open: false, tenant: null });
+  const [exitDate,   setExitDate]   = useState('');
+  const [exitNotes,  setExitNotes]  = useState('');
+  const [exiting,    setExiting]    = useState(false);
+  const [exitError,  setExitError]  = useState('');
+
+  // Edit Advance modal state
+  const [editAdv,    setEditAdv]    = useState({ open: false, tenant: null, amount: '', total: '' });
+  const [updatingAdv, setUpdatingAdv] = useState(false);
+
+  // Add Co-Occupant modal state
+  const [addCoOcc,   setAddCoOcc]   = useState({ open: false, tenant: null });
+  const [newCoOcc,   setNewCoOcc]   = useState({ name: '', phone: '', idProof: '' });
+  const [addingCoOcc, setAddingCoOcc] = useState(false);
+
+  const fetchTenants = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get(`/tenants?status=${tab}`);
+      setTenants(data.tenants);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [tab, toast]);
+
+  useEffect(() => { fetchTenants(); }, [fetchTenants]);
+
+  const openMoveOut = (tenant) => {
+    setMoveOut({ open: true, tenant });
+    setExitDate(new Date().toISOString().split('T')[0]);
+    setExitNotes('');
+    setExitError('');
+  };
+
+  const handleMoveOut = async (e) => {
+    e.preventDefault();
+    if (!exitDate) return setExitError('Exit date is required');
+    if (exiting) return;
+
+    setExiting(true);
+    setExitError('');
+    try {
+      await api.patch(`/tenants/${moveOut.tenant._id}/moveout`, {
+        exitDate,
+        notes: exitNotes,
+      });
+      toast.success(`${moveOut.tenant.userId?.name} has been moved out successfully.`);
+      setMoveOut({ open: false, tenant: null });
+      fetchTenants();
+    } catch (err) {
+      setExitError(err.message);
+    } finally {
+      setExiting(false);
+    }
+  };
+
+  const openEditAdvance = (tenant) => {
+    setEditAdv({ 
+      open: true, 
+      tenant, 
+      amount: tenant.advancePaid || 0,
+      total: tenant.securityDeposit || tenant.roomId?.securityDeposit || 0,
+      rentDueDay: tenant.rentDueDay || 5
+    });
+  };
+
+  const handleUpdateAdvance = async (e) => {
+    e.preventDefault();
+    if (updatingAdv) return;
+    setUpdatingAdv(true);
+    try {
+      await api.patch(`/tenants/${editAdv.tenant._id}`, { 
+        advancePaid: Number(editAdv.amount),
+        securityDeposit: Number(editAdv.total),
+        rentDueDay: Number(editAdv.rentDueDay)
+      });
+      toast.success('Tenant details updated successfully.');
+      setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 });
+      fetchTenants();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setUpdatingAdv(false);
+    }
+  };
+
+  const openAddCoOccupant = (tenant) => {
+    setAddCoOcc({ open: true, tenant });
+    setNewCoOcc({ name: '', phone: '', idProof: '' });
+  };
+
+  const handleAddCoOccupant = async (e) => {
+    e.preventDefault();
+    if (!newCoOcc.name) return toast.error('Name is required');
+    if (addingCoOcc) return;
+
+    setAddingCoOcc(true);
+    try {
+      await api.post(`/tenants/${addCoOcc.tenant._id}/co-occupants`, {
+        coOccupants: [newCoOcc]
+      });
+      toast.success(`Co-occupant added to ${addCoOcc.tenant.userId?.name}'s room.`);
+      setAddCoOcc({ open: false, tenant: null });
+      fetchTenants();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setAddingCoOcc(false);
+    }
+  };
+
+  const [expanded, setExpanded] = useState({});
+
+  const toggleExpand = (id) => {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const filtered = tenants.filter(t =>
+    !search ||
+    t.userId?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    t.roomId?.roomNumber?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="page-title">Tenants</h1>
+          <p className="text-slate-400 text-sm mt-1">{filtered.length} record{filtered.length !== 1 ? 's' : ''}</p>
+        </div>
+        <Link to="/tenants/add" id="add-tenant-link" className="btn-primary w-fit">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Tenant
+        </Link>
+      </div>
+
+      {/* Tabs + Search */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+        {/* Filter tabs */}
+        <div className="flex rounded-xl bg-surface-card border border-surface-border p-1 gap-1">
+          {[
+            { key: 'active',  label: 'Active Tenants' },
+            { key: 'vacated', label: 'Past Tenants' },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all
+                ${tab === t.key ? 'bg-brand-600 text-white shadow-glow' : 'text-slate-400 hover:text-white'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative flex-1 max-w-xs">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="search"
+            placeholder="Search name or room…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="form-input pl-9 w-full"
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="card p-12 text-center">
+          <div className="text-5xl mb-4">{tab === 'active' ? '👥' : '📋'}</div>
+          <p className="text-slate-400">No {tab} tenants found.</p>
+          {tab === 'active' && (
+            <Link to="/tenants/add" className="btn-primary mt-4 inline-flex">Add First Tenant</Link>
+          )}
+        </div>
+      ) : (
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Primary Tenant</th>
+                <th>Room / Property</th>
+                <th className="text-center">People</th>
+                <th>Joined</th>
+                {tab === 'vacated' && <th>Exited</th>}
+                <th>Advance</th>
+                {tab === 'active' && <th>Due Day</th>}
+                <th>Status</th>
+                {tab === 'active' && <th className="text-right">Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(t => (
+                <React.Fragment key={t._id}>
+                  <tr className={expanded[t._id] ? 'bg-surface/50' : ''}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => toggleExpand(t._id)} className={`p-1 rounded hover:bg-surface transition-transform ${expanded[t._id] ? 'rotate-90' : ''}`}>
+                          <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                        <div>
+                          <p className="font-bold text-white">{t.userId?.name}</p>
+                          <p className="text-[10px] text-slate-500 font-mono">{t.phone || t.userId?.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="text-slate-300">
+                      <p className="font-semibold text-white">Room {t.roomId?.roomNumber}</p>
+                      <p className="text-[10px] text-slate-400">{t.propertyId?.name}</p>
+                    </td>
+                    <td className="text-center">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-surface-card border border-surface-border text-xs text-white">
+                        {1 + (t.coOccupants?.length || 0)}
+                      </span>
+                    </td>
+                    <td className="text-slate-400 text-xs">{t.joinDate ? new Date(t.joinDate).toLocaleDateString() : '—'}</td>
+                    {tab === 'vacated' && (
+                      <td className="text-slate-400 text-xs">{t.exitDate ? new Date(t.exitDate).toLocaleDateString() : '—'}</td>
+                    )}
+                    <td className="text-slate-300 group relative text-sm">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1">
+                          <span>₹{t.advancePaid?.toLocaleString() || 0}</span>
+                          {t.securityDeposit > 0 && t.advancePaid >= t.securityDeposit && (
+                            <svg className="w-3.5 h-3.5 text-success animate-in zoom-in duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        {t.securityDeposit > 0 && (
+                          <span className="text-[10px] text-slate-500 font-bold">
+                            / ₹{t.securityDeposit.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      {tab === 'active' && (
+                        <button onClick={() => openEditAdvance(t)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-brand-400 hover:text-brand-300 transition-opacity p-2">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      )}
+                    </td>
+                    {tab === 'active' && (
+                      <td className="text-white font-mono text-xs">
+                        <span className="bg-brand-500/10 text-brand-400 px-2 py-1 rounded border border-brand-500/20">
+                          {t.rentDueDay || 5}th
+                        </span>
+                      </td>
+                    )}
+                    <td><StatusBadge status={t.status} /></td>
+                    {tab === 'active' && (
+                      <td className="text-right">
+                        <button onClick={() => openMoveOut(t)} className="btn btn-danger btn-sm text-[10px] uppercase font-bold tracking-wider">Vacate</button>
+                      </td>
+                    )}
+                  </tr>
+                  {expanded[t._id] && (
+                    <tr className="bg-surface/30 animate-fade-in border-l-2 border-brand-500">
+                      <td colSpan={tab === 'active' ? 8 : 7} className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Primary Details */}
+                          <div className="space-y-3">
+                            <h4 className="text-[10px] uppercase font-bold text-brand-400">Primary Tenant Info</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Email</p>
+                                <p className="text-sm text-white">{t.userId?.email}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Phone</p>
+                                <p className="text-sm text-white">{t.phone || '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">ID Proof</p>
+                                <p className="text-sm text-white">{t.idProof || '—'}</p>
+                              </div>
+                            </div>
+                            {t.notes && (
+                              <div className="mt-2">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Internal Notes</p>
+                                <p className="text-xs text-slate-400 italic">{t.notes}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Co-Occupants List */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-[10px] uppercase font-bold text-brand-400">Co-Occupants ({t.coOccupants?.length || 0})</h4>
+                              {tab === 'active' && (
+                                <button 
+                                  onClick={() => openAddCoOccupant(t)}
+                                  className="text-[9px] uppercase font-bold text-brand-400 hover:text-brand-300 flex items-center gap-1"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                  Add Co-Occupant
+                                </button>
+                              )}
+                            </div>
+                            {!t.coOccupants || t.coOccupants.length === 0 ? (
+                              <p className="text-xs text-slate-500 italic">No co-occupants registered.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {t.coOccupants.map((co, idx) => (
+                                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-surface-card border border-surface-border">
+                                    <div>
+                                      <p className="text-xs font-bold text-white">{co.name}</p>
+                                      {co.phone && <p className="text-[10px] text-slate-500">{co.phone}</p>}
+                                    </div>
+                                    {co.idProof && (
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                                        ID: {co.idProof}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Move-Out Modal */}
+      <Modal isOpen={moveOut.open} onClose={() => setMoveOut({ open: false, tenant: null })} title="Move Out Tenant" size="sm">
+        <div className="mb-4 p-4 rounded-xl bg-surface border border-surface-border">
+          <p className="text-sm text-slate-400">Moving out:</p>
+          <p className="text-white font-semibold mt-1">{moveOut.tenant?.userId?.name}</p>
+          <p className="text-slate-400 text-sm">Room {moveOut.tenant?.roomId?.roomNumber}</p>
+        </div>
+        {exitError && <div className="mb-4 p-3 rounded-xl bg-danger/10 border border-danger/30 text-danger text-sm">{exitError}</div>}
+        <form onSubmit={handleMoveOut} noValidate className="space-y-4">
+          <div>
+            <label className="form-label">Exit Date *</label>
+            <input type="date" className="form-input" value={exitDate} onChange={e => setExitDate(e.target.value)} min={moveOut.tenant?.joinDate?.split('T')[0]} max={new Date().toISOString().split('T')[0]} />
+          </div>
+          <div>
+            <label className="form-label">Notes (optional)</label>
+            <textarea className="form-input resize-none" rows={2} value={exitNotes} onChange={e => setExitNotes(e.target.value)} placeholder="Reason for moving out…" maxLength={500} />
+          </div>
+          <div className="p-3 rounded-xl bg-warning/10 border border-warning/30">
+            <p className="text-warning text-xs">⚠️ This will mark the tenant as vacated and free up the room.</p>
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setMoveOut({ open: false, tenant: null })} className="btn-secondary flex-1">Cancel</button>
+            <button id="confirm-moveout" type="submit" disabled={exiting} className="btn-danger flex-1">{exiting ? 'Processing…' : 'Confirm Move Out'}</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={editAdv.open} onClose={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 })} title="Update Tenant Details" size="sm">
+        <form onSubmit={handleUpdateAdvance} className="space-y-4">
+          <div>
+            <label className="form-label">Rent Due Day (1-31)</label>
+            <input type="number" min="1" max="31" className="form-input" 
+              value={editAdv.rentDueDay} onChange={e => setEditAdv(a => ({ ...a, rentDueDay: e.target.value }))} />
+            <p className="text-[10px] text-slate-500 mt-1">Day of the month rent is due.</p>
+          </div>
+          <div className="pt-2 border-t border-surface-border"></div>
+          <div>
+            <label className="form-label">Target Security Deposit (Total ₹)</label>
+            <input type="number" min="0" className="form-input" 
+              value={editAdv.total} onChange={e => setEditAdv(a => ({ ...a, total: e.target.value }))} />
+            <p className="text-[10px] text-slate-500 mt-1">This is the total amount the tenant is expected to pay.</p>
+          </div>
+          <div>
+            <label className="form-label">Currently Paid (₹)</label>
+            <input type="number" min="0" className="form-input" 
+              value={editAdv.amount} onChange={e => setEditAdv(a => ({ ...a, amount: e.target.value }))} />
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 })} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={updatingAdv} className="btn-primary flex-1">{updatingAdv ? 'Updating…' : 'Save Details'}</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Co-Occupant Modal */}
+      <Modal isOpen={addCoOcc.open} onClose={() => setAddCoOcc({ open: false, tenant: null })} title="Add Co-Occupant" size="sm">
+        <div className="mb-4 p-4 rounded-xl bg-surface border border-surface-border">
+          <p className="text-xs text-slate-500 uppercase font-bold mb-1">Adding To Room {addCoOcc.tenant?.roomId?.roomNumber}</p>
+          <p className="text-white font-bold">{addCoOcc.tenant?.userId?.name}</p>
+        </div>
+        <form onSubmit={handleAddCoOccupant} className="space-y-4">
+          <div>
+            <label className="form-label">Name *</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              value={newCoOcc.name} 
+              onChange={e => setNewCoOcc(n => ({ ...n, name: e.target.value }))}
+              placeholder="Full Name"
+              required 
+            />
+          </div>
+          <div>
+            <label className="form-label">Phone</label>
+            <input 
+              type="tel" 
+              className="form-input" 
+              value={newCoOcc.phone} 
+              onChange={e => setNewCoOcc(n => ({ ...n, phone: e.target.value }))}
+              placeholder="Phone Number" 
+            />
+          </div>
+          <div>
+            <label className="form-label">ID Proof Info</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              value={newCoOcc.idProof} 
+              onChange={e => setNewCoOcc(n => ({ ...n, idProof: e.target.value }))}
+              placeholder="Aadhar / Passport #" 
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setAddCoOcc({ open: false, tenant: null })} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={addingCoOcc} className="btn-primary flex-1">
+              {addingCoOcc ? <LoadingSpinner size="sm" label="" /> : null}
+              {addingCoOcc ? 'Adding…' : 'Add Co-Occupant'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+export default TenantsPage;
