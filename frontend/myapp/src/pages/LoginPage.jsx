@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -9,8 +9,6 @@ const LoginPage = () => {
   const { login } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
   const navigate  = useNavigate();
-  const location  = useLocation();
-  const from      = location.state?.from?.pathname || '/dashboard';
 
   const [form,     setForm]     = useState({ email: '', password: '' });
   const [errors,   setErrors]   = useState({});

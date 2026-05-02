@@ -3,7 +3,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 
 const DashboardFilters = ({ onFilterChange, showOwnerFilter = false, hidePropertyFilter = false, hideRoomFilter = false }) => {
-  const { isSuperAdmin, isOwner } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const [owners, setOwners] = useState([]);
   const [properties, setProperties] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -62,7 +62,7 @@ const DashboardFilters = ({ onFilterChange, showOwnerFilter = false, hidePropert
       propertyId: selectedProperty,
       roomId: selectedRoom
     });
-  }, [selectedOwner, selectedProperty, selectedRoom]);
+  }, [selectedOwner, selectedProperty, selectedRoom, onFilterChange]);
 
   const handleReset = () => {
     setSelectedOwner('');
