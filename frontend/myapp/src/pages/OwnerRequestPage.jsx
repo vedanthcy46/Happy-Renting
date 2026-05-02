@@ -39,19 +39,19 @@ const OwnerRequestPage = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="w-10 h-10 text-green-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4 transition-colors duration-300">
+        <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-10 text-center border border-transparent dark:border-gray-800">
+          <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Request Submitted!</h2>
-          <p className="text-gray-600 mb-8 leading-relaxed">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Request Submitted!</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
             Thank you for your interest. Our admin team will review your request and contact you at 
-            <span className="font-bold text-gray-900 ml-1">{formData.phone}</span> for manual verification.
+            <span className="font-bold text-gray-900 dark:text-white ml-1">{formData.phone}</span> for manual verification.
           </p>
           <Link 
             to="/" 
-            className="inline-flex items-center gap-2 text-blue-600 font-bold hover:underline"
+            className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
@@ -62,13 +62,13 @@ const OwnerRequestPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 py-12">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center p-4 py-12 transition-colors duration-300">
       <div className="mb-8 flex items-center gap-2">
-        <Home className="text-blue-600 w-6 h-6" />
-        <span className="text-2xl font-bold text-gray-900 tracking-tight">HappyRent</span>
+        <Home className="text-blue-600 dark:text-blue-400 w-6 h-6" />
+        <span className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">HappyRent</span>
       </div>
 
-      <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl overflow-hidden">
+      <div className="max-w-xl w-full bg-white dark:bg-gray-900 rounded-3xl shadow-xl overflow-hidden border border-transparent dark:border-gray-800">
         <div className="bg-blue-600 px-8 py-10 text-white">
           <h1 className="text-3xl font-bold mb-2">Request Owner Access</h1>
           <p className="opacity-90">Fill out the form below and start managing your properties.</p>
@@ -122,7 +122,7 @@ const OwnerRequestPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-blue-200"
+              className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-blue-200 dark:hover:shadow-blue-900/20"
             >
               {loading ? 'Submitting...' : 'Submit Access Request'}
               {!loading && <Send className="w-5 h-5" />}
@@ -130,7 +130,7 @@ const OwnerRequestPage = () => {
           </div>
 
           <div className="text-center">
-            <Link to="/" className="text-sm text-gray-500 hover:text-blue-600 transition-colors">
+            <Link to="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               Cancel and return to home
             </Link>
           </div>
@@ -142,7 +142,7 @@ const OwnerRequestPage = () => {
 
 const InputField = ({ label, name, type = 'text', placeholder, value, onChange, required = false }) => (
   <div className="flex flex-col gap-1.5">
-    <label htmlFor={name} className="text-sm font-bold text-gray-700 ml-1">
+    <label htmlFor={name} className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     <input
@@ -153,7 +153,7 @@ const InputField = ({ label, name, type = 'text', placeholder, value, onChange, 
       placeholder={placeholder}
       value={value}
       onChange={onChange}
-      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
+      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
     />
   </div>
 );
