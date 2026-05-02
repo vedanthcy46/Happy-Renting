@@ -56,23 +56,23 @@ const AdminOwnerRequests = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Owner Access Requests</h1>
-          <p className="text-gray-500 text-sm">Review and approve new property owners.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Owner Access Requests</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Review and approve new property owners.</p>
         </div>
         
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
           <input 
             type="text" 
             placeholder="Search by name, email..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-4">
             <Skeleton className="h-12 w-full" />
@@ -81,33 +81,33 @@ const AdminOwnerRequests = () => {
           </div>
         ) : filteredRequests.length === 0 ? (
           <div className="p-20 text-center">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Clock className="text-gray-300 w-8 h-8" />
+            <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="text-gray-300 dark:text-gray-600 w-8 h-8" />
             </div>
-            <p className="text-gray-500 font-medium">No pending requests found.</p>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">No pending requests found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Applicant</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Property Details</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Applicant</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Property Details</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                 {filteredRequests.map((request) => (
-                  <tr key={request._id} className="hover:bg-gray-50/50 transition-colors">
+                  <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-5">
                       <div className="flex flex-col">
-                        <span className="font-bold text-gray-900">{request.name}</span>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
+                        <span className="font-bold text-gray-900 dark:text-white">{request.name}</span>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mt-1">
                           <Mail className="w-3 h-3" />
                           {request.email}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           <Phone className="w-3 h-3" />
                           {request.phone}
                         </div>
@@ -115,13 +115,13 @@ const AdminOwnerRequests = () => {
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                          <Building2 className="w-4 h-4 text-gray-400" />
-                          {request.propertyName || <span className="text-gray-300 italic">Not specified</span>}
+                        <div className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                          <Building2 className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          {request.propertyName || <span className="text-gray-300 dark:text-gray-600 italic">Not specified</span>}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <MapPin className="w-3 h-3 text-gray-400" />
-                          {request.propertyLocation || <span className="text-gray-300 italic">N/A</span>}
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                          <MapPin className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                          {request.propertyLocation || <span className="text-gray-300 dark:text-gray-600 italic">N/A</span>}
                         </div>
                       </div>
                     </td>
@@ -134,7 +134,7 @@ const AdminOwnerRequests = () => {
                           <button
                             onClick={() => handleAction(request._id, 'rejected')}
                             disabled={processingId === request._id}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
                             title="Reject Request"
                           >
                             <UserX className="w-5 h-5" />
@@ -149,7 +149,7 @@ const AdminOwnerRequests = () => {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-400 italic">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 italic">
                           Processed on {new Date(request.createdAt).toLocaleDateString()}
                         </span>
                       )}
