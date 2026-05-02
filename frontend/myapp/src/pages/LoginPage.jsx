@@ -42,7 +42,12 @@ const LoginPage = () => {
     try {
       const user = await login(form.email.trim().toLowerCase(), form.password);
       toastSuccess(`Welcome back, ${user.name}!`);
-      navigate(from, { replace: true });
+      
+      if (user.mustChangePassword) {
+        navigate('/setup-password', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       toastError(err.message || 'Login failed. Please try again.');
       setErrors({ general: err.message });

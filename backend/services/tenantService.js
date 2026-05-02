@@ -197,9 +197,20 @@ const moveIn = async (params, performedBy) => {
 
     // ── Send Welcome Email ──
     try {
-      const owner = await User.findById(tenant.ownerId);
-      if (owner) {
-        await emailService.sendWelcomeEmail(tenant.userId, tenant.propertyId, tenant.roomId, owner);
+      const [owner, property] = await Promise.all([
+        User.findById(tenant.ownerId),
+        Property.findById(tenant.propertyId)
+      ]);
+      
+      if (owner && property) {
+        // tempPassword should be passed in params or retrieved
+        await emailService.sendTenantWelcome(
+          tenant.userId, 
+          params.tempPassword || '********', 
+          property, 
+          tenant.roomId, 
+          owner.name
+        );
       }
     } catch (emailErr) {
       logger.error(`Failed to send welcome email: ${emailErr.message}`);

@@ -4,6 +4,7 @@ const { body, param } = require('express-validator');
 const mongoose        = require('mongoose');
 const Room            = require('../models/Room');
 const Tenant          = require('../models/Tenant');
+const Property        = require('../models/Property');
 const logger          = require('../config/logger');
 const logActivity     = require('../utils/activityLogger');
 
@@ -100,6 +101,15 @@ const createRoom = async (req, res, next) => {
     const ownerId = req.user.role === 'owner'
       ? req.user._id
       : req.body.ownerId;
+
+    // ── Restriction: Check if Property is Active ────────────────────────────
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found.' });
+    }
+    if (!property.isActive) {
+      return res.status(400).json({ success: false, message: 'Cannot add rooms to inactive property.' });
+    }
 
     const room = await Room.create({
       roomNumber,

@@ -6,8 +6,8 @@ const logger   = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
 
 const propertyValidation = [
-  body('name').trim().isLength({ min: 2, max: 100 }).escape().withMessage('Name 2-100 chars required'),
-  body('address').trim().isLength({ min: 5, max: 200 }).escape().withMessage('Address 5-200 chars required'),
+  body('name').optional().trim().isLength({ min: 2, max: 100 }).escape().withMessage('Name 2-100 chars required'),
+  body('address').optional().trim().isLength({ min: 5, max: 200 }).escape().withMessage('Address 5-200 chars required'),
   body('city').optional().trim().isLength({ max: 60 }).escape(),
 ];
 
@@ -15,7 +15,7 @@ const propertyValidation = [
 const getProperties = async (req, res, next) => {
   try {
     const filter = req.user.role === 'owner' ? { ownerId: req.user._id } : {};
-    const properties = await Property.find({ ...filter, isActive: true })
+    const properties = await Property.find(filter)
       .populate('ownerId', 'name email')
       .sort({ createdAt: -1 });
     res.status(200).json({ success: true, count: properties.length, properties });
@@ -50,10 +50,11 @@ const updateProperty = async (req, res, next) => {
     if (req.user.role === 'owner' && String(property.ownerId) !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
-    const { name, address, city } = req.body;
+    const { name, address, city, isActive } = req.body;
     if (name)    property.name    = name;
     if (address) property.address = address;
     if (city)    property.city    = city;
+    if (isActive !== undefined) property.isActive = isActive;
     await property.save();
     await logActivity(req.user._id, 'PROPERTY_UPDATED', property._id, 'Property', `Updated property: ${property.name}`, req.ip);
     res.status(200).json({ success: true, message: 'Property updated.', property });

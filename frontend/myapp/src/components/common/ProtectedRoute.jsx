@@ -8,7 +8,7 @@ import LoadingSpinner from './LoadingSpinner';
  * @param {string[]} roles — allowed roles. If empty, any authenticated user passes.
  */
 const ProtectedRoute = ({ children, roles = [] }) => {
-  const { isAuthenticated, role, loading } = useAuth();
+  const { isAuthenticated, role, loading, user } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -21,6 +21,11 @@ const ProtectedRoute = ({ children, roles = [] }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Force password change if required
+  if (user?.mustChangePassword && location.pathname !== '/setup-password') {
+    return <Navigate to="/setup-password" replace />;
   }
 
   if (roles.length > 0 && !roles.includes(role)) {

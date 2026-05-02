@@ -2,6 +2,7 @@
 
 const { body, param } = require('express-validator');
 const Tenant        = require('../models/Tenant');
+const User          = require('../models/User');
 const logger        = require('../config/logger');
 const tenantService = require('../services/tenantService');
 
@@ -137,7 +138,8 @@ const addTenant = async (req, res, next) => {
     const tenant = await tenantService.moveIn(
       { 
         userId, roomId, propertyId, ownerId, joinDate, 
-        advancePaid, securityDeposit, notes, phone, idProof, coOccupants 
+        advancePaid, securityDeposit, notes, phone, idProof, coOccupants,
+        tempPassword: req.body.tempPassword || req.body.password 
       },
       req.user._id
     );
@@ -169,14 +171,31 @@ const updateTenant = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
-    const { advancePaid, securityDeposit, joinDate, notes, status, rentDueDay } = req.body;
+    const { 
+      advancePaid, securityDeposit, joinDate, notes, status, rentDueDay,
+      name, email, phone, idProof 
+    } = req.body;
 
-    if (advancePaid !== undefined) tenant.advancePaid = advancePaid;
+    // 1) Update Tenant-specific fields
+    if (advancePaid    !== undefined) tenant.advancePaid = advancePaid;
     if (securityDeposit !== undefined) tenant.securityDeposit = securityDeposit;
-    if (joinDate    !== undefined) tenant.joinDate    = joinDate;
-    if (notes       !== undefined) tenant.notes       = notes;
-    if (status      !== undefined) tenant.status      = status;
-    if (rentDueDay  !== undefined) tenant.rentDueDay  = rentDueDay;
+    if (joinDate       !== undefined) tenant.joinDate    = joinDate;
+    if (notes          !== undefined) tenant.notes       = notes;
+    if (status         !== undefined) tenant.status      = status;
+    if (rentDueDay     !== undefined) tenant.rentDueDay  = rentDueDay;
+    if (phone          !== undefined) tenant.phone        = phone;
+    if (idProof        !== undefined) tenant.idProof      = idProof;
+
+    // 2) Update linked User fields if provided
+    if (name || email || phone) {
+      const user = await User.findById(tenant.userId);
+      if (user) {
+        if (name)  user.name  = name;
+        if (email) user.email = email;
+        if (phone) user.phone = phone;
+        await user.save({ validateBeforeSave: false });
+      }
+    }
 
     await tenant.save();
     res.status(200).json({ success: true, message: 'Tenant updated.', tenant });

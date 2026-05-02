@@ -21,7 +21,9 @@ const TenantsPage = () => {
   const [exitError,  setExitError]  = useState('');
 
   // Edit Advance modal state
-  const [editAdv,    setEditAdv]    = useState({ open: false, tenant: null, amount: '', total: '' });
+  // Edit Advance/Profile modal state
+  const [editAdv,    setEditAdv]    = useState({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5, name: '', email: '', phone: '', idProof: '' });
+  const [editTab,    setEditTab]    = useState('finance'); // 'finance' or 'profile'
   const [updatingAdv, setUpdatingAdv] = useState(false);
 
   // Add Co-Occupant modal state
@@ -78,8 +80,13 @@ const TenantsPage = () => {
       tenant, 
       amount: tenant.advancePaid || 0,
       total: tenant.securityDeposit || tenant.roomId?.securityDeposit || 0,
-      rentDueDay: tenant.rentDueDay || 5
+      rentDueDay: tenant.rentDueDay || 5,
+      name: tenant.userId?.name || '',
+      email: tenant.userId?.email || '',
+      phone: tenant.phone || '',
+      idProof: tenant.idProof || ''
     });
+    setEditTab('finance');
   };
 
   const handleUpdateAdvance = async (e) => {
@@ -90,10 +97,14 @@ const TenantsPage = () => {
       await api.patch(`/tenants/${editAdv.tenant._id}`, { 
         advancePaid: Number(editAdv.amount),
         securityDeposit: Number(editAdv.total),
-        rentDueDay: Number(editAdv.rentDueDay)
+        rentDueDay: Number(editAdv.rentDueDay),
+        name: editAdv.name,
+        email: editAdv.email,
+        phone: editAdv.phone,
+        idProof: editAdv.idProof
       });
       toast.success('Tenant details updated successfully.');
-      setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 });
+      setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5, name: '', email: '', phone: '', idProof: '' });
       fetchTenants();
     } catch (err) {
       toast.error(err.message);
@@ -387,28 +398,72 @@ const TenantsPage = () => {
       </Modal>
 
       <Modal isOpen={editAdv.open} onClose={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 })} title="Update Tenant Details" size="sm">
+        <div className="flex rounded-xl bg-surface border border-surface-border p-1 gap-1 mb-4">
+          <button 
+            type="button" 
+            onClick={() => setEditTab('finance')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex-1 ${editTab === 'finance' ? 'bg-brand-600 text-white shadow-glow' : 'text-slate-400 hover:text-white'}`}
+          >
+            Finance
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setEditTab('profile')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex-1 ${editTab === 'profile' ? 'bg-brand-600 text-white shadow-glow' : 'text-slate-400 hover:text-white'}`}
+          >
+            Profile
+          </button>
+        </div>
+
         <form onSubmit={handleUpdateAdvance} className="space-y-4">
-          <div>
-            <label className="form-label">Rent Due Day (1-31)</label>
-            <input type="number" min="1" max="31" className="form-input" 
-              value={editAdv.rentDueDay} onChange={e => setEditAdv(a => ({ ...a, rentDueDay: e.target.value }))} />
-            <p className="text-[10px] text-slate-500 mt-1">Day of the month rent is due.</p>
-          </div>
-          <div className="pt-2 border-t border-surface-border"></div>
-          <div>
-            <label className="form-label">Target Security Deposit (Total ₹)</label>
-            <input type="number" min="0" className="form-input" 
-              value={editAdv.total} onChange={e => setEditAdv(a => ({ ...a, total: e.target.value }))} />
-            <p className="text-[10px] text-slate-500 mt-1">This is the total amount the tenant is expected to pay.</p>
-          </div>
-          <div>
-            <label className="form-label">Currently Paid (₹)</label>
-            <input type="number" min="0" className="form-input" 
-              value={editAdv.amount} onChange={e => setEditAdv(a => ({ ...a, amount: e.target.value }))} />
-          </div>
+          {editTab === 'finance' ? (
+            <>
+              <div>
+                <label className="form-label">Rent Due Day (1-31)</label>
+                <input type="number" min="1" max="31" className="form-input" 
+                  value={editAdv.rentDueDay} onChange={e => setEditAdv(a => ({ ...a, rentDueDay: e.target.value }))} />
+                <p className="text-[10px] text-slate-500 mt-1">Day of the month rent is due.</p>
+              </div>
+              <div className="pt-2 border-t border-surface-border"></div>
+              <div>
+                <label className="form-label">Target Security Deposit (Total ₹)</label>
+                <input type="number" min="0" className="form-input" 
+                  value={editAdv.total} onChange={e => setEditAdv(a => ({ ...a, total: e.target.value }))} />
+                <p className="text-[10px] text-slate-500 mt-1">This is the total amount the tenant is expected to pay.</p>
+              </div>
+              <div>
+                <label className="form-label">Currently Paid (₹)</label>
+                <input type="number" min="0" className="form-input" 
+                  value={editAdv.amount} onChange={e => setEditAdv(a => ({ ...a, amount: e.target.value }))} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="form-label">Full Name</label>
+                <input type="text" className="form-input" 
+                  value={editAdv.name} onChange={e => setEditAdv(a => ({ ...a, name: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">Email</label>
+                <input type="email" className="form-input" 
+                  value={editAdv.email} onChange={e => setEditAdv(a => ({ ...a, email: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">Phone</label>
+                <input type="tel" className="form-input" 
+                  value={editAdv.phone} onChange={e => setEditAdv(a => ({ ...a, phone: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">ID Proof Info</label>
+                <input type="text" className="form-input" 
+                  value={editAdv.idProof} onChange={e => setEditAdv(a => ({ ...a, idProof: e.target.value }))} />
+              </div>
+            </>
+          )}
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 })} className="btn-secondary flex-1">Cancel</button>
-            <button type="submit" disabled={updatingAdv} className="btn-primary flex-1">{updatingAdv ? 'Updating…' : 'Save Details'}</button>
+            <button type="submit" disabled={updatingAdv} className="btn-primary flex-1">{updatingAdv ? 'Updating…' : 'Save Changes'}</button>
           </div>
         </form>
       </Modal>

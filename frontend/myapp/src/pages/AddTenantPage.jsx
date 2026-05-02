@@ -160,6 +160,7 @@ const AddTenantPage = () => {
         rentDueDay  : Number(form.rentDueDay) || 5,
         idProof     : form.idProof,
         coOccupants : form.coOccupants,
+        tempPassword: form.password, // Pass password for email onboarding
       });
 
       toast.success('Tenant moved in successfully!');

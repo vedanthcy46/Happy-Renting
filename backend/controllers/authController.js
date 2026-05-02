@@ -78,6 +78,7 @@ const login = async (req, res, next) => {
         email   : user.email,
         role    : user.role,
         ownerId : user.ownerId,
+        mustChangePassword: user.mustChangePassword,
       },
     });
   } catch (err) {
@@ -129,6 +130,11 @@ const register = async (req, res, next) => {
       userData.ownerId = ownerId;
     }
 
+    // Force password change if created by others
+    if (callerRole) {
+      userData.mustChangePassword = true;
+    }
+
     const user = await User.create(userData);
     const token = signToken(user._id, user.role);
 
@@ -177,6 +183,7 @@ const changePassword = async (req, res, next) => {
     }
 
     user.password = newPassword;
+    user.mustChangePassword = false;
     await user.save();
 
     // Send security email

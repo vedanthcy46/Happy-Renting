@@ -24,6 +24,7 @@ import OwnerRequestPage  from './pages/OwnerRequestPage';
 import AdminOwnerRequests from './pages/AdminOwnerRequests';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage    from './pages/NotFoundPage';
+import ForceChangePassword from './pages/ForceChangePassword';
 
 /**
  * AppLayout — wraps all authenticated pages with Navbar + padded main area
@@ -46,6 +47,7 @@ const App = () => (
           {/* Public */}
           <Route path="/"             element={<LandingPage />} />
           <Route path="/login"        element={<LoginPage />} />
+          <Route path="/setup-password" element={<ForceChangePassword />} />
           <Route path="/request-access" element={<OwnerRequestPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 

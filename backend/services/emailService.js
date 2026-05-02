@@ -19,7 +19,7 @@ const sendEmail = async (to, subject, html) => {
     }
 
     const info = await transporter.sendMail({
-      from: `"HappyRent Support" <${process.env.EMAIL_USER}>`,
+      from: `"HappyRent Support" <${process.env.EMAIL_USER || 'vedanthh46@gmail.com'}>`,
       to,
       subject,
       html,
@@ -265,6 +265,44 @@ const sendAdminNewRequestAlert = async (request) => {
   await sendEmail(adminEmail, subject, html);
 };
 
+// ── 12. Tenant Onboarding ───────────────────────────────────────────────────
+const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName) => {
+  const subject = `🏠 Welcome to ${property.name}! Your login details inside.`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+      <h2 style="color: #1e293b; margin-top: 0;">Welcome, ${tenant.name}!</h2>
+      <p style="color: #475569; line-height: 1.6;">
+        Your landlord, <strong>${ownerName}</strong>, has created your account on <strong>HappyRent</strong>. 
+        You can now manage your tenancy, view payments, and raise complaints online.
+      </p>
+      
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+        <p style="margin: 0; font-weight: bold; color: #1e293b;">Your Login Credentials:</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Email:</strong> ${tenant.email}</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Temp Password:</strong> <code style="background: #e2e8f0; padding: 2px 5px; border-radius: 4px;">${tempPassword}</code></p>
+        <p style="margin: 10px 0 0; font-size: 12px; color: #ef4444;">* You will be asked to change this password on your first login.</p>
+      </div>
+
+      <div style="margin: 20px 0;">
+        <p style="margin: 0; font-weight: bold; color: #1e293b;">Tenancy Details:</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Property:</strong> ${property.name}</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Room:</strong> ${room.roomNumber}</p>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.WEBSITE_URL}login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+          Login to HappyRent
+        </a>
+      </div>
+
+      <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px;">
+        This is an automated message from HappyRent. Please contact your landlord if you have any questions.
+      </p>
+    </div>
+  `;
+  await sendEmail(tenant.email, subject, html);
+};
+
 module.exports = {
   sendComplaintNotification,
   sendPaymentProofNotification,
@@ -277,4 +315,5 @@ module.exports = {
   sendRequestApproved,
   sendRequestRejected,
   sendAdminNewRequestAlert,
+  sendTenantWelcome,
 };
