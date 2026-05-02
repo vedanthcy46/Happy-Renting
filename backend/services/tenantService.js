@@ -30,6 +30,7 @@ const mongoose = require('mongoose');
 const Tenant   = require('../models/Tenant');
 const Room     = require('../models/Room');
 const User     = require('../models/User');
+const emailService = require('./emailService');
 const logger   = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
 
@@ -193,6 +194,17 @@ const moveIn = async (params, performedBy) => {
 
     logger.info(`[MOVE-IN] tenant=${tenant._id} occupants=${totalOccupantsToAdd} room=${roomId} by=${performedBy}`);
     await logActivity(performedBy, 'TENANT_ADDED', tenant._id, 'Tenant', `Added tenant to Room ${roomId}`);
+
+    // ── Send Welcome Email ──
+    try {
+      const owner = await User.findById(tenant.ownerId);
+      if (owner) {
+        await emailService.sendWelcomeEmail(tenant.userId, tenant.propertyId, tenant.roomId, owner);
+      }
+    } catch (emailErr) {
+      logger.error(`Failed to send welcome email: ${emailErr.message}`);
+    }
+
     return result;
 
   } finally {

@@ -215,6 +215,22 @@ const processPayment = async (req, res, next) => {
         });
 
         logger.info(`Payment ${id} result: ${status} (TX: ${txId})`);
+
+        // Notify Tenant of result
+        try {
+          const populated = await Payment.findById(id).populate('userId propertyId roomId ownerId');
+          if (populated && populated.userId && populated.userId.email) {
+            await emailService.sendPaymentStatusNotification(
+              populated.userId,
+              populated,
+              populated.propertyId,
+              populated.roomId,
+              populated.ownerId
+            );
+          }
+        } catch (emailErr) {
+          logger.error(`Failed to send simulated payment notification: ${emailErr.message}`);
+        }
       } catch (err) {
         logger.error(`Error finalizing simulated payment ${id}: ${err.message}`);
       }

@@ -9,6 +9,7 @@ const Room       = require('../models/Room');
 const Payment    = require('../models/Payment');
 const Complaint  = require('../models/Complaint');
 const CoOccupant = require('../models/CoOccupant');
+const emailService = require('../services/emailService');
 const logger   = require('../config/logger');
 
 // ── Validation ─────────────────────────────────────────────────────────────
@@ -325,6 +326,9 @@ const changePassword = async (req, res, next) => {
     user.password = newPassword;
     await user.save();
 
+    // Send security notification
+    emailService.sendPasswordChangeNotification(user).catch(err => logger.error(`Failed to send password change email: ${err.message}`));
+
     res.status(200).json({ success: true, message: 'Password updated successfully.' });
   } catch (err) {
     next(err);
@@ -351,6 +355,9 @@ const resetUserPassword = async (req, res, next) => {
 
     user.password = newPassword;
     await user.save();
+
+    // Send security notification
+    emailService.sendPasswordChangeNotification(user).catch(err => logger.error(`Failed to send password reset email: ${err.message}`));
 
     res.status(200).json({ success: true, message: `Password for ${user.name} has been reset.` });
   } catch (err) {

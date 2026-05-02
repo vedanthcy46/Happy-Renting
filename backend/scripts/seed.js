@@ -19,8 +19,8 @@ const seed = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     logger.info('Connected to MongoDB for seeding.');
 
-    const email    = process.env.SEED_ADMIN_EMAIL    || 'admin@happyrent.com';
-    const password = process.env.SEED_ADMIN_PASSWORD || 'Admin@HappyRent2024!';
+    const email    = process.env.SEED_ADMIN_EMAIL    || 'vedanthh46@gmail.com';
+    const password = process.env.SEED_ADMIN_PASSWORD || 'Vedanth7274@';
 
     const existing = await User.findOne({ email });
     if (existing) {
