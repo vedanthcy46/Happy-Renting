@@ -22,10 +22,25 @@ const sendEmail = async (to, subject, html) => {
     // While in testing/onboarding mode, 'onboarding@resend.dev' must be used.
     const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
+    // ── Resend Sandbox Mode Redirect ──
+    // Resend's free tier (onboarding mode) only allows sending to the account owner.
+    // We automatically reroute all dev emails to prevent API errors.
+    let finalRecipient = to;
+    let finalSubject = subject;
+
+    const isSandbox = fromAddress === 'onboarding@resend.dev';
+    const verifiedEmail = process.env.EMAIL_USER || 'vedanthh46@gmail.com';
+
+    if (isSandbox && to.toLowerCase() !== verifiedEmail.toLowerCase()) {
+      logger.info(`[RESEND SANDBOX] Redirecting email from <${to}> to verified address <${verifiedEmail}>`);
+      finalRecipient = verifiedEmail;
+      finalSubject = `[DEBUG: To ${to}] ${subject}`;
+    }
+
     const { data, error } = await resend.emails.send({
       from: `HappyRent Support <${fromAddress}>`,
-      to: [to],
-      subject,
+      to: [finalRecipient],
+      subject: finalSubject,
       html,
     });
 
