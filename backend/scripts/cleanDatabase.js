@@ -13,6 +13,8 @@ const Payment = require('../models/Payment');
 const Complaint = require('../models/Complaint');
 const OwnerRequest = require('../models/OwnerRequest');
 
+const ActivityLog = require('../models/ActivityLog');
+
 const cleanDatabase = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
@@ -26,6 +28,7 @@ const cleanDatabase = async () => {
       Payment.deleteMany({}),
       Complaint.deleteMany({}),
       OwnerRequest.deleteMany({}),
+      ActivityLog.deleteMany({}),
       User.deleteMany({ role: { $ne: 'superadmin' } })
     ]);
 
@@ -36,7 +39,8 @@ const cleanDatabase = async () => {
     logger.info(`   Payments: ${deleteResults[3].deletedCount}`);
     logger.info(`   Complaints: ${deleteResults[4].deletedCount}`);
     logger.info(`   OwnerRequests: ${deleteResults[5].deletedCount}`);
-    logger.info(`   Non-Admin Users: ${deleteResults[6].deletedCount}`);
+    logger.info(`   Activity Logs: ${deleteResults[6].deletedCount}`);
+    logger.info(`   Non-Admin Users: ${deleteResults[7].deletedCount}`);
 
     // Check if at least one admin remains
     const adminCount = await User.countDocuments({ role: 'superadmin' });
