@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { UserCheck, UserX, Clock, MapPin, Building2, Phone, Mail, Search } from 'lucide-react';
 import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
-import Skeleton from '../components/common/Skeleton';
+import Skeleton from '../components/common/Skeleton.jsx';
 
 const AdminOwnerRequests = () => {
   const { showToast } = useToast();
