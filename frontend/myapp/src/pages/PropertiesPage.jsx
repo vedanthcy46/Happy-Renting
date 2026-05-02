@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Modal from '../components/common/Modal';
+import DashboardFilters from '../components/common/DashboardFilters';
 
 const PropertiesPage = () => {
   const toast = useToast();
@@ -13,6 +14,7 @@ const PropertiesPage = () => {
 
   const [properties, setProperties] = useState([]);
   const [loading,    setLoading]    = useState(true);
+  const [filters,    setFilters]    = useState({ ownerId: '', propertyId: '', roomId: '' });
   const [showAdd,    setShowAdd]    = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -23,14 +25,15 @@ const PropertiesPage = () => {
   const fetchProperties = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await api.get('/properties');
+      const url = filters.ownerId ? `/properties?ownerId=${filters.ownerId}` : '/properties';
+      const { data } = await api.get(url);
       setProperties(data.properties);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [filters.ownerId, toast]);
 
   useEffect(() => { fetchProperties(); }, [fetchProperties]);
 
@@ -114,6 +117,9 @@ const PropertiesPage = () => {
           </button>
         )}
       </div>
+
+      {/* Filters (Admin Only) */}
+      <DashboardFilters onFilterChange={setFilters} showOwnerFilter={true} hidePropertyFilter={true} hideRoomFilter={true} />
 
       {loading ? (
         <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>

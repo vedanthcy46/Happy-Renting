@@ -4,7 +4,7 @@ import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
-import Modal from '../components/common/Modal';
+import DashboardFilters from '../components/common/DashboardFilters';
 
 const TenantsPage = () => {
   const toast = useToast();
@@ -12,6 +12,7 @@ const TenantsPage = () => {
   const [tab,        setTab]        = useState('active');
   const [loading,    setLoading]    = useState(true);
   const [search,     setSearch]     = useState('');
+  const [filters,    setFilters]    = useState({ ownerId: '', propertyId: '', roomId: '' });
   
   // Move-out modal state
   const [moveOut,    setMoveOut]    = useState({ open: false, tenant: null });
@@ -34,14 +35,20 @@ const TenantsPage = () => {
   const fetchTenants = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await api.get(`/tenants?status=${tab}`);
+      const params = new URLSearchParams();
+      params.append('status', tab);
+      if (filters.ownerId)    params.append('ownerId',    filters.ownerId);
+      if (filters.propertyId) params.append('propertyId', filters.propertyId);
+      if (filters.roomId)     params.append('roomId',     filters.roomId);
+
+      const { data } = await api.get(`/tenants?${params.toString()}`);
       setTenants(data.tenants);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoading(false);
     }
-  }, [tab, toast]);
+  }, [tab, filters, toast]);
 
   useEffect(() => { fetchTenants(); }, [fetchTenants]);
 
@@ -170,6 +177,9 @@ const TenantsPage = () => {
           Add Tenant
         </Link>
       </div>
+
+      {/* Filters */}
+      <DashboardFilters onFilterChange={setFilters} showOwnerFilter={true} />
 
       {/* Tabs + Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">

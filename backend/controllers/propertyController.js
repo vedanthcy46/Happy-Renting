@@ -14,7 +14,12 @@ const propertyValidation = [
 // ── GET /api/properties ────────────────────────────────────────────────────
 const getProperties = async (req, res, next) => {
   try {
-    const filter = req.user.role === 'owner' ? { ownerId: req.user._id } : {};
+    const filter = {};
+    if (req.user.role === 'owner') {
+      filter.ownerId = req.user._id;
+    } else if (req.user.role === 'superadmin' && req.query.ownerId) {
+      filter.ownerId = req.query.ownerId;
+    }
     const properties = await Property.find(filter)
       .populate('ownerId', 'name email')
       .sort({ createdAt: -1 });

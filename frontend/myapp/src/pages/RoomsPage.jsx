@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import OccupancyBar from '../components/common/OccupancyBar';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
+import DashboardFilters from '../components/common/DashboardFilters';
 
 const RoomsPage = () => {
   const toast = useToast();
@@ -19,7 +20,7 @@ const RoomsPage = () => {
   const [rooms,      setRooms]      = useState([]);
   const [properties, setProperties] = useState([]);
   const [loading,    setLoading]    = useState(true);
-  const [filterProp, setFilterProp] = useState(initialProp);
+  const [filters,    setFilters]    = useState({ ownerId: '', propertyId: initialProp, roomId: '' });
   const [showAdd,    setShowAdd]    = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
@@ -31,15 +32,18 @@ const RoomsPage = () => {
   const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
-      const params = filterProp ? `?propertyId=${filterProp}` : '';
-      const { data } = await api.get(`/rooms${params}`);
+      const params = new URLSearchParams();
+      if (filters.ownerId)    params.append('ownerId',    filters.ownerId);
+      if (filters.propertyId) params.append('propertyId', filters.propertyId);
+
+      const { data } = await api.get(`/rooms?${params.toString()}`);
       setRooms(data.rooms);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoading(false);
     }
-  }, [filterProp, toast]);
+  }, [filters, toast]);
 
   useEffect(() => { fetchRooms(); }, [fetchRooms]);
 
@@ -145,19 +149,8 @@ const RoomsPage = () => {
         )}
       </div>
 
-      {/* Filter */}
-      {properties.length > 0 && (
-        <select
-          value={filterProp}
-          onChange={e => setFilterProp(e.target.value)}
-          className="form-select w-60"
-        >
-          <option value="">All Properties</option>
-          {properties.map(p => (
-            <option key={p._id} value={p._id}>{p.name} ({p.address})</option>
-          ))}
-        </select>
-      )}
+      {/* Filters */}
+      <DashboardFilters onFilterChange={setFilters} showOwnerFilter={true} hideRoomFilter={true} />
 
       {loading ? (
         <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>

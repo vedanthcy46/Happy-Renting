@@ -37,8 +37,12 @@ const getRooms = async (req, res, next) => {
   try {
     const filter = { isActive: true };
 
-    // ownerId isolation — always scoped
-    if (req.user.role === 'owner') filter.ownerId = req.user._id;
+    // ownerId isolation
+    if (req.user.role === 'owner') {
+      filter.ownerId = req.user._id;
+    } else if (req.user.role === 'superadmin' && req.query.ownerId) {
+      filter.ownerId = req.query.ownerId;
+    }
 
     // Whitelist-validated query filters
     const { propertyId } = req.query;

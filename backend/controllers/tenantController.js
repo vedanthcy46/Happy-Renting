@@ -50,8 +50,12 @@ const getTenants = async (req, res, next) => {
   try {
     const filter = {};
 
-    // ownerId isolation — owners always scoped to their own data
-    if (req.user.role === 'owner') filter.ownerId = req.user._id;
+    // ownerId isolation
+    if (req.user.role === 'owner') {
+      filter.ownerId = req.user._id;
+    } else if (req.user.role === 'superadmin' && req.query.ownerId) {
+      filter.ownerId = req.query.ownerId;
+    }
 
     // Optional query filters (whitelist approach — never trust raw query)
     const { status, propertyId, roomId } = req.query;
@@ -207,22 +211,36 @@ const updateTenant = async (req, res, next) => {
 
     await tenant.save();
 
-    // ── Sync Current Month Payment Due Date ──
+    // ── Sync Current Month Payment Due Date & Status ──
     if (rentDueDay !== undefined) {
       try {
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
         const currentMonthStr = today.toISOString().slice(0, 7);
         const newDueDate = new Date(today.getFullYear(), today.getMonth(), rentDueDay);
+        newDueDate.setHours(0, 0, 0, 0);
 
-        await require('../models/Payment').findOneAndUpdate(
-          { 
-            tenantId: tenant._id, 
-            month: currentMonthStr,
-            status: { $nin: ['paid', 'verification_pending'] } 
-          },
-          { $set: { dueDate: newDueDate } }
-        );
-        logger.info(`Synced dueDate for tenant ${tenant._id} to day ${rentDueDay}`);
+        // Determine if the status needs to flip
+        const isOverdueNow = newDueDate < today;
+        
+        // Find the payment for current month
+        const Payment = require('../models/Payment');
+        const currentPayment = await Payment.findOne({
+          tenantId: tenant._id,
+          month: currentMonthStr,
+          status: { $nin: ['paid', 'verification_pending', 'processing'] }
+        });
+
+        if (currentPayment) {
+          currentPayment.dueDate = newDueDate;
+          // Only update status if it's currently pending/overdue/failed/partial
+          if (['pending', 'overdue', 'failed', 'partial'].includes(currentPayment.status)) {
+            currentPayment.status = isOverdueNow ? 'overdue' : 'pending';
+          }
+          await currentPayment.save();
+          logger.info(`Synced dueDate & status for tenant ${tenant._id} to day ${rentDueDay} (Status: ${currentPayment.status})`);
+        }
       } catch (syncErr) {
         logger.error(`Failed to sync payment dueDate: ${syncErr.message}`);
       }
