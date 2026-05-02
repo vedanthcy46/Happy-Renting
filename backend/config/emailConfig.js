@@ -4,22 +4,33 @@ const nodemailer = require('nodemailer');
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // Use STARTTLS
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS, // Must be an App Password
   },
-  connectionTimeout: 20000, // 20 seconds for cloud environments
-  greetingTimeout: 20000,
+  family: 4, // Force IPv4 to avoid ENETUNREACH (IPv6 issues)
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 });
 
-// Verify connection configuration
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('[EMAIL CONFIG ERROR] Transporter verification failed:', error);
-  } else {
-    console.log('[EMAIL CONFIG SUCCESS] Server is ready to take our messages');
+/**
+ * verifyTransporter()
+ * Checks if the SMTP connection is valid without blocking the main process.
+ */
+const verifyTransporter = async () => {
+  try {
+    await transporter.verify();
+    console.log('[EMAIL CONFIG SUCCESS] SMTP Transporter is ready.');
+  } catch (error) {
+    console.error('[EMAIL CONFIG ERROR] Transporter verification failed:', error.message);
+    // Do not throw or crash; allow the app to run without email if necessary
   }
-});
+};
+
+verifyTransporter();
 
 module.exports = transporter;
