@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import DashboardFilters from '../components/common/DashboardFilters';
+import Modal from '../components/common/Modal';
 
 const TenantsPage = () => {
   const toast = useToast();
@@ -220,7 +221,7 @@ const TenantsPage = () => {
       ) : filtered.length === 0 ? (
         <div className="card p-12 text-center">
           <div className="text-5xl mb-4">{tab === 'active' ? '👥' : '📋'}</div>
-          <p className="text-slate-400">No {tab} tenants found.</p>
+          <p className="text-slate-400">No {tab} tenants found for the selected filters.</p>
           {tab === 'active' && (
             <Link to="/tenants/add" className="btn-primary mt-4 inline-flex">Add First Tenant</Link>
           )}

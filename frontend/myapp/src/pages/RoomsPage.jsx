@@ -157,7 +157,7 @@ const RoomsPage = () => {
       ) : rooms.length === 0 ? (
         <div className="card p-12 text-center">
           <div className="text-5xl mb-4">🏠</div>
-          <p className="text-slate-400">No rooms found. Add your first room!</p>
+          <p className="text-slate-400">No rooms found for the selected filters.</p>
         </div>
       ) : (
         <div className="table-wrapper">
