@@ -80,6 +80,7 @@ const updateRequestStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status, reason } = req.body;
+    logger.info(`Status update request: ID=${id} NewStatus=${status}`);
 
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status.' });
@@ -111,7 +112,11 @@ const updateRequestStatus = async (req, res, next) => {
       await request.save();
 
       // 3. Send Approval Email
-      await emailService.sendRequestApproved(request, tempPassword);
+      try {
+        await emailService.sendRequestApproved(request, tempPassword);
+      } catch (e) {
+        logger.error(`Email error (Approved): ${e.message}`);
+      }
       logger.info(`Owner request approved: ${request.email}. User account created.`);
 
     } else {
@@ -120,7 +125,11 @@ const updateRequestStatus = async (req, res, next) => {
       await request.save();
 
       // Send Rejection Email
-      await emailService.sendRequestRejected(request, reason);
+      try {
+        await emailService.sendRequestRejected(request, reason);
+      } catch (e) {
+        logger.error(`Email error (Rejected): ${e.message}`);
+      }
       logger.info(`Owner request rejected: ${request.email}`);
     }
 
