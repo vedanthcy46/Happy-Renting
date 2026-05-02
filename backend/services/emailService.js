@@ -18,29 +18,13 @@ const sendEmail = async (to, subject, html) => {
       return;
     }
 
-    // Note: Resend requires a verified domain to send from a custom email.
-    // While in testing/onboarding mode, 'onboarding@resend.dev' must be used.
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-
-    // ── Resend Sandbox Mode Redirect ──
-    // Resend's free tier (onboarding mode) only allows sending to the account owner.
-    // We automatically reroute all dev emails to prevent API errors.
-    let finalRecipient = to;
-    let finalSubject = subject;
-
-    const isSandbox = fromAddress === 'onboarding@resend.dev';
-    const verifiedEmail = process.env.EMAIL_USER || 'vedanthh46@gmail.com';
-
-    if (isSandbox && to.toLowerCase() !== verifiedEmail.toLowerCase()) {
-      logger.info(`[RESEND SANDBOX] Redirecting email from <${to}> to verified address <${verifiedEmail}>`);
-      finalRecipient = verifiedEmail;
-      finalSubject = `[DEBUG: To ${to}] ${subject}`;
-    }
+    // Production-ready: Use the verified domain email address
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@happyrenting.co.in';
 
     const { data, error } = await resend.emails.send({
-      from: `HappyRent Support <${fromAddress}>`,
-      to: [finalRecipient],
-      subject: finalSubject,
+      from: `Happy Renting <${fromAddress}>`,
+      to: [to],
+      subject,
       html,
     });
 
@@ -60,6 +44,30 @@ const getButton = (text = 'Open Dashboard', url = WEBSITE_URL) => `
     <a href="${url}" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">${text}</a>
   </div>
 `;
+
+// ── New: Complaint Resolved Notification ────────────────────────────────────
+const sendComplaintResolvedNotification = async (tenantUser, complaint, property, room) => {
+  const subject = `Complaint Resolved: ${complaint.title}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #16a34a;">
+      <h2 style="color: #16a34a;">Issue Resolved</h2>
+      <p>Hello <strong>${tenantUser.name}</strong>,</p>
+      <p>Your complaint regarding <strong>"${complaint.title}"</strong> has been marked as <strong>RESOLVED</strong>.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Property:</strong> ${property.name}</p>
+      <p><strong>Room:</strong> ${room.roomNumber}</p>
+      ${complaint.resolutionNotes ? `
+        <div style="margin: 20px 0; padding: 15px; background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 8px;">
+          <p style="margin: 0; color: #166534; font-size: 14px;"><strong>Resolution Notes:</strong> ${complaint.resolutionNotes}</p>
+        </div>
+      ` : ''}
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton()}
+      <p style="font-size: 12px; color: #666; text-align: center;">We hope you are satisfied with the resolution. Thank you!</p>
+    </div>
+  `;
+  await sendEmail(tenantUser.email, subject, html);
+};
 
 // ── 1. Complaint Raised (To Owner) ───────────────────────────────────────────
 const sendComplaintNotification = async (owner, tenant, complaint, property, room) => {
@@ -126,7 +134,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
       ` : ''}
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton()}
-      <p style="font-size: 12px; color: #666; text-align: center;">Thank you for using HappyRent.</p>
+      <p style="font-size: 12px; color: #666; text-align: center;">Thank you for using Happy Renting.</p>
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
@@ -192,7 +200,7 @@ const sendPasswordChangeNotification = async (user) => {
 
 // ── 7. New Tenant Welcome Email ──────────────────────────────────────────────
 const sendWelcomeEmail = async (tenantUser, property, room, owner) => {
-  const subject = `Welcome to ${property.name}! - HappyRent`;
+  const subject = `Welcome to ${property.name}! - Happy Renting`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Welcome to Your New Home!</h2>
@@ -212,12 +220,12 @@ const sendWelcomeEmail = async (tenantUser, property, room, owner) => {
 
 // ── 8. Owner Request Under Review ───────────────────────────────────────────
 const sendRequestUnderReview = async (request) => {
-  const subject = `Owner Access Request Received - HappyRent`;
+  const subject = `Owner Access Request Received - Happy Renting`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Request Received</h2>
       <p>Hello <strong>${request.name}</strong>,</p>
-      <p>Thank you for your interest in joining HappyRent. Your request for owner access is currently **under review**.</p>
+      <p>Thank you for your interest in joining Happy Renting. Your request for owner access is currently **under review**.</p>
       <p>Our admin team will review your details and contact you at <strong>${request.phone}</strong> for manual verification if needed.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <p><strong>Name:</strong> ${request.name}</p>
@@ -231,7 +239,7 @@ const sendRequestUnderReview = async (request) => {
 
 // ── 9. Owner Request Approved ───────────────────────────────────────────────
 const sendRequestApproved = async (request, password) => {
-  const subject = `Welcome to HappyRent! - Your Account is Ready`;
+  const subject = `Welcome to Happy Renting! - Your Account is Ready`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #16a34a;">
       <h2 style="color: #16a34a;">Congratulations!</h2>
@@ -250,12 +258,12 @@ const sendRequestApproved = async (request, password) => {
 
 // ── 10. Owner Request Rejected ──────────────────────────────────────────────
 const sendRequestRejected = async (request, reason) => {
-  const subject = `Update Regarding Your HappyRent Request`;
+  const subject = `Update Regarding Your Happy Renting Request`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #dc2626;">Request Status</h2>
       <p>Hello <strong>${request.name}</strong>,</p>
-      <p>We appreciate your interest in HappyRent. After careful review, we are unable to approve your request for owner access at this time.</p>
+      <p>We appreciate your interest in Happy Renting. After careful review, we are unable to approve your request for owner access at this time.</p>
       ${reason ? `
         <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px;">
           <p style="margin: 0; color: #dc2626; font-size: 14px;"><strong>Reason:</strong> ${reason}</p>
@@ -298,7 +306,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
       <h2 style="color: #1e293b; margin-top: 0;">Welcome, ${tenant.name}!</h2>
       <p style="color: #475569; line-height: 1.6;">
-        Your landlord, <strong>${ownerName}</strong>, has created your account on <strong>HappyRent</strong>. 
+        Your landlord, <strong>${ownerName}</strong>, has created your account on <strong>Happy Renting</strong>. 
         You can now manage your tenancy, view payments, and raise complaints online.
       </p>
       
@@ -319,7 +327,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
       ` : `
         <div style="text-align: center; margin: 30px 0;">
           <a href="${WEBSITE_URL}login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-            Login to HappyRent
+            Login to Happy Renting
           </a>
         </div>
       `}
@@ -331,7 +339,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
       </div>
 
       <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px;">
-        This is an automated message from HappyRent. Please contact your landlord if you have any questions.
+        This is an automated message from Happy Renting. Please contact your landlord if you have any questions.
       </p>
     </div>
   `;
@@ -340,14 +348,14 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
 
 // ── 13. Email Verification ──────────────────────────────────────────────────
 const sendVerificationEmail = async (user, token) => {
-  const subject = 'Verify your HappyRent account';
+  const subject = 'Verify your Happy Renting account';
   const verificationUrl = `${WEBSITE_URL}verify-email?token=${token}`;
   
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
       <h2 style="color: #1e293b; margin-top: 0;">Verify your email address</h2>
       <p style="color: #475569; line-height: 1.6;">
-        Welcome to HappyRent, ${user.name}! Please click the button below to verify your email address and activate your account.
+        Welcome to Happy Renting, ${user.name}! Please click the button below to verify your email address and activate your account.
       </p>
       
       <div style="text-align: center; margin: 30px 0;">
@@ -373,6 +381,7 @@ const sendVerificationEmail = async (user, token) => {
 
 module.exports = {
   sendComplaintNotification,
+  sendComplaintResolvedNotification,
   sendPaymentProofNotification,
   sendPaymentStatusNotification,
   sendRentDueReminder,

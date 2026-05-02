@@ -107,6 +107,26 @@ const updateComplaint = async (req, res, next) => {
     if (resolutionNotes !== undefined) complaint.resolutionNotes = resolutionNotes;
 
     await complaint.save();
+
+    // Send Notification to Tenant if resolved
+    if (status === 'resolved') {
+      try {
+        const tenant = await Tenant.findById(complaint.tenantId).populate('userId');
+        const property = await complaint.populate('propertyId roomId');
+        
+        if (tenant && tenant.userId && tenant.userId.email) {
+          await emailService.sendComplaintResolvedNotification(
+            tenant.userId,
+            complaint,
+            property.propertyId,
+            property.roomId
+          );
+        }
+      } catch (emailErr) {
+        logger.error(`Failed to send resolution email: ${emailErr.message}`);
+      }
+    }
+
     res.status(200).json({ success: true, message: 'Complaint updated.', complaint });
   } catch (err) {
     next(err);
