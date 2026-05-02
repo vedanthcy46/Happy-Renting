@@ -45,8 +45,15 @@ const submitRequest = async (req, res, next) => {
       name, email, phone, propertyName, propertyLocation
     });
 
+    logger.info(`New owner request created: ID=${request._id} Email=${request.email}`);
+
     // Notify User
-    emailService.sendRequestUnderReview(request).catch(e => logger.error(`Email error: ${e.message}`));
+    try {
+      await emailService.sendRequestUnderReview(request);
+    } catch (e) {
+      logger.error(`Email error (Under Review): ${e.message}`);
+      // We don't fail the whole request if email fails, but we'll know from logs
+    }
 
     res.status(201).json({ 
       success: true, 
@@ -61,6 +68,7 @@ const submitRequest = async (req, res, next) => {
 const getRequests = async (req, res, next) => {
   try {
     const requests = await OwnerRequest.find().sort({ createdAt: -1 });
+    logger.info(`Fetched ${requests.length} owner requests for admin.`);
     res.status(200).json({ success: true, count: requests.length, requests });
   } catch (err) {
     next(err);
