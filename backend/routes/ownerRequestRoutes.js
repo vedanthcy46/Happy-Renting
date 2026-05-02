@@ -3,7 +3,7 @@
 const express = require('express');
 const router  = express.Router();
 const controller = require('../controllers/ownerRequestController');
-const { protect, authorize } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
 // Rate limiter for submissions (prevent spam)
@@ -17,7 +17,7 @@ const submissionLimiter = rateLimit({
 router.post('/', submissionLimiter, controller.validateRequest, controller.submitRequest);
 
 // Admin Only: Get and update requests
-router.use(protect);
+router.use(authenticate);
 router.use(authorize('superadmin'));
 
 router.get('/', controller.getRequests);
