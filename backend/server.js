@@ -86,12 +86,20 @@ if (process.env.NODE_ENV !== 'test') {
 // ── 7. Global API rate limit ───────────────────────────────────────────────
 app.use('/api', apiLimiter);
 
-// ── 8. Health check (no auth needed) ──────────────────────────────────────
+// ── 8. Health check & Server ID ──────────────────────────────────────────
+const SERVER_ID = process.env.SERVER_ID || 'primary';
+
+app.use((req, res, next) => {
+  res.setHeader('X-Server-ID', SERVER_ID);
+  next();
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({
     status : 'ok',
     service: 'HappyRent API',
-    env    : process.env.NODE_ENV,
+    server : SERVER_ID,
+    uptime : Math.floor(process.uptime()),
     time   : new Date().toISOString(),
   });
 });
