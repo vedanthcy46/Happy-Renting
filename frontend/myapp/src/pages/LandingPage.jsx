@@ -31,8 +31,8 @@ const LandingPage = () => {
               <Link to="/login" className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                 Login
               </Link>
-              <Link 
-                to="/request-access" 
+              <Link
+                to="/request-access"
                 className="bg-blue-600 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg active:scale-95"
               >
                 Request Owner Access
@@ -49,19 +49,19 @@ const LandingPage = () => {
             Effortless Rental <span className="text-blue-600">Management</span>
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            The all-in-one platform for property owners to track payments, manage tenants, 
+            The all-in-one platform for property owners to track payments, manage tenants,
             and resolve complaints with ease.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link 
-              to="/request-access" 
+            <Link
+              to="/request-access"
               className="bg-gray-900 dark:bg-white dark:text-gray-900 text-white px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-100 transition-all group"
             >
               Get Started as Owner
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link 
-              to="/login" 
+            <Link
+              to="/login"
               className="bg-white dark:bg-transparent text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-800 px-8 py-4 rounded-xl font-bold hover:border-gray-900 dark:hover:border-white transition-all"
             >
               Member Login
@@ -77,19 +77,19 @@ const LandingPage = () => {
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Everything you need to grow</h2>
             <p className="text-gray-600 dark:text-gray-400">Built for modern landlords who value efficiency and transparency.</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <FeatureCard 
+            <FeatureCard
               icon={<BarChart3 className="w-6 h-6 text-blue-600" />}
               title="Rent Tracking"
               description="Automatically generate monthly bills and track payment history for every tenant."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<CreditCard className="w-6 h-6 text-green-600" />}
               title="Payment Management"
               description="Verify online payment proofs or record cash payments with detailed receipts."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<MessageSquare className="w-6 h-6 text-purple-600" />}
               title="Complaint System"
               description="Integrated ticketing system for maintenance requests and tenant communication."
@@ -109,8 +109,8 @@ const LandingPage = () => {
               A Secure and Transparent Ecosystem for Tenants and Owners
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              HappyRent was built with one goal: to remove the friction from rental relationships. 
-              By providing a central source of truth for payments and maintenance, we help owners 
+              HappyRent was built with one goal: to remove the friction from rental relationships.
+              By providing a central source of truth for payments and maintenance, we help owners
               protect their investments and tenants enjoy their homes.
             </p>
             <div className="space-y-4">
@@ -151,8 +151,8 @@ const LandingPage = () => {
           <div>
             <h3 className="text-white font-bold mb-4 text-sm uppercase tracking-widest">Contact</h3>
             <ul className="space-y-2 text-sm">
-              <li>support@happyrent.com</li>
-              <li>+91 98765 43210</li>
+              <li><a href='mailto:vedanthh46@gmail.com'>vedanthh46@gmail.com</a></li>
+              <li><a href="tel: +917204778319">+91 7204778319</a></li>
             </ul>
           </div>
         </div>
