@@ -206,6 +206,28 @@ const updateTenant = async (req, res, next) => {
     }
 
     await tenant.save();
+
+    // ── Sync Current Month Payment Due Date ──
+    if (rentDueDay !== undefined) {
+      try {
+        const today = new Date();
+        const currentMonthStr = today.toISOString().slice(0, 7);
+        const newDueDate = new Date(today.getFullYear(), today.getMonth(), rentDueDay);
+
+        await require('../models/Payment').findOneAndUpdate(
+          { 
+            tenantId: tenant._id, 
+            month: currentMonthStr,
+            status: { $nin: ['paid', 'verification_pending'] } 
+          },
+          { $set: { dueDate: newDueDate } }
+        );
+        logger.info(`Synced dueDate for tenant ${tenant._id} to day ${rentDueDay}`);
+      } catch (syncErr) {
+        logger.error(`Failed to sync payment dueDate: ${syncErr.message}`);
+      }
+    }
+
     res.status(200).json({ success: true, message: 'Tenant updated.', tenant });
   } catch (err) {
     next(err);

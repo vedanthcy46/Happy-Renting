@@ -79,7 +79,7 @@ const updateOverduePayments = async (ownerId) => {
     const result = await Payment.updateMany(
       {
         ownerId,
-        status  : 'pending',
+        status  : { $in: ['pending', 'failed', 'partial'] },
         dueDate : { $lt: today }
       },
       {
