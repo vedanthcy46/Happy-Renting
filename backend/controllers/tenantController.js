@@ -186,6 +186,14 @@ const updateTenant = async (req, res, next) => {
     if (phone          !== undefined) tenant.phone        = phone;
     if (idProof        !== undefined) tenant.idProof      = idProof;
 
+    // ── Financial Validation ──
+    if (Number(tenant.advancePaid) > Number(tenant.securityDeposit)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Initial advance or advance paid should be less than or equal to the security deposit.' 
+      });
+    }
+
     // 2) Update linked User fields if provided
     if (name || email || phone) {
       const user = await User.findById(tenant.userId);

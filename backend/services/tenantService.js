@@ -101,7 +101,7 @@ const moveIn = async (params, performedBy) => {
   }
 
   if (advancePaid && securityDeposit && Number(advancePaid) > Number(securityDeposit)) {
-    const err = new Error('Initial advance cannot be more than the total security deposit.');
+    const err = new Error('Initial advance or advance paid should be less than or equal to the security deposit.');
     err.statusCode = 400;
     throw err;
   }

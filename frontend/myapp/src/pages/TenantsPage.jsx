@@ -89,9 +89,14 @@ const TenantsPage = () => {
     setEditTab('finance');
   };
 
-  const handleUpdateAdvance = async (e) => {
+    const handleUpdateAdvance = async (e) => {
     e.preventDefault();
     if (updatingAdv) return;
+
+    if (Number(editAdv.amount) > Number(editAdv.total)) {
+      return toast.error('Initial advance or advance paid should be less than or equal to the security deposit.');
+    }
+
     setUpdatingAdv(true);
     try {
       await api.patch(`/tenants/${editAdv.tenant._id}`, { 

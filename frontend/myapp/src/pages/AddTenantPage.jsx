@@ -108,7 +108,7 @@ const AddTenantPage = () => {
     if (form.advancePaid && Number(form.advancePaid) < 0) errs.advancePaid = 'Must be non-negative';
     if (form.securityDeposit && Number(form.securityDeposit) < 0) errs.securityDeposit = 'Must be non-negative';
     if (form.advancePaid && form.securityDeposit && Number(form.advancePaid) > Number(form.securityDeposit)) {
-      errs.advancePaid = 'Initial advance cannot exceed the total security deposit';
+      errs.advancePaid = 'Initial advance or advance paid should be less than or equal to the security deposit.';
     }
     if (form.rentDueDay < 1 || form.rentDueDay > 31) errs.rentDueDay = 'Day must be 1-31';
     
