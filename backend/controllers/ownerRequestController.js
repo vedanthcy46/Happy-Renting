@@ -29,7 +29,7 @@ const submitRequest = async (req, res, next) => {
     // 1. CRITICAL: Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ success: false, message: 'This email is already registered as a user.' });
+      return res.status(409).json({ success: false, message: 'already present' });
     }
 
     // 2. Check for duplicate pending/approved request
@@ -64,7 +64,7 @@ const submitRequest = async (req, res, next) => {
 
       return res.status(200).json({ 
         success: true, 
-        message: 'Your request has been resubmitted for review.' 
+        message: 'sent successfully' 
       });
     }
 
@@ -85,7 +85,7 @@ const submitRequest = async (req, res, next) => {
 
     res.status(201).json({ 
       success: true, 
-      message: 'Your request has been submitted. Admin will contact you soon.' 
+      message: 'sent successfully' 
     });
   } catch (err) {
     next(err);
