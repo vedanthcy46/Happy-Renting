@@ -14,6 +14,8 @@ const PropertiesPage = () => {
   const [properties, setProperties] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [showAdd,    setShowAdd]    = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ name: '', address: '', city: '' });
   const [formErrors, setFormErrors] = useState({});
@@ -39,7 +41,23 @@ const PropertiesPage = () => {
     return errs;
   };
 
-  const handleAdd = async (e) => {
+  const openAddModal = () => {
+    setIsEditing(false);
+    setEditingId(null);
+    setForm({ name: '', address: '', city: '' });
+    setFormErrors({});
+    setShowAdd(true);
+  };
+
+  const openEditModal = (p) => {
+    setIsEditing(true);
+    setEditingId(p._id);
+    setForm({ name: p.name, address: p.address, city: p.city });
+    setFormErrors({});
+    setShowAdd(true);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validateForm();
     if (Object.keys(errs).length) return setFormErrors(errs);
@@ -47,8 +65,13 @@ const PropertiesPage = () => {
 
     setSubmitting(true);
     try {
-      await api.post('/properties', form);
-      toast.success('Property added successfully!');
+      if (isEditing) {
+        await api.patch(`/properties/${editingId}`, form);
+        toast.success('Property updated successfully!');
+      } else {
+        await api.post('/properties', form);
+        toast.success('Property added successfully!');
+      }
       setShowAdd(false);
       setForm({ name: '', address: '', city: '' });
       setFormErrors({});
@@ -80,8 +103,8 @@ const PropertiesPage = () => {
             {isSuperAdmin ? 'View all platform properties' : 'Manage your real estate assets'}
           </p>
         </div>
-        {isOwner && (
-          <button onClick={() => setShowAdd(true)} className="btn-primary">
+        {(isOwner || isSuperAdmin) && (
+          <button onClick={openAddModal} className="btn-primary">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -105,12 +128,19 @@ const PropertiesPage = () => {
                 <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center text-2xl">
                   🏘️
                 </div>
-                {isOwner && (
-                  <button onClick={() => handleDelete(p._id)} className="text-slate-500 hover:text-danger p-1">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                {(isOwner || isSuperAdmin) && (
+                  <div className="flex gap-1">
+                    <button onClick={() => openEditModal(p)} className="text-slate-500 hover:text-brand-400 p-1 transition-colors">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button onClick={() => handleDelete(p._id)} className="text-slate-500 hover:text-danger p-1 transition-colors">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
               <h3 className="text-lg font-bold text-white mb-1">{p.name}</h3>
@@ -120,7 +150,7 @@ const PropertiesPage = () => {
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${p.isActive ? 'bg-success/10 text-success' : 'bg-slate-500/10 text-slate-500'}`}>
                   {p.isActive ? 'Active' : 'Inactive'}
                 </span>
-                {isOwner && (
+                {(isOwner || isSuperAdmin) && (
                   <button 
                     onClick={() => navigate(`/rooms?propertyId=${p._id}`)}
                     className="text-brand-400 text-sm font-semibold hover:underline"
@@ -134,9 +164,9 @@ const PropertiesPage = () => {
         </div>
       )}
 
-      {/* Add Property Modal */}
-      <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setFormErrors({}); }} title="Add New Property">
-        <form onSubmit={handleAdd} noValidate className="space-y-4">
+      {/* Property Modal (Add/Edit) */}
+      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title={isEditing ? 'Edit Property' : 'Add New Property'}>
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label className="form-label">Property Name *</label>
             <input className={`form-input ${formErrors.name ? 'border-danger' : ''}`}
@@ -159,7 +189,7 @@ const PropertiesPage = () => {
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setShowAdd(false)} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" disabled={submitting} className="btn-primary flex-1">
-              {submitting ? 'Adding…' : 'Add Property'}
+              {submitting ? (isEditing ? 'Updating…' : 'Adding…') : (isEditing ? 'Update Property' : 'Add Property')}
             </button>
           </div>
         </form>
