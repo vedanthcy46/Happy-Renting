@@ -1,7 +1,13 @@
 'use strict';
 
 const nodemailer = require('nodemailer');
+const dns = require('dns');
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
+// Force IPv4 globally to resolve ENETUNREACH (IPv6) issues on cloud platforms
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
