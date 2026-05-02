@@ -35,6 +35,7 @@ const logger   = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
 
 const CoOccupant = require('../models/CoOccupant');
+const Property = require('../models/Property');
 
 // ── Move-In ────────────────────────────────────────────────────────────────
 /**
@@ -61,8 +62,8 @@ const moveIn = async (params, performedBy) => {
 
   // ── Pre-transaction checks ──
   const [user, room] = await Promise.all([
-    User.findById(userId).select('role isActive'),
-    Room.findById(roomId).select('roomNumber capacity currentOccupancy ownerId isActive'),
+    User.findById(userId).select('role isActive email emailVerified emailVerificationToken'),
+    Room.findById(roomId).select('roomNumber capacity currentOccupancy ownerId isActive propertyId'),
   ]);
 
   if (!user || !user.isActive) {
@@ -209,7 +210,8 @@ const moveIn = async (params, performedBy) => {
           params.tempPassword || '********', 
           property, 
           tenant.roomId, 
-          owner.name
+          owner.name,
+          user.emailVerificationToken
         );
       }
     } catch (emailErr) {

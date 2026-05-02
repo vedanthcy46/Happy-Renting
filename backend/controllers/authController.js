@@ -3,6 +3,7 @@
 const jwt    = require('jsonwebtoken');
 const { body } = require('express-validator');
 const User   = require('../models/User');
+const emailService = require('../services/emailService');
 const logger = require('../config/logger');
 
 // ── Validation chains ──────────────────────────────────────────────────────
@@ -171,8 +172,6 @@ const register = async (req, res, next) => {
     next(err);
   }
 };
-
-const emailService = require('../services/emailService');
 
 // ── GET /api/auth/me ───────────────────────────────────────────────────────
 const getMe = async (req, res, next) => {

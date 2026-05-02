@@ -39,7 +39,7 @@ const getButton = (text = 'Open Dashboard', url = WEBSITE_URL) => `
 
 // ── 1. Complaint Raised (To Owner) ───────────────────────────────────────────
 const sendComplaintNotification = async (owner, tenant, complaint, property, room) => {
-  const subject = `⚠️ New Complaint Raised: ${complaint.title}`;
+  const subject = `New Complaint Raised: ${complaint.title}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #e11d48;">New Maintenance Request</h2>
@@ -61,7 +61,7 @@ const sendComplaintNotification = async (owner, tenant, complaint, property, roo
 
 // ── 2. Payment Proof Uploaded (To Owner) ─────────────────────────────────────
 const sendPaymentProofNotification = async (owner, tenant, payment, property, room) => {
-  const subject = `💰 Payment Proof Uploaded - ${tenant.name}`;
+  const subject = `Payment Proof Uploaded - ${tenant.name}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Payment Proof Received</h2>
@@ -83,7 +83,7 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
 // ── 3. Payment Verified (To Tenant) ──────────────────────────────────────────
 const sendPaymentStatusNotification = async (tenantUser, payment, property, room, owner) => {
   const isPaid = payment.status === 'paid';
-  const subject = isPaid ? `✅ Rent Payment Verified - ${payment.month}` : `❌ Rent Payment Rejected - ${payment.month}`;
+  const subject = isPaid ? `Rent Payment Verified - ${payment.month}` : `Rent Payment Issue - ${payment.month}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: ${isPaid ? '#16a34a' : '#dc2626'};">${isPaid ? 'Payment Confirmed' : 'Payment Issue'}</h2>
@@ -110,7 +110,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
 
 // ── 4. Rent Due Reminder (To Tenant) ─────────────────────────────────────────
 const sendRentDueReminder = async (tenantUser, payment, property, room, owner) => {
-  const subject = `⏳ Reminder: Rent Due Tomorrow - ${payment.month}`;
+  const subject = `Reminder: Rent Due Tomorrow - ${payment.month}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #d97706;">Rent Due Tomorrow</h2>
@@ -131,7 +131,7 @@ const sendRentDueReminder = async (tenantUser, payment, property, room, owner) =
 
 // ── 5. Overdue Alert (To Tenant) ─────────────────────────────────────────────
 const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
-  const subject = `🚨 URGENT: Rent Payment Overdue - ${payment.month}`;
+  const subject = `URGENT: Rent Payment Overdue - ${payment.month}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #dc2626;">
       <h2 style="color: #dc2626;">Rent Overdue</h2>
@@ -151,7 +151,7 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
 
 // ── 6. Password Change Notification ──────────────────────────────────────────
 const sendPasswordChangeNotification = async (user) => {
-  const subject = `🔒 Security Alert: Password Changed`;
+  const subject = `Security Alert: Password Changed`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Security Update</h2>
@@ -168,7 +168,7 @@ const sendPasswordChangeNotification = async (user) => {
 
 // ── 7. New Tenant Welcome Email ──────────────────────────────────────────────
 const sendWelcomeEmail = async (tenantUser, property, room, owner) => {
-  const subject = `🏠 Welcome to ${property.name}! - HappyRent`;
+  const subject = `Welcome to ${property.name}! - HappyRent`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Welcome to Your New Home!</h2>
@@ -188,7 +188,7 @@ const sendWelcomeEmail = async (tenantUser, property, room, owner) => {
 
 // ── 8. Owner Request Under Review ───────────────────────────────────────────
 const sendRequestUnderReview = async (request) => {
-  const subject = `📩 Owner Access Request Received - HappyRent`;
+  const subject = `Owner Access Request Received - HappyRent`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Request Received</h2>
@@ -207,7 +207,7 @@ const sendRequestUnderReview = async (request) => {
 
 // ── 9. Owner Request Approved ───────────────────────────────────────────────
 const sendRequestApproved = async (request, password) => {
-  const subject = `🎉 Welcome to HappyRent! - Your Account is Ready`;
+  const subject = `Welcome to HappyRent! - Your Account is Ready`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #16a34a;">
       <h2 style="color: #16a34a;">Congratulations!</h2>
@@ -247,7 +247,7 @@ const sendRequestRejected = async (request, reason) => {
 // ── 11. Admin Notification: New Request ────────────────────────────────────
 const sendAdminNewRequestAlert = async (request) => {
   const adminEmail = process.env.ADMIN_EMAIL || process.env.SEED_ADMIN_EMAIL || 'vedanthh46@gmail.com';
-  const subject = `🆕 New Owner Access Request: ${request.name}`;
+  const subject = `New Owner Access Request: ${request.name}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
       <h2 style="color: #2563eb;">New Request Received</h2>
@@ -266,8 +266,10 @@ const sendAdminNewRequestAlert = async (request) => {
 };
 
 // ── 12. Tenant Onboarding ───────────────────────────────────────────────────
-const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName) => {
-  const subject = `🏠 Welcome to ${property.name}! Your login details inside.`;
+const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName, verificationToken = null) => {
+  const subject = `Welcome to ${property.name}! Your login details inside.`;
+  const verifyUrl = verificationToken ? `${WEBSITE_URL}verify-email?token=${verificationToken}` : null;
+
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
       <h2 style="color: #1e293b; margin-top: 0;">Welcome, ${tenant.name}!</h2>
@@ -283,16 +285,25 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
         <p style="margin: 10px 0 0; font-size: 12px; color: #ef4444;">* You will be asked to change this password on your first login.</p>
       </div>
 
-      <div style="margin: 20px 0;">
+      ${verifyUrl ? `
+        <div style="text-align: center; margin: 30px 0; padding: 20px; background: #eff6ff; border-radius: 8px;">
+          <p style="margin: 0 0 15px; font-weight: bold; color: #1e3a8a;">Verify your account to get started:</p>
+          <a href="${verifyUrl}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+            Verify Email & Login
+          </a>
+        </div>
+      ` : `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${WEBSITE_URL}login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+            Login to HappyRent
+          </a>
+        </div>
+      `}
+
+      <div style="margin: 20px 0; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px;">
         <p style="margin: 0; font-weight: bold; color: #1e293b;">Tenancy Details:</p>
         <p style="margin: 5px 0 0; color: #475569;"><strong>Property:</strong> ${property.name}</p>
         <p style="margin: 5px 0 0; color: #475569;"><strong>Room:</strong> ${room.roomNumber}</p>
-      </div>
-
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${WEBSITE_URL}login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-          Login to HappyRent
-        </a>
       </div>
 
       <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px;">
@@ -305,7 +316,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
 
 // ── 13. Email Verification ──────────────────────────────────────────────────
 const sendVerificationEmail = async (user, token) => {
-  const subject = '📧 Verify your HappyRent account';
+  const subject = 'Verify your HappyRent account';
   const verificationUrl = `${WEBSITE_URL}verify-email?token=${token}`;
   
   const html = `
