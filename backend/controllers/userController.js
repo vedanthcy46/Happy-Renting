@@ -32,7 +32,7 @@ const getUsers = async (req, res, next) => {
       filter.ownerId = req.user._id;
       filter.role    = 'tenant';
     } else if (req.user.role === 'superadmin') {
-      // Superadmin sees all
+      if (req.query.role) filter.role = req.query.role;
     }
 
     const users = await User.find(filter).select('-password').sort({ createdAt: -1 });
