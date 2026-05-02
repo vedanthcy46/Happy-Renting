@@ -5,6 +5,7 @@ const mongoose        = require('mongoose');
 const Payment         = require('../models/Payment');
 const paymentService  = require('../services/paymentService');
 const billingService = require('../services/billingService');
+const emailService    = require('../services/emailService');
 const logger          = require('../config/logger');
 
 // ── Validation chains ──────────────────────────────────────────────────────

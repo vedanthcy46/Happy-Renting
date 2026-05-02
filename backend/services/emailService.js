@@ -31,7 +31,7 @@ const sendEmail = async (to, subject, html) => {
     });
 
     if (error) {
-      logger.error(`[EMAIL ERROR] Resend failed for ${to}: ${error.message}`);
+      logger.error(`[EMAIL ERROR] Resend failed for ${to}. Error: ${JSON.stringify(error)}`);
       return;
     }
 
