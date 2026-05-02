@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import api from '../../api/axios';
 
 const navLinks = [
   { path: '/dashboard', label: 'Dashboard', icon: 'grid', roles: ['superadmin', 'owner', 'tenant'] },
@@ -46,6 +47,7 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const visibleLinks = navLinks.filter(l => l.roles.includes(role));
 
@@ -54,12 +56,35 @@ const Navbar = () => {
     navigate('/login');
   };
 
+  const handleResendVerification = async () => {
+    if (resending) return;
+    setResending(true);
+    try {
+      await api.post('/auth/resend-verification', { email: user.email });
+      alert('Verification email resent! Please check your inbox.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to resend email.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   const isActive = (path) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
+  const showVerificationBanner = user && !user.emailVerified;
 
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-40 h-16 bg-surface-card/80 backdrop-blur-md border-b border-surface-border">
+        {showVerificationBanner && (
+          <div className="absolute top-16 left-0 right-0 bg-yellow-500/10 border-b border-yellow-500/20 text-yellow-500 text-xs text-center py-2 px-4">
+            Your email is not verified. Please check your inbox or{' '}
+            <button onClick={handleResendVerification} className="underline font-bold" disabled={resending}>
+              {resending ? 'Sending...' : 'click here to resend.'}
+            </button>
+          </div>
+        )}
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5">

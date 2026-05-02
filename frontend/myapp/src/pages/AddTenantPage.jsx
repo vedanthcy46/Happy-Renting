@@ -30,7 +30,7 @@ const AddTenantPage = () => {
     createUser  : false,
     name        : '',
     email       : '',
-    password    : '',
+    password    : 'Tenant@123',
   });
   const [errors, setErrors] = useState({});
 
@@ -295,6 +295,7 @@ const AddTenantPage = () => {
                 <input type="password" className={`form-input ${errors.password ? 'border-danger' : ''}`}
                   value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   placeholder="min 8 chars" maxLength={128} />
+                <p className="text-[10px] text-slate-500 mt-1">Default: <span className="text-brand-400 font-mono">Tenant@123</span>. Tenant will be forced to change this on login.</p>
                 {errors.password && <p className="form-error">{errors.password}</p>}
               </div>
             </div>

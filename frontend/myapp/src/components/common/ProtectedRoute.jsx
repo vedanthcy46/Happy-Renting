@@ -28,6 +28,15 @@ const ProtectedRoute = ({ children, roles = [] }) => {
     return <Navigate to="/setup-password" replace />;
   }
 
+  // Force email verification if required (Optional: Block everything or just certain routes)
+  // For now, let's allow them in but the banner in Navbar will show.
+  // If we want to block strictly:
+  /*
+  if (user && !user.emailVerified && location.pathname !== '/profile') {
+    return <Navigate to="/dashboard" replace />; 
+  }
+  */
+
   if (roles.length > 0 && !roles.includes(role)) {
     return <Navigate to="/unauthorized" replace />;
   }

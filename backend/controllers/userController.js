@@ -139,6 +139,15 @@ const updateProfile = async (req, res, next) => {
         return res.status(409).json({ success: false, message: 'Email is already taken.' });
       }
       user.email = email.toLowerCase();
+      user.emailVerified = false;
+      
+      // Generate new token
+      const verificationToken = require('crypto').randomBytes(32).toString('hex');
+      user.emailVerificationToken = verificationToken;
+      user.emailVerificationExpires = Date.now() + 30 * 60 * 1000; // 30 mins
+      
+      // Send Verification Email
+      await emailService.sendVerificationEmail(user, verificationToken);
     }
 
     await user.save();
@@ -188,8 +197,20 @@ const updateUser = async (req, res, next) => {
 
     const { name, email, isActive } = req.body;
     if (name) user.name = name;
-    if (email) user.email = email;
     if (isActive !== undefined) user.isActive = isActive;
+
+    if (email && email.toLowerCase() !== user.email) {
+      const existing = await User.findOne({ email: email.toLowerCase() });
+      if (existing) return res.status(409).json({ success: false, message: 'Email taken.' });
+      
+      user.email = email.toLowerCase();
+      user.emailVerified = false;
+      
+      const verificationToken = require('crypto').randomBytes(32).toString('hex');
+      user.emailVerificationToken = verificationToken;
+      user.emailVerificationExpires = Date.now() + 30 * 60 * 1000;
+      await emailService.sendVerificationEmail(user, verificationToken);
+    }
 
     await user.save();
     res.status(200).json({ success: true, user });

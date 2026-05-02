@@ -79,6 +79,7 @@ const login = async (req, res, next) => {
         role    : user.role,
         ownerId : user.ownerId,
         mustChangePassword: user.mustChangePassword,
+        emailVerified: user.emailVerified,
       },
     });
   } catch (err) {
@@ -135,7 +136,21 @@ const register = async (req, res, next) => {
       userData.mustChangePassword = true;
     }
 
+    // Verification Token
+    const verificationToken = require('crypto').randomBytes(32).toString('hex');
+    userData.emailVerificationToken = verificationToken;
+    userData.emailVerificationExpires = Date.now() + 30 * 60 * 1000; // 30 mins
+    userData.emailVerified = false;
+
     const user = await User.create(userData);
+    
+    // Send Verification Email
+    try {
+      await emailService.sendVerificationEmail(user, verificationToken);
+    } catch (e) {
+      logger.error(`Registration verification email failed: ${e.message}`);
+    }
+
     const token = signToken(user._id, user.role);
 
     logger.info(`New user created: ${user._id} role=${user.role} by=${req.user?._id}`);
@@ -196,4 +211,58 @@ const changePassword = async (req, res, next) => {
   }
 };
 
-module.exports = { login, register, getMe, changePassword, loginValidation, registerValidation };
+// ── POST /api/auth/verify-email ──────────────────────────────────────────
+const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ success: false, message: 'Token is required.' });
+
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Verification link is invalid or has expired.' });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    logger.info(`Email verified for user: ${user._id}`);
+    res.status(200).json({ success: true, message: 'Email verified successfully!' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/auth/resend-verification ───────────────────────────────────
+const resendVerification = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (user.emailVerified) return res.status(400).json({ success: false, message: 'Email is already verified.' });
+
+    // Generate new token
+    const verificationToken = require('crypto').randomBytes(32).toString('hex');
+    user.emailVerificationToken = verificationToken;
+    user.emailVerificationExpires = Date.now() + 30 * 60 * 1000; // 30 mins
+    await user.save({ validateBeforeSave: false });
+
+    await emailService.sendVerificationEmail(user, verificationToken);
+
+    res.status(200).json({ success: true, message: 'Verification email resent.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { 
+  login, register, getMe, changePassword, 
+  verifyEmail, resendVerification,
+  loginValidation, registerValidation 
+};

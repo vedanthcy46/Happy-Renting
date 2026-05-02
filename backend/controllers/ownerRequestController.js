@@ -140,20 +140,32 @@ const updateRequestStatus = async (req, res, next) => {
       // 1. Use provided password or generate one
       const tempPassword = providedPassword || (crypto.randomBytes(4).toString('hex') + 'A1!');
 
-      // 2. Create User account
+      // 2. Generate Verification Token
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpires = Date.now() + 30 * 60 * 1000; // 30 mins
+
+      // 3. Create User account
       const user = await User.create({
         name: request.name,
         email: request.email,
         password: tempPassword,
         role: 'owner',
-        isActive: true
+        isActive: true,
+        emailVerified: false,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: tokenExpires
       });
 
       request.status = 'approved';
       await request.save();
 
-      // 3. Send Approval Email (Non-blocking)
-      emailService.sendRequestApproved(request, tempPassword).catch(e => logger.error(`Email error (Approved): ${e.message}`));
+      // 4. Send Approval & Verification Emails
+      try {
+        await emailService.sendRequestApproved(request, tempPassword);
+        await emailService.sendVerificationEmail(user, verificationToken);
+      } catch (e) {
+        logger.error(`Email error (Approved/Verify): ${e.message}`);
+      }
       
       logger.info(`Owner request approved: ${request.email}. User account created.`);
 

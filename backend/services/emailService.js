@@ -31,9 +31,9 @@ const sendEmail = async (to, subject, html) => {
   }
 };
 
-const getButton = (text = 'Open Dashboard') => `
+const getButton = (text = 'Open Dashboard', url = WEBSITE_URL) => `
   <div style="margin: 30px 0; text-align: center;">
-    <a href="${WEBSITE_URL}" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">${text}</a>
+    <a href="${url}" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">${text}</a>
   </div>
 `;
 
@@ -290,7 +290,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
       </div>
 
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${process.env.WEBSITE_URL}login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+        <a href="${WEBSITE_URL}login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
           Login to HappyRent
         </a>
       </div>
@@ -301,6 +301,39 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
     </div>
   `;
   await sendEmail(tenant.email, subject, html);
+};
+
+// ── 13. Email Verification ──────────────────────────────────────────────────
+const sendVerificationEmail = async (user, token) => {
+  const subject = '📧 Verify your HappyRent account';
+  const verificationUrl = `${WEBSITE_URL}verify-email?token=${token}`;
+  
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+      <h2 style="color: #1e293b; margin-top: 0;">Verify your email address</h2>
+      <p style="color: #475569; line-height: 1.6;">
+        Welcome to HappyRent, ${user.name}! Please click the button below to verify your email address and activate your account.
+      </p>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationUrl}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+          Verify Email Address
+        </a>
+      </div>
+
+      <p style="color: #475569; font-size: 14px;">
+        This link will expire in 30 minutes. If the button doesn't work, copy and paste this URL into your browser:
+      </p>
+      <p style="color: #2563eb; font-size: 12px; word-break: break-all;">
+        ${verificationUrl}
+      </p>
+
+      <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px;">
+        If you didn't create an account, you can safely ignore this email.
+      </p>
+    </div>
+  `;
+  await sendEmail(user.email, subject, html);
 };
 
 module.exports = {
@@ -316,4 +349,5 @@ module.exports = {
   sendRequestRejected,
   sendAdminNewRequestAlert,
   sendTenantWelcome,
+  sendVerificationEmail,
 };
