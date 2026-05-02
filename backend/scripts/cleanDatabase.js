@@ -11,7 +11,7 @@ const Property = require('../models/Property');
 const Room = require('../models/Room');
 const Payment = require('../models/Payment');
 const Complaint = require('../models/Complaint');
-const ActivityLog = require('../models/ActivityLog');
+const OwnerRequest = require('../models/OwnerRequest');
 
 const cleanDatabase = async () => {
   try {
@@ -19,15 +19,14 @@ const cleanDatabase = async () => {
     logger.info('Connected to MongoDB for cleaning...');
 
     // Delete all data except superadmin users
-    // We keep users with role 'superadmin' to avoid locking the user out
     const deleteResults = await Promise.all([
       Tenant.deleteMany({}),
       Property.deleteMany({}),
       Room.deleteMany({}),
       Payment.deleteMany({}),
       Complaint.deleteMany({}),
-      ActivityLog.deleteMany({}),
-      User.deleteMany({})
+      OwnerRequest.deleteMany({}),
+      User.deleteMany({ role: { $ne: 'superadmin' } })
     ]);
 
     logger.info('✅ All operational data cleared.');
@@ -36,13 +35,13 @@ const cleanDatabase = async () => {
     logger.info(`   Rooms: ${deleteResults[2].deletedCount}`);
     logger.info(`   Payments: ${deleteResults[3].deletedCount}`);
     logger.info(`   Complaints: ${deleteResults[4].deletedCount}`);
-    logger.info(`   ActivityLogs: ${deleteResults[5].deletedCount}`);
+    logger.info(`   OwnerRequests: ${deleteResults[5].deletedCount}`);
     logger.info(`   Non-Admin Users: ${deleteResults[6].deletedCount}`);
 
-    // Check if at least one admin remains, if not, we should probably seed one
+    // Check if at least one admin remains
     const adminCount = await User.countDocuments({ role: 'superadmin' });
     if (adminCount === 0) {
-      logger.warn('No Super Admin found! Please run the seed script.');
+      logger.warn('⚠️ No Super Admin found! Your database is now empty. Please run the seed script to create an admin.');
     } else {
       logger.info(`✅ ${adminCount} Super Admin(s) preserved.`);
     }
