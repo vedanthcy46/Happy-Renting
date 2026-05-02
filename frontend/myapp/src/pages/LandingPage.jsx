@@ -1,22 +1,34 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Shield, BarChart3, CreditCard, MessageSquare, ArrowRight } from 'lucide-react';
+import { Home, Shield, BarChart3, CreditCard, MessageSquare, ArrowRight, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const LandingPage = () => {
+  const { isDark, toggleTheme } = useTheme();
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
       {/* --- Navigation --- */}
-      <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 z-50">
+      <nav className="fixed top-0 w-full bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-2">
               <div className="bg-blue-600 p-1.5 rounded-lg">
                 <Home className="text-white w-5 h-5" />
               </div>
-              <span className="text-xl font-bold text-gray-900 tracking-tight">HappyRent</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">HappyRent</span>
             </div>
             <div className="flex items-center gap-4">
-              <Link to="/login" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+
+              <Link to="/login" className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                 Login
               </Link>
               <Link 
@@ -33,24 +45,24 @@ const LandingPage = () => {
       {/* --- Hero Section --- */}
       <section className="pt-32 pb-20 px-4">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 tracking-tight">
+          <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-white mb-6 tracking-tight">
             Effortless Rental <span className="text-blue-600">Management</span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             The all-in-one platform for property owners to track payments, manage tenants, 
             and resolve complaints with ease.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link 
               to="/request-access" 
-              className="bg-gray-900 text-white px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-all group"
+              className="bg-gray-900 dark:bg-white dark:text-gray-900 text-white px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-100 transition-all group"
             >
               Get Started as Owner
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link 
               to="/login" 
-              className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-xl font-bold hover:border-gray-900 transition-all"
+              className="bg-white dark:bg-transparent text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-800 px-8 py-4 rounded-xl font-bold hover:border-gray-900 dark:hover:border-white transition-all"
             >
               Member Login
             </Link>
@@ -59,11 +71,11 @@ const LandingPage = () => {
       </section>
 
       {/* --- Features Section --- */}
-      <section className="py-20 bg-gray-50 px-4">
+      <section className="py-20 bg-gray-50 dark:bg-gray-900/50 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Everything you need to grow</h2>
-            <p className="text-gray-600">Built for modern landlords who value efficiency and transparency.</p>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Everything you need to grow</h2>
+            <p className="text-gray-600 dark:text-gray-400">Built for modern landlords who value efficiency and transparency.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -90,13 +102,13 @@ const LandingPage = () => {
       <section className="py-20 px-4">
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
-            <div className="inline-block bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-bold mb-4">
+            <div className="inline-block bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1 rounded-full text-sm font-bold mb-4">
               About HappyRent
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-6 leading-tight">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
               A Secure and Transparent Ecosystem for Tenants and Owners
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               HappyRent was built with one goal: to remove the friction from rental relationships. 
               By providing a central source of truth for payments and maintenance, we help owners 
               protect their investments and tenants enjoy their homes.
@@ -153,19 +165,19 @@ const LandingPage = () => {
 };
 
 const FeatureCard = ({ icon, title, description }) => (
-  <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+  <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-all">
     <div className="mb-6">{icon}</div>
-    <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
-    <p className="text-gray-600 leading-relaxed">{description}</p>
+    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{title}</h3>
+    <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{description}</p>
   </div>
 );
 
 const CheckItem = ({ text }) => (
   <div className="flex items-center gap-3">
-    <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">
+    <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
       <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
     </div>
-    <span className="text-gray-700 font-medium">{text}</span>
+    <span className="text-gray-700 dark:text-gray-300 font-medium">{text}</span>
   </div>
 );
 

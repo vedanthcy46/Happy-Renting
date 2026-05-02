@@ -76,13 +76,13 @@ const LoginPage = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow mb-4">
             <span className="text-white text-2xl font-bold">HR</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">HappyRent</h1>
-          <p className="text-slate-400 mt-1 text-sm">Rental Management Platform</p>
+          <h1 className="text-3xl font-bold text-white dark:text-white">HappyRent</h1>
+          <p className="text-slate-400 dark:text-slate-400 mt-1 text-sm">Rental Management Platform</p>
         </div>
 
         {/* Card */}
         <div className="card p-8">
-          <h2 className="text-xl font-semibold text-white mb-6">Sign in to your account</h2>
+          <h2 className="text-xl font-semibold text-white dark:text-white mb-6">Sign in to your account</h2>
 
           {errors.general && (
             <div className="mb-4 p-3 rounded-xl bg-danger/10 border border-danger/30 text-danger text-sm">
