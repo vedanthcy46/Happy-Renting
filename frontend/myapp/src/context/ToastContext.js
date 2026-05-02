@@ -17,8 +17,13 @@ export const ToastProvider = ({ children }) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // Convenience helpers
-  const toast = {
+  // Backward compatibility + Primary helper
+  const showToast = useCallback((message, type, duration) => {
+    addToast(message, type, duration);
+  }, [addToast]);
+
+  const value = {
+    showToast,
     success: (msg, dur)  => addToast(msg, 'success', dur),
     error  : (msg, dur)  => addToast(msg, 'error',   dur),
     warning: (msg, dur)  => addToast(msg, 'warning',  dur),
@@ -26,7 +31,7 @@ export const ToastProvider = ({ children }) => {
   };
 
   return (
-    <ToastContext.Provider value={toast}>
+    <ToastContext.Provider value={value}>
       {children}
       {/* Toast container — bottom-right */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 items-end">
