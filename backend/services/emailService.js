@@ -19,11 +19,13 @@ const sendEmail = async (to, subject, html) => {
     }
 
     // Production-ready: Use the verified domain email address
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@happyrenting.co.in';
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'support@happyrenting.co.in';
+    const replyToAddress = process.env.ADMIN_EMAIL || 'vedanthh46@gmail.com';
 
     const { data, error } = await resend.emails.send({
       from: `Happy Renting <${fromAddress}>`,
       to: [to],
+      reply_to: replyToAddress,
       subject,
       html,
     });
@@ -38,6 +40,13 @@ const sendEmail = async (to, subject, html) => {
     logger.error(`[EMAIL ERROR] failed to send to=${to}: ${err.message}`);
   }
 };
+
+const getFooter = () => `
+  <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; text-align: center; margin-top: 30px;">
+    This is an automated message from Happy Renting.<br/>
+    For support, contact us at <a href="mailto:support@happyrenting.co.in" style="color: #2563eb; text-decoration: none;">support@happyrenting.co.in</a>
+  </p>
+`;
 
 const getButton = (text = 'Open Dashboard', url = WEBSITE_URL) => `
   <div style="margin: 30px 0; text-align: center;">
@@ -63,7 +72,7 @@ const sendComplaintResolvedNotification = async (tenantUser, complaint, property
       ` : ''}
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton()}
-      <p style="font-size: 12px; color: #666; text-align: center;">We hope you are satisfied with the resolution. Thank you!</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
@@ -85,7 +94,7 @@ const sendComplaintNotification = async (owner, tenant, complaint, property, roo
       <p><strong>Description:</strong> ${complaint.description}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton()}
-      <p style="font-size: 12px; color: #666; text-align: center;">Please login to your dashboard to manage this request.</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(owner.email, subject, html);
@@ -106,7 +115,7 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton('Verify Payment')}
-      <p style="font-size: 12px; color: #666; text-align: center;">Please verify the payment in your dashboard.</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(owner.email, subject, html);
@@ -134,7 +143,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
       ` : ''}
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton()}
-      <p style="font-size: 12px; color: #666; text-align: center;">Thank you for using Happy Renting.</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
@@ -155,7 +164,7 @@ const sendRentDueReminder = async (tenantUser, payment, property, room, owner) =
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton('Pay Rent Now')}
-      <p style="font-size: 12px; color: #666; text-align: center;">Please ensure timely payment to avoid late fees.</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
@@ -175,7 +184,7 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton('Clear Overdue Rent')}
-      <p style="font-size: 12px; color: #666; text-align: center;">Please make the payment immediately to maintain your good standing.</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
@@ -193,6 +202,7 @@ const sendPasswordChangeNotification = async (user) => {
       <p>If you did not perform this change, please contact support or reset your password immediately.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton('Secure My Account')}
+      ${getFooter()}
     </div>
   `;
   await sendEmail(user.email, subject, html);
@@ -212,7 +222,7 @@ const sendWelcomeEmail = async (tenantUser, property, room, owner) => {
       <p><strong>Owner:</strong> ${owner.name}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton('Get Started')}
-      <p style="font-size: 12px; color: #666; text-align: center;">Welcome to the family!</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
@@ -231,7 +241,7 @@ const sendRequestUnderReview = async (request) => {
       <p><strong>Name:</strong> ${request.name}</p>
       <p><strong>Property:</strong> ${request.propertyName || 'N/A'}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p style="font-size: 12px; color: #666;">We will notify you once a decision is made. Thank you for your patience!</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(request.email, subject, html);
@@ -250,7 +260,7 @@ const sendRequestApproved = async (request, password) => {
       <p><strong>Temporary Password:</strong> <code style="background: #f4f4f4; padding: 2px 5px;">${password}</code></p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton('Login to Dashboard')}
-      <p style="font-size: 12px; color: #dc2626; font-weight: bold;">⚠️ For security, please change your password immediately after logging in.</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(request.email, subject, html);
@@ -270,7 +280,7 @@ const sendRequestRejected = async (request, reason) => {
         </div>
       ` : ''}
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p style="font-size: 12px; color: #666;">If you have any questions, you can reply to this email.</p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(request.email, subject, html);
@@ -292,6 +302,7 @@ const sendAdminNewRequestAlert = async (request) => {
       <p><strong>Property:</strong> ${request.propertyName || 'N/A'}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       ${getButton('Review Requests')}
+      ${getFooter()}
     </div>
   `;
   await sendEmail(adminEmail, subject, html);
@@ -338,9 +349,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
         <p style="margin: 5px 0 0; color: #475569;"><strong>Room:</strong> ${room.roomNumber}</p>
       </div>
 
-      <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px;">
-        This is an automated message from Happy Renting. Please contact your landlord if you have any questions.
-      </p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(tenant.email, subject, html);
@@ -371,9 +380,7 @@ const sendVerificationEmail = async (user, token) => {
         ${verificationUrl}
       </p>
 
-      <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px;">
-        If you didn't create an account, you can safely ignore this email.
-      </p>
+      ${getFooter()}
     </div>
   `;
   await sendEmail(user.email, subject, html);
