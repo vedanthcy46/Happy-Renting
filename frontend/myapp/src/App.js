@@ -55,7 +55,7 @@ const App = () => (
               </ProtectedRoute>
             }
           >
-            <Route index element={<DashboardPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
 
             {/* Owner + Super Admin */}
             <Route path="properties" element={<ProtectedRoute roles={['superadmin','owner']}><PropertiesPage /></ProtectedRoute>} />

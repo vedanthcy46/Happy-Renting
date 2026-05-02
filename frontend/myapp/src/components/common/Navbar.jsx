@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const navLinks = [
-  { path: '/', label: 'Dashboard', icon: 'grid', roles: ['superadmin', 'owner', 'tenant'] },
+  { path: '/dashboard', label: 'Dashboard', icon: 'grid', roles: ['superadmin', 'owner', 'tenant'] },
   { path: '/properties', label: 'Properties', icon: 'home', roles: ['superadmin', 'owner'] },
   { path: '/rooms', label: 'Rooms', icon: 'door', roles: ['superadmin', 'owner'] },
   { path: '/tenants', label: 'Tenants', icon: 'users', roles: ['superadmin', 'owner'] },

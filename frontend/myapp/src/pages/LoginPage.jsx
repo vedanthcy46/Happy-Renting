@@ -3,13 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { ArrowLeft } from 'lucide-react';
 
 const LoginPage = () => {
   const { login } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const from      = location.state?.from?.pathname || '/';
+  const from      = location.state?.from?.pathname || '/dashboard';
 
   const [form,     setForm]     = useState({ email: '', password: '' });
   const [errors,   setErrors]   = useState({});
@@ -52,6 +53,19 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface p-4 relative overflow-hidden">
+      {/* Back button */}
+      <div className="absolute top-8 left-8 z-20">
+        <button 
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
+        >
+          <div className="p-2 rounded-full bg-surface-card border border-surface-border group-hover:bg-surface-hover transition-all">
+            <ArrowLeft className="w-5 h-5" />
+          </div>
+          <span className="text-sm font-medium">Back to Home</span>
+        </button>
+      </div>
+
       {/* Background decorations */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-brand-600/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
