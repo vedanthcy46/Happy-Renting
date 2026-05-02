@@ -65,7 +65,7 @@ const OwnerRequestPage = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center p-4 py-12 transition-colors duration-300">
       <div className="mb-8 flex items-center gap-2">
         <Home className="text-blue-600 dark:text-blue-400 w-6 h-6" />
-        <span className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">HappyRent</span>
+        <span className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Happy Renting</span>
       </div>
 
       <div className="max-w-xl w-full bg-white dark:bg-gray-900 rounded-3xl shadow-xl overflow-hidden border border-transparent dark:border-gray-800">

@@ -16,7 +16,7 @@ const LandingPage = () => {
               <div className="bg-blue-600 p-1.5 rounded-lg">
                 <Home className="text-white w-5 h-5" />
               </div>
-              <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">HappyRent</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Happy Renting</span>
             </div>
             <div className="flex items-center gap-4">
               {/* Theme Toggle */}
@@ -103,13 +103,13 @@ const LandingPage = () => {
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
             <div className="inline-block bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-3 py-1 rounded-full text-sm font-bold mb-4">
-              About HappyRent
+              About Happy Renting
             </div>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
               A Secure and Transparent Ecosystem for Tenants and Owners
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              HappyRent was built with one goal: to remove the friction from rental relationships.
+              Happy Renting was built with one goal: to remove the friction from rental relationships.
               By providing a central source of truth for payments and maintenance, we help owners
               protect their investments and tenants enjoy their homes.
             </p>
@@ -124,7 +124,7 @@ const LandingPage = () => {
             <div className="relative z-10">
               <Shield className="w-16 h-16 mb-6 opacity-80" />
               <p className="text-2xl font-bold mb-4 italic">"Transforming how rental businesses operate in the digital age."</p>
-              <p className="font-medium opacity-80">— The HappyRent Team</p>
+              <p className="font-medium opacity-80">— The Happy Renting Team</p>
             </div>
           </div>
         </div>
@@ -136,7 +136,7 @@ const LandingPage = () => {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Home className="text-white w-6 h-6" />
-              <span className="text-xl font-bold text-white tracking-tight">HappyRent</span>
+              <span className="text-xl font-bold text-white tracking-tight">Happy Renting</span>
             </div>
             <p className="text-sm">Modernizing the rental experience for everyone.</p>
           </div>
@@ -157,7 +157,7 @@ const LandingPage = () => {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-12 pt-8 border-t border-gray-800 text-center text-xs">
-          © {new Date().getFullYear()} HappyRent Platform. All rights reserved.
+          © {new Date().getFullYear()} Happy Renting Platform. All rights reserved.
         </div>
       </footer>
     </div>

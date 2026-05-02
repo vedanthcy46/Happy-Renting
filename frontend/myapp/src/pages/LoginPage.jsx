@@ -46,7 +46,9 @@ const LoginPage = () => {
       if (user.mustChangePassword) {
         navigate('/setup-password', { replace: true });
       } else {
-        navigate(from, { replace: true });
+        // Redirect directly to dashboard to avoid role-mismatch 403s 
+        // from previous 'from' states in the location history.
+        navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       toastError(err.message || 'Login failed. Please try again.');
@@ -81,7 +83,7 @@ const LoginPage = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow mb-4">
             <span className="text-white text-2xl font-bold">HR</span>
           </div>
-          <h1 className="text-3xl font-bold text-white dark:text-white">HappyRent</h1>
+          <h1 className="text-3xl font-bold text-white dark:text-white">Happy Renting</h1>
           <p className="text-slate-400 dark:text-slate-400 mt-1 text-sm">Rental Management Platform</p>
         </div>
 
