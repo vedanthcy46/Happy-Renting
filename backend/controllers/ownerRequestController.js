@@ -26,31 +26,58 @@ const submitRequest = async (req, res, next) => {
 
     const { name, email, phone, propertyName, propertyLocation } = req.body;
 
-    // Check for duplicate pending/approved request
-    const existing = await OwnerRequest.findOne({ email });
-    if (existing && existing.status !== 'rejected') {
-      return res.status(409).json({ 
-        success: false, 
-        message: 'A request with this email is already being processed.' 
-      });
-    }
-
-    // Check if user already exists
+    // 1. CRITICAL: Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ success: false, message: 'This email is already registered as a user.' });
     }
 
+    // 2. Check for duplicate pending/approved request
+    const existing = await OwnerRequest.findOne({ email });
+    
+    if (existing) {
+      if (existing.status !== 'rejected') {
+        return res.status(409).json({ 
+          success: false, 
+          message: 'A request with this email is already being processed.' 
+        });
+      }
+      
+      // If rejected, we update the existing record to 'pending' again
+      existing.name = name;
+      existing.phone = phone;
+      existing.propertyName = propertyName;
+      existing.propertyLocation = propertyLocation;
+      existing.status = 'pending';
+      existing.rejectionReason = undefined;
+      await existing.save();
+      
+      logger.info(`Owner request resubmitted (updated): Email=${email}`);
+      
+      // Notify User & Admin
+      try {
+        await emailService.sendRequestUnderReview(existing);
+        await emailService.sendAdminNewRequestAlert(existing);
+      } catch (e) {
+        logger.error(`Email error (Resubmission Alert): ${e.message}`);
+      }
+
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Your request has been resubmitted for review.' 
+      });
+    }
+
+    // 3. Otherwise, create new
     const request = await OwnerRequest.create({
       name, email, phone, propertyName, propertyLocation
     });
 
     logger.info(`New owner request created: ID=${request._id} Email=${request.email}`);
 
-    // Notify User
+    // Notify User & Admin
     try {
       await emailService.sendRequestUnderReview(request);
-      // Notify Admin
       await emailService.sendAdminNewRequestAlert(request);
     } catch (e) {
       logger.error(`Email error (Submission Alert): ${e.message}`);
