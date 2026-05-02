@@ -78,9 +78,9 @@ const runTests = async () => {
     logger.info('Sending: Owner Request Approved...');
     await emailService.sendRequestApproved(mockRequest, 'temp-pass-123');
 
-    // 11. Owner Request - Rejected
-    logger.info('Sending: Owner Request Rejected...');
-    await emailService.sendRequestRejected(mockRequest, 'Documentation incomplete.');
+    // 12. Admin Alert - New Request
+    logger.info('Sending: Admin New Request Alert...');
+    await emailService.sendAdminNewRequestAlert(mockRequest);
 
     logger.info('✅ All test emails triggered successfully. Please check your inbox!');
     process.exit(0);

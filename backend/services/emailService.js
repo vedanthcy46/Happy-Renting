@@ -244,6 +244,27 @@ const sendRequestRejected = async (request, reason) => {
   await sendEmail(request.email, subject, html);
 };
 
+// ── 11. Admin Notification: New Request ────────────────────────────────────
+const sendAdminNewRequestAlert = async (request) => {
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'vedanthh46@gmail.com';
+  const subject = `🆕 New Owner Access Request: ${request.name}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+      <h2 style="color: #2563eb;">New Request Received</h2>
+      <p>Hello Admin,</p>
+      <p>A new owner access request has been submitted for review.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Name:</strong> ${request.name}</p>
+      <p><strong>Email:</strong> ${request.email}</p>
+      <p><strong>Phone:</strong> ${request.phone}</p>
+      <p><strong>Property:</strong> ${request.propertyName || 'N/A'}</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('Review Requests')}
+    </div>
+  `;
+  await sendEmail(adminEmail, subject, html);
+};
+
 module.exports = {
   sendComplaintNotification,
   sendPaymentProofNotification,
@@ -255,4 +276,5 @@ module.exports = {
   sendRequestUnderReview,
   sendRequestApproved,
   sendRequestRejected,
+  sendAdminNewRequestAlert,
 };

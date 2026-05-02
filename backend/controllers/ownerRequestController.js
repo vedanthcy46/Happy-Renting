@@ -50,9 +50,10 @@ const submitRequest = async (req, res, next) => {
     // Notify User
     try {
       await emailService.sendRequestUnderReview(request);
+      // Notify Admin
+      await emailService.sendAdminNewRequestAlert(request);
     } catch (e) {
-      logger.error(`Email error (Under Review): ${e.message}`);
-      // We don't fail the whole request if email fails, but we'll know from logs
+      logger.error(`Email error (Submission Alert): ${e.message}`);
     }
 
     res.status(201).json({ 
@@ -96,8 +97,9 @@ const updateRequestStatus = async (req, res, next) => {
     }
 
     if (status === 'approved') {
-      // 1. Generate password
-      const tempPassword = crypto.randomBytes(4).toString('hex') + 'A1!'; // e.g. "a1b2c3d4A1!"
+      const { password: providedPassword } = req.body;
+      // 1. Use provided password or generate one
+      const tempPassword = providedPassword || (crypto.randomBytes(4).toString('hex') + 'A1!');
 
       // 2. Create User account
       const user = await User.create({
