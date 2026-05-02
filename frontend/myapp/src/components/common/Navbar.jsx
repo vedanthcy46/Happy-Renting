@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const navLinks = [
   { path: '/dashboard', label: 'Dashboard', icon: 'grid', roles: ['superadmin', 'owner', 'tenant'] },
@@ -36,7 +37,6 @@ const Icon = ({ name }) => {
   );
 };
 
-import { useTheme } from '../../context/ThemeContext';
 
 const Navbar = () => {
   const { user, role, logout } = useAuth();
