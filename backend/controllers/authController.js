@@ -140,7 +140,7 @@ const register = async (req, res, next) => {
     // Verification Token
     const verificationToken = require('crypto').randomBytes(32).toString('hex');
     userData.emailVerificationToken = verificationToken;
-    userData.emailVerificationExpires = Date.now() + 30 * 60 * 1000; // 30 mins
+    userData.emailVerificationExpires = Date.now() + 15 * 60 * 1000; // 15 mins
     userData.emailVerified = false;
 
     const user = await User.create(userData);
@@ -226,24 +226,39 @@ const changePassword = async (req, res, next) => {
 const verifyEmail = async (req, res, next) => {
   try {
     const { token } = req.body;
-    if (!token) return res.status(400).json({ success: false, message: 'Token is required.' });
-
-    const user = await User.findOne({
-      emailVerificationToken: token,
-      emailVerificationExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Verification link is invalid or has expired.' });
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Verification token is required.' });
     }
 
+    // 1. Find user with this token (including those with expired tokens to give better feedback)
+    const user = await User.findOne({ emailVerificationToken: token }).select('+emailVerificationToken +emailVerificationExpires');
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid verification link.' });
+    }
+
+    // 2. Already verified?
+    if (user.emailVerified) {
+      return res.status(200).json({ success: true, message: 'Email is already verified. You can login.' });
+    }
+
+    // 3. Check expiry
+    if (user.emailVerificationExpires && user.emailVerificationExpires < Date.now()) {
+      return res.status(400).json({ success: false, message: 'Verification link has expired. Please request a new one.' });
+    }
+
+    // 4. Activate account
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
+    
     await user.save({ validateBeforeSave: false });
 
-    logger.info(`Email verified for user: ${user._id}`);
-    res.status(200).json({ success: true, message: 'Email verified successfully!' });
+    logger.info(`[VERIFY SUCCESS] user=${user._id} email=${user.email}`);
+    res.status(200).json({ 
+      success: true, 
+      message: 'Email verified successfully! You can now log in to your account.' 
+    });
   } catch (err) {
     next(err);
   }
@@ -261,7 +276,7 @@ const resendVerification = async (req, res, next) => {
     // Generate new token
     const verificationToken = require('crypto').randomBytes(32).toString('hex');
     user.emailVerificationToken = verificationToken;
-    user.emailVerificationExpires = Date.now() + 30 * 60 * 1000; // 30 mins
+    user.emailVerificationExpires = Date.now() + 15 * 60 * 1000; // 15 mins
     await user.save({ validateBeforeSave: false });
 
     await emailService.sendVerificationEmail(user, verificationToken);

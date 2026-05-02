@@ -9,7 +9,7 @@ const logger      = require('../config/logger');
  * Centralized service for sending automated email notifications via Resend API.
  */
 
-const WEBSITE_URL = process.env.CLIENT_URL || 'https://happyrenting.netlify.app/';
+const WEBSITE_URL = (process.env.CLIENT_URL || 'https://happyrenting.netlify.app').replace(/\/$/, '');
 
 const sendEmail = async (to, subject, html) => {
   try {
@@ -311,7 +311,7 @@ const sendAdminNewRequestAlert = async (request) => {
 // ── 12. Tenant Onboarding ───────────────────────────────────────────────────
 const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName, verificationToken = null) => {
   const subject = `Welcome to ${property.name}! Your login details inside.`;
-  const verifyUrl = verificationToken ? `${WEBSITE_URL}verify-email?token=${verificationToken}` : null;
+  const verifyUrl = verificationToken ? `${WEBSITE_URL}/verify-email?token=${verificationToken}` : null;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
@@ -358,7 +358,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
 // ── 13. Email Verification ──────────────────────────────────────────────────
 const sendVerificationEmail = async (user, token) => {
   const subject = 'Verify your Happy Renting account';
-  const verificationUrl = `${WEBSITE_URL}verify-email?token=${token}`;
+  const verificationUrl = `${WEBSITE_URL}/verify-email?token=${token}`;
   
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
