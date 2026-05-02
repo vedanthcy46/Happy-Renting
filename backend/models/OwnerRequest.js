@@ -18,6 +18,7 @@ const ownerRequestSchema = new mongoose.Schema({
   phone: {
     type    : String,
     required: [true, 'Phone number is required'],
+    unique  : true,
     trim    : true,
   },
   propertyName: {
@@ -37,10 +38,8 @@ const ownerRequestSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
-  createdAt: {
-    type   : Date,
-    default: Date.now,
-  },
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('OwnerRequest', ownerRequestSchema);

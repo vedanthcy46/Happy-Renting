@@ -26,68 +26,81 @@ const submitRequest = async (req, res, next) => {
 
     const { name, email, phone, propertyName, propertyLocation } = req.body;
 
-    // 1. CRITICAL: Check if user already exists
+    // 1. Check if a User account already exists for this email
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ success: false, message: 'already present' });
+      return res.status(409).json({ success: false, message: 'Account already exists' });
     }
 
-    // 2. Check for duplicate pending/approved request
-    const existing = await OwnerRequest.findOne({ email });
+    // 2. Check for duplicate pending/approved request by Email or Phone
+    const existing = await OwnerRequest.findOne({ $or: [{ email }, { phone }] });
     
     if (existing) {
-      if (existing.status !== 'rejected') {
+      // Case 2: Request already under review
+      if (existing.status === 'pending') {
         return res.status(409).json({ 
           success: false, 
-          message: 'A request with this email is already being processed.' 
+          message: 'Request already under review' 
         });
       }
       
-      // If rejected, we update the existing record to 'pending' again
-      existing.name = name;
-      existing.phone = phone;
-      existing.propertyName = propertyName;
-      existing.propertyLocation = propertyLocation;
-      existing.status = 'pending';
-      existing.rejectionReason = undefined;
-      await existing.save();
-      
-      logger.info(`Owner request resubmitted (updated): Email=${email}`);
-      
-      // Notify User & Admin
-      try {
-        await emailService.sendRequestUnderReview(existing);
-        await emailService.sendAdminNewRequestAlert(existing);
-      } catch (e) {
-        logger.error(`Email error (Resubmission Alert): ${e.message}`);
+      // Case 3: Request already approved (but User check should have caught it)
+      if (existing.status === 'approved') {
+        return res.status(409).json({ 
+          success: false, 
+          message: 'Account already exists' 
+        });
       }
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'sent successfully' 
-      });
+      // Case 4: Previously rejected -> Update existing
+      if (existing.status === 'rejected') {
+        existing.name = name;
+        existing.email = email; // In case phone matched but email changed
+        existing.phone = phone;
+        existing.propertyName = propertyName;
+        existing.propertyLocation = propertyLocation;
+        existing.status = 'pending';
+        existing.rejectionReason = undefined;
+        existing.createdAt = new Date(); // Reset time for priority
+        await existing.save();
+        
+        logger.info(`Owner request resubmitted (updated): Email=${email} Phone=${phone}`);
+        
+        // Notify Admin (Non-blocking)
+        emailService.sendAdminNewRequestAlert(existing).catch(e => logger.error(`Admin Alert Error: ${e.message}`));
+        // Notify User (Non-blocking)
+        emailService.sendRequestUnderReview(existing).catch(e => logger.error(`User Alert Error: ${e.message}`));
+
+        return res.status(200).json({ 
+          success: true, 
+          message: 'sent successfully' 
+        });
+      }
     }
 
-    // 3. Otherwise, create new
+    // Case 1: New User / Request
     const request = await OwnerRequest.create({
       name, email, phone, propertyName, propertyLocation
     });
 
-    logger.info(`New owner request created: ID=${request._id} Email=${request.email}`);
+    logger.info(`New owner request created: ID=${request._id} Email=${request.email} Phone=${request.phone}`);
 
-    // Notify User & Admin
-    try {
-      await emailService.sendRequestUnderReview(request);
-      await emailService.sendAdminNewRequestAlert(request);
-    } catch (e) {
-      logger.error(`Email error (Submission Alert): ${e.message}`);
-    }
+    // Notify Admin & User (Non-blocking)
+    emailService.sendAdminNewRequestAlert(request).catch(e => logger.error(`Admin Alert Error: ${e.message}`));
+    emailService.sendRequestUnderReview(request).catch(e => logger.error(`User Alert Error: ${e.message}`));
 
     res.status(201).json({ 
       success: true, 
       message: 'sent successfully' 
     });
   } catch (err) {
+    // Handle MongoDB unique constraint errors manually if they slip through
+    if (err.code === 11000) {
+      return res.status(409).json({ 
+        success: false, 
+        message: 'A request with this email or phone already exists.' 
+      });
+    }
     next(err);
   }
 };
@@ -107,7 +120,7 @@ const getRequests = async (req, res, next) => {
 const updateRequestStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, reason } = req.body;
+    const { status, reason, password: providedPassword } = req.body;
     logger.info(`Status update request: ID=${id} NewStatus=${status}`);
 
     if (!['approved', 'rejected'].includes(status)) {
@@ -124,7 +137,6 @@ const updateRequestStatus = async (req, res, next) => {
     }
 
     if (status === 'approved') {
-      const { password: providedPassword } = req.body;
       // 1. Use provided password or generate one
       const tempPassword = providedPassword || (crypto.randomBytes(4).toString('hex') + 'A1!');
 
@@ -140,12 +152,9 @@ const updateRequestStatus = async (req, res, next) => {
       request.status = 'approved';
       await request.save();
 
-      // 3. Send Approval Email
-      try {
-        await emailService.sendRequestApproved(request, tempPassword);
-      } catch (e) {
-        logger.error(`Email error (Approved): ${e.message}`);
-      }
+      // 3. Send Approval Email (Non-blocking)
+      emailService.sendRequestApproved(request, tempPassword).catch(e => logger.error(`Email error (Approved): ${e.message}`));
+      
       logger.info(`Owner request approved: ${request.email}. User account created.`);
 
     } else {
@@ -153,12 +162,9 @@ const updateRequestStatus = async (req, res, next) => {
       request.rejectionReason = reason;
       await request.save();
 
-      // Send Rejection Email
-      try {
-        await emailService.sendRequestRejected(request, reason);
-      } catch (e) {
-        logger.error(`Email error (Rejected): ${e.message}`);
-      }
+      // Send Rejection Email (Non-blocking)
+      emailService.sendRequestRejected(request, reason).catch(e => logger.error(`Email error (Rejected): ${e.message}`));
+      
       logger.info(`Owner request rejected: ${request.email}`);
     }
 

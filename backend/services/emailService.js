@@ -246,7 +246,7 @@ const sendRequestRejected = async (request, reason) => {
 
 // ── 11. Admin Notification: New Request ────────────────────────────────────
 const sendAdminNewRequestAlert = async (request) => {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'vedanthh46@gmail.com';
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.SEED_ADMIN_EMAIL || 'vedanthh46@gmail.com';
   const subject = `🆕 New Owner Access Request: ${request.name}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
