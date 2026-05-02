@@ -1,12 +1,12 @@
 'use strict';
 
-const transporter = require('../config/emailConfig');
+const resend = require('../config/emailConfig');
 const logger      = require('../config/logger');
 
 /**
  * emailService.js
  * ─────────────────────────────────────────────────────────────────────────────
- * Centralized service for sending automated email notifications.
+ * Centralized service for sending automated email notifications via Resend API.
  */
 
 const WEBSITE_URL = process.env.CLIENT_URL || 'https://happyrenting.netlify.app/';
@@ -18,14 +18,23 @@ const sendEmail = async (to, subject, html) => {
       return;
     }
 
-    const info = await transporter.sendMail({
-      from: `"HappyRent Support" <${process.env.EMAIL_USER || 'vedanthh46@gmail.com'}>`,
-      to,
+    // Note: Resend requires a verified domain to send from a custom email.
+    // While in testing/onboarding mode, 'onboarding@resend.dev' must be used.
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
+    const { data, error } = await resend.emails.send({
+      from: `HappyRent Support <${fromAddress}>`,
+      to: [to],
       subject,
       html,
     });
 
-    logger.info(`[EMAIL SENT] to=${to} subject="${subject}" messageId=${info.messageId}`);
+    if (error) {
+      logger.error(`[EMAIL ERROR] Resend failed for ${to}: ${error.message}`);
+      return;
+    }
+
+    logger.info(`[EMAIL SENT] to=${to} subject="${subject}" id=${data.id}`);
   } catch (err) {
     logger.error(`[EMAIL ERROR] failed to send to=${to}: ${err.message}`);
   }
