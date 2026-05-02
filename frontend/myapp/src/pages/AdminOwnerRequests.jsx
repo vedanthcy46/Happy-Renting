@@ -28,9 +28,46 @@ const AdminOwnerRequests = () => {
     fetchRequests();
   }, [fetchRequests]);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [tempPassword, setTempPassword] = useState('');
+
+  const handleOpenModal = (request) => {
+    setSelectedRequest(request);
+    setTempPassword(Math.random().toString(36).slice(-8) + 'A1!'); // Initial random pass
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmApproval = async () => {
+    if (!tempPassword) return showToast('Please set a password', 'error');
+    
+    setProcessingId(selectedRequest._id);
+    try {
+      const res = await api.patch(`/owner-requests/${selectedRequest._id}/status`, { 
+        status: 'approved', 
+        password: tempPassword 
+      });
+      if (res.data.success) {
+        showToast('Owner approved and account created!', 'success');
+        setIsModalOpen(false);
+        fetchRequests();
+      }
+    } catch (err) {
+      showToast(err.message || 'Approval failed.', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleAction = async (id, status) => {
+    if (status === 'approved') {
+      const req = requests.find(r => r._id === id);
+      handleOpenModal(req);
+      return;
+    }
+
     const reason = status === 'rejected' ? prompt('Reason for rejection (optional):') : null;
-    if (status === 'rejected' && reason === null) return; // User cancelled prompt
+    if (status === 'rejected' && reason === null) return;
 
     setProcessingId(id);
     try {
@@ -161,15 +198,65 @@ const AdminOwnerRequests = () => {
           </div>
         )}
       </div>
+
+      {/* Approval Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-800">
+            <div className="bg-blue-600 p-6 text-white">
+              <h3 className="text-xl font-bold">Approve Owner Access</h3>
+              <p className="text-blue-100 text-sm mt-1">Review details and set temporary password.</p>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl space-y-2">
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Applicant</p>
+                  <p className="font-bold text-gray-900 dark:text-white">{selectedRequest?.name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedRequest?.email}</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Temporary Password</label>
+                  <input 
+                    type="text"
+                    value={tempPassword}
+                    onChange={(e) => setTempPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Enter password for owner"
+                  />
+                  <p className="text-[10px] text-gray-500 ml-1">This password will be sent to the owner's email.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmApproval}
+                  disabled={processingId}
+                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-200 dark:shadow-none disabled:opacity-50"
+                >
+                  {processingId ? 'Approving...' : 'Confirm Approval'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const StatusBadge = ({ status }) => {
   const styles = {
-    pending: 'bg-amber-50 text-amber-700 border-amber-100',
-    approved: 'bg-green-50 text-green-700 border-green-100',
-    rejected: 'bg-red-50 text-red-700 border-red-100',
+    pending: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30',
+    approved: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-100 dark:border-green-900/30',
+    rejected: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-100 dark:border-red-900/30',
   };
 
   return (
