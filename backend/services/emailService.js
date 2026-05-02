@@ -41,9 +41,33 @@ const sendEmail = async (to, subject, html) => {
   }
 };
 
+const formatIST = (date) => {
+  if (!date) return '—';
+  return new Date(date).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+const formatDateOnly = (date) => {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
 const getFooter = () => `
   <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; text-align: center; margin-top: 30px;">
     This is an automated message from Happy Renting.<br/>
+    Sent at: ${formatIST(new Date())} IST<br/>
     For support, contact us at <a href="mailto:support@happyrenting.co.in" style="color: #2563eb; text-decoration: none;">support@happyrenting.co.in</a>
   </p>
 `;
@@ -159,7 +183,7 @@ const sendRentDueReminder = async (tenantUser, payment, property, room, owner) =
       <p>Friendly reminder that your rent for <strong>${payment.month}</strong> is due tomorrow.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <p><strong>Amount Due:</strong> ₹${payment.amount.toLocaleString()}</p>
-      <p><strong>Due Date:</strong> ${new Date(payment.dueDate).toLocaleDateString()}</p>
+      <p><strong>Due Date:</strong> ${formatDateOnly(payment.dueDate)}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
@@ -197,7 +221,7 @@ const sendPasswordChangeNotification = async (user) => {
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Security Update</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
-      <p>The password for <strong>${user.email}</strong> was changed at <strong>${new Date().toLocaleString()}</strong>.</p>
+      <p>The password for <strong>${user.email}</strong> was changed at <strong>${formatIST(new Date())} IST</strong>.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <p>If you did not perform this change, please contact support or reset your password immediately.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
@@ -374,7 +398,7 @@ const sendVerificationEmail = async (user, token) => {
       </div>
 
       <p style="color: #475569; font-size: 14px;">
-        This link will expire in 30 minutes. If the button doesn't work, copy and paste this URL into your browser:
+        This link will expire in 15 minutes. If the button doesn't work, copy and paste this URL into your browser:
       </p>
       <p style="color: #2563eb; font-size: 12px; word-break: break-all;">
         ${verificationUrl}
