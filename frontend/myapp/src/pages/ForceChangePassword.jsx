@@ -53,8 +53,9 @@ const ForceChangePassword = () => {
   };
 
   const handleLogout = () => {
+    localStorage.clear(); // Nuclear option to ensure no stale data
     logout();
-    navigate('/login');
+    navigate('/login', { replace: true });
     toast.info('You have been signed out.');
   };
 

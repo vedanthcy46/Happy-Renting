@@ -37,8 +37,13 @@ const ProtectedRoute = ({ children, roles = [] }) => {
   }
   */
 
-  if (roles.length > 0 && !roles.includes(role)) {
-    return <Navigate to="/unauthorized" replace />;
+  // 4. Role Authorization
+  // If roles are specified, check if user's role matches.
+  // We double-check user existence here to be safe.
+  if (roles.length > 0) {
+    if (!user || !roles.includes(user.role)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
 
   return children;
