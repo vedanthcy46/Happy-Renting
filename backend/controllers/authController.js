@@ -204,7 +204,19 @@ const changePassword = async (req, res, next) => {
     await emailService.sendPasswordChangeNotification(user);
 
     logger.info(`Password changed for user: ${user._id}`);
-    res.status(200).json({ success: true, message: 'Password changed successfully.' });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Password changed successfully.',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        ownerId: user.ownerId,
+        mustChangePassword: user.mustChangePassword,
+        emailVerified: user.emailVerified
+      }
+    });
   } catch (err) {
     next(err);
   }

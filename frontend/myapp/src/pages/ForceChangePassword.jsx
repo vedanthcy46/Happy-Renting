@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const ForceChangePassword = () => {
-  const { logout } = useAuth();
+  const { logout, updateUser } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const [form, setForm] = useState({
     currentPassword: '',
@@ -27,20 +28,34 @@ const ForceChangePassword = () => {
 
     setLoading(true);
     try {
-      await api.post('/auth/change-password', {
+      const { data } = await api.post('/auth/change-password', {
         currentPassword: form.currentPassword,
         newPassword: form.newPassword
       });
-      toast.success('Password updated successfully! You can now access your dashboard.');
-      // Refresh user state if possible, or just logout/login
-      // For now, let's just go to dashboard and hope auth state is updated or flag is cleared in session
-      // Ideally, the backend response should update the user object.
-      window.location.href = '/dashboard'; 
+
+      // Update local user state so mustChangePassword becomes false
+      if (data.user) {
+        updateUser(data.user);
+      }
+
+      toast.success('Security setup complete! Redirecting to your dashboard...');
+      
+      // Give the user a moment to see the success message
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+    toast.info('You have been signed out.');
   };
 
   return (
@@ -106,7 +121,7 @@ const ForceChangePassword = () => {
             
             <button 
               type="button" 
-              onClick={logout}
+              onClick={handleLogout}
               className="text-slate-500 hover:text-white text-sm w-full text-center mt-4 transition-colors"
             >
               Sign out and setup later
