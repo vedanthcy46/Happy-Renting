@@ -1,15 +1,18 @@
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const emailService = require('../services/emailService');
 const logger = require('../config/logger');
 
-// We will use the user's own email for all tests to verify they are receiving them.
-const TEST_EMAIL = process.env.EMAIL_USER;
+// We will use the user's own email for all tests, or a provided one
+const TEST_EMAIL = process.argv[2] || process.env.EMAIL_USER || "vedanthh46@gmail.com";
 
 const runTests = async () => {
   try {
+    if (!TEST_EMAIL) {
+      throw new Error('Please provide a recipient email as an argument or set EMAIL_USER in .env');
+    }
     logger.info(`🚀 Starting Email Notification Tests...`);
     logger.info(`📧 All test emails will be sent to: ${TEST_EMAIL}`);
 
@@ -65,6 +68,19 @@ const runTests = async () => {
     // 8. Password Change Alert
     logger.info('Sending: Password Change Alert...');
     await emailService.sendPasswordChangeNotification(mockUser);
+
+    // 9. Owner Request - Under Review
+    const mockRequest = { name: 'New Owner Candidate', email: TEST_EMAIL, phone: '+91 90000 00000', propertyName: 'Green Park Heights' };
+    logger.info('Sending: Owner Request Under Review...');
+    await emailService.sendRequestUnderReview(mockRequest);
+
+    // 10. Owner Request - Approved
+    logger.info('Sending: Owner Request Approved...');
+    await emailService.sendRequestApproved(mockRequest, 'temp-pass-123');
+
+    // 11. Owner Request - Rejected
+    logger.info('Sending: Owner Request Rejected...');
+    await emailService.sendRequestRejected(mockRequest, 'Documentation incomplete.');
 
     logger.info('✅ All test emails triggered successfully. Please check your inbox!');
     process.exit(0);
