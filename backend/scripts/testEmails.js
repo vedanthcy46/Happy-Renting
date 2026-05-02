@@ -78,9 +78,17 @@ const runTests = async () => {
     logger.info('Sending: Owner Request Approved...');
     await emailService.sendRequestApproved(mockRequest, 'temp-pass-123');
 
-    // 12. Admin Alert - New Request
+    // 11. Admin Alert - New Request
     logger.info('Sending: Admin New Request Alert...');
     await emailService.sendAdminNewRequestAlert(mockRequest);
+
+    // 12. Email Verification
+    logger.info('Sending: Email Verification...');
+    await emailService.sendVerificationEmail(mockUser, 'test-token-456');
+
+    // 13. Tenant Onboarding (Credentials)
+    logger.info('Sending: Tenant Onboarding (Welcome)...');
+    await emailService.sendTenantWelcome(mockUser, 'TempPass123!', mockProperty, mockRoom, 'Super Admin', 'test-token-789');
 
     logger.info('✅ All test emails triggered successfully. Please check your inbox!');
     process.exit(0);
