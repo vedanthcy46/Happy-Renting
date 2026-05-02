@@ -186,6 +186,64 @@ const sendWelcomeEmail = async (tenantUser, property, room, owner) => {
   await sendEmail(tenantUser.email, subject, html);
 };
 
+// ── 8. Owner Request Under Review ───────────────────────────────────────────
+const sendRequestUnderReview = async (request) => {
+  const subject = `📩 Owner Access Request Received - HappyRent`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">Request Received</h2>
+      <p>Hello <strong>${request.name}</strong>,</p>
+      <p>Thank you for your interest in joining HappyRent. Your request for owner access is currently **under review**.</p>
+      <p>Our admin team will review your details and contact you at <strong>${request.phone}</strong> for manual verification if needed.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Name:</strong> ${request.name}</p>
+      <p><strong>Property:</strong> ${request.propertyName || 'N/A'}</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p style="font-size: 12px; color: #666;">We will notify you once a decision is made. Thank you for your patience!</p>
+    </div>
+  `;
+  await sendEmail(request.email, subject, html);
+};
+
+// ── 9. Owner Request Approved ───────────────────────────────────────────────
+const sendRequestApproved = async (request, password) => {
+  const subject = `🎉 Welcome to HappyRent! - Your Account is Ready`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #16a34a;">
+      <h2 style="color: #16a34a;">Congratulations!</h2>
+      <p>Hello <strong>${request.name}</strong>,</p>
+      <p>Your request for owner access has been <strong>APPROVED</strong>. Your account is now active.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Login Email:</strong> ${request.email}</p>
+      <p><strong>Temporary Password:</strong> <code style="background: #f4f4f4; padding: 2px 5px;">${password}</code></p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('Login to Dashboard')}
+      <p style="font-size: 12px; color: #dc2626; font-weight: bold;">⚠️ For security, please change your password immediately after logging in.</p>
+    </div>
+  `;
+  await sendEmail(request.email, subject, html);
+};
+
+// ── 10. Owner Request Rejected ──────────────────────────────────────────────
+const sendRequestRejected = async (request, reason) => {
+  const subject = `Update Regarding Your HappyRent Request`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #dc2626;">Request Status</h2>
+      <p>Hello <strong>${request.name}</strong>,</p>
+      <p>We appreciate your interest in HappyRent. After careful review, we are unable to approve your request for owner access at this time.</p>
+      ${reason ? `
+        <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px;">
+          <p style="margin: 0; color: #dc2626; font-size: 14px;"><strong>Reason:</strong> ${reason}</p>
+        </div>
+      ` : ''}
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p style="font-size: 12px; color: #666;">If you have any questions, you can reply to this email.</p>
+    </div>
+  `;
+  await sendEmail(request.email, subject, html);
+};
+
 module.exports = {
   sendComplaintNotification,
   sendPaymentProofNotification,
@@ -194,4 +252,7 @@ module.exports = {
   sendOverdueAlert,
   sendPasswordChangeNotification,
   sendWelcomeEmail,
+  sendRequestUnderReview,
+  sendRequestApproved,
+  sendRequestRejected,
 };

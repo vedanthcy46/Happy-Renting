@@ -38,6 +38,7 @@ const propertyRoutes = require('./routes/propertyRoutes');
 const roomRoutes     = require('./routes/roomRoutes');
 const tenantRoutes   = require('./routes/tenantRoutes');
 const paymentRoutes  = require('./routes/paymentRoutes');
+const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 
 // ── Connect to DB ──────────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ app.use('/api/properties', propertyRoutes);
 app.use('/api/rooms',      roomRoutes);
 app.use('/api/tenants',    tenantRoutes);
 app.use('/api/payments',   paymentRoutes);
+app.use('/api/owner-requests', ownerRequestRoutes);
 app.use('/api/complaints', complaintRoutes);
 
 // ── 10. 404 + Global error handler ────────────────────────────────────────
