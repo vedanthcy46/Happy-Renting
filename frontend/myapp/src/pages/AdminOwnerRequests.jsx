@@ -163,7 +163,14 @@ const AdminOwnerRequests = () => {
                       </div>
                     </td>
                     <td className="px-6 py-5">
-                      <StatusBadge status={request.status} />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={request.status} />
+                        {new Date(request.updatedAt) - new Date(request.createdAt) > 1000 && (
+                          <span className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-800">
+                            RESUBMITTED
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-5 text-right">
                       {request.status === 'pending' ? (
