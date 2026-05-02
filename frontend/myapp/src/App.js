@@ -18,6 +18,9 @@ import UsersPage       from './pages/UsersPage';
 import ComplaintsPage  from './pages/ComplaintsPage';
 import ProfilePage     from './pages/ProfilePage';
 import TenantPaymentPage from './pages/TenantPaymentPage';
+import LandingPage       from './pages/LandingPage';
+import OwnerRequestPage  from './pages/OwnerRequestPage';
+import AdminOwnerRequests from './pages/AdminOwnerRequests';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage    from './pages/NotFoundPage';
 
@@ -39,7 +42,9 @@ const App = () => (
       <ToastProvider>
         <Routes>
           {/* Public */}
+          <Route path="/"             element={<LandingPage />} />
           <Route path="/login"        element={<LoginPage />} />
+          <Route path="/request-access" element={<OwnerRequestPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
           {/* Protected — all authenticated roles */}
@@ -67,12 +72,13 @@ const App = () => (
 
             {/* Super Admin only */}
             <Route path="users" element={<ProtectedRoute roles={['superadmin']}><UsersPage /></ProtectedRoute>} />
+            <Route path="requests" element={<ProtectedRoute roles={['superadmin']}><AdminOwnerRequests /></ProtectedRoute>} />
 
             {/* Catch-all → 404 */}
             <Route path="*" element={<NotFoundPage />} />
           </Route>
 
-          {/* Root redirect */}
+          {/* Root redirect (fallback) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ToastProvider>
