@@ -241,7 +241,7 @@ const RoomsPage = () => {
               disabled={!!editingRoom}
               value={form.propertyId} onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))}>
               <option value="">Select property…</option>
-              {properties.map(p => <option key={p._id} value={p._id}>{p.name} ({p.address})</option>)}
+              {properties.map(p => <option key={p._id} value={p._id}>{p.name} — {p.address}</option>)}
             </select>
             {formErrors.propertyId && <p className="form-error">{formErrors.propertyId}</p>}
           </div>

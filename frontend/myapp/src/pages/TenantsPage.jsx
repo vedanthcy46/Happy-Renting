@@ -261,7 +261,7 @@ const TenantsPage = () => {
                     </td>
                     <td className="text-slate-300">
                       <p className="font-semibold text-white">Room {t.roomId?.roomNumber}</p>
-                      <p className="text-[10px] text-slate-400">{t.propertyId?.name}</p>
+                      <p className="text-[10px] text-slate-400">{t.propertyId?.name} — {t.propertyId?.address}</p>
                     </td>
                     <td className="text-center">
                       <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-surface-card border border-surface-border text-xs text-white">

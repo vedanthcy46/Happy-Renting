@@ -103,7 +103,7 @@ const DashboardFilters = ({ onFilterChange, showOwnerFilter = false, hidePropert
           >
             <option value="">All Properties</option>
             {properties.map(p => (
-              <option key={p._id} value={p._id}>{p.name}</option>
+              <option key={p._id} value={p._id}>{p.name} — {p.address}</option>
             ))}
           </select>
         </div>
