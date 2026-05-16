@@ -6,14 +6,31 @@ const AuthContext = createContext(null);
 const TOKEN_KEY = 'hr_token';
 const USER_KEY  = 'hr_user';
 
+// Helper for persistent cookies
+const setAuthCookie = (name, value, days = 30) => {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+};
+
+const getAuthCookie = (name) => {
+  return document.cookie.split('; ').reduce((r, v) => {
+    const parts = v.split('=');
+    return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+  }, '');
+};
+
+const removeAuthCookie = (name) => {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+};
+
 export const AuthProvider = ({ children }) => {
   const [user,    setUser]    = useState(null);
   const [token,   setToken]   = useState(null);
   const [loading, setLoading] = useState(true); // True until session is restored
 
-  // ── Restore session from localStorage on mount ─────────────────────────
+  // ── Restore session from localStorage or Cookie on mount ────────────────
   useEffect(() => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
+    const storedToken = localStorage.getItem(TOKEN_KEY) || getAuthCookie(TOKEN_KEY);
     const storedUser  = localStorage.getItem(USER_KEY);
 
     if (storedToken && storedUser) {
@@ -21,10 +38,14 @@ export const AuthProvider = ({ children }) => {
         const parsed = JSON.parse(storedUser);
         setToken(storedToken);
         setUser(parsed);
+        // Sync back to both if one was missing
+        localStorage.setItem(TOKEN_KEY, storedToken);
+        setAuthCookie(TOKEN_KEY, storedToken);
       } catch {
         // Corrupted storage — clear it
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
+        removeAuthCookie(TOKEN_KEY);
       }
     }
     setLoading(false);
@@ -37,6 +58,8 @@ export const AuthProvider = ({ children }) => {
 
     localStorage.setItem(TOKEN_KEY, newToken);
     localStorage.setItem(USER_KEY,  JSON.stringify(newUser));
+    setAuthCookie(TOKEN_KEY, newToken); // Store in cookie for long-term persistence
+    
     setToken(newToken);
     setUser(newUser);
 
@@ -47,6 +70,8 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    removeAuthCookie(TOKEN_KEY);
+    
     setToken(null);
     setUser(null);
   }, []);
