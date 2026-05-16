@@ -9,7 +9,7 @@ const logger   = require('./logger');
  */
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
+    const conn = await mongoose.connect(process.env.MONGO_URI , {
       // These options are the defaults in Mongoose 6+ but listed explicitly for clarity
       serverSelectionTimeoutMS : 5000,   // Fail fast if Atlas unreachable
       socketTimeoutMS          : 45000,  // Close sockets after 45 s of inactivity
