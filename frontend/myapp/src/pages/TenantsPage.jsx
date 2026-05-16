@@ -28,10 +28,10 @@ const TenantsPage = () => {
   const [editTab,    setEditTab]    = useState('finance'); // 'finance' or 'profile'
   const [updatingAdv, setUpdatingAdv] = useState(false);
 
-  // Add Co-Occupant modal state
-  const [addCoOcc,   setAddCoOcc]   = useState({ open: false, tenant: null });
-  const [newCoOcc,   setNewCoOcc]   = useState({ name: '', phone: '', idProof: '' });
-  const [addingCoOcc, setAddingCoOcc] = useState(false);
+  // Co-Occupant modal state (for both add and edit)
+  const [coOccModal, setCoOccModal] = useState({ open: false, tenant: null, coOccupant: null, mode: 'add' });
+  const [coOccData,  setCoOccData]  = useState({ name: '', phone: '', idProof: '' });
+  const [savingCoOcc, setSavingCoOcc] = useState(false);
 
   const fetchTenants = useCallback(async () => {
     try {
@@ -127,27 +127,48 @@ const TenantsPage = () => {
   };
 
   const openAddCoOccupant = (tenant) => {
-    setAddCoOcc({ open: true, tenant });
-    setNewCoOcc({ name: '', phone: '', idProof: '' });
+    setCoOccModal({ open: true, tenant, coOccupant: null, mode: 'add' });
+    setCoOccData({ name: '', phone: '', idProof: '' });
   };
 
-  const handleAddCoOccupant = async (e) => {
-    e.preventDefault();
-    if (!newCoOcc.name) return toast.error('Name is required');
-    if (addingCoOcc) return;
+  const openEditCoOccupant = (tenant, co) => {
+    setCoOccModal({ open: true, tenant, coOccupant: co, mode: 'edit' });
+    setCoOccData({ name: co.name || '', phone: co.phone || '', idProof: co.idProof || '' });
+  };
 
-    setAddingCoOcc(true);
+  const handleSaveCoOccupant = async (e) => {
+    e.preventDefault();
+    if (!coOccData.name) return toast.error('Name is required');
+    if (savingCoOcc) return;
+
+    setSavingCoOcc(true);
     try {
-      await api.post(`/tenants/${addCoOcc.tenant._id}/co-occupants`, {
-        coOccupants: [newCoOcc]
-      });
-      toast.success(`Co-occupant added to ${addCoOcc.tenant.userId?.name}'s room.`);
-      setAddCoOcc({ open: false, tenant: null });
+      if (coOccModal.mode === 'add') {
+        await api.post(`/tenants/${coOccModal.tenant._id}/co-occupants`, {
+          coOccupants: [coOccData]
+        });
+        toast.success(`Co-occupant added.`);
+      } else {
+        await api.patch(`/tenants/${coOccModal.tenant._id}/co-occupants/${coOccModal.coOccupant._id}`, coOccData);
+        toast.success(`Co-occupant updated.`);
+      }
+      setCoOccModal({ open: false, tenant: null, coOccupant: null, mode: 'add' });
       fetchTenants();
     } catch (err) {
       toast.error(err.message);
     } finally {
-      setAddingCoOcc(false);
+      setSavingCoOcc(false);
+    }
+  };
+
+  const handleDeleteCoOccupant = async (tenantId, coId) => {
+    if (!window.confirm('Are you sure you want to remove this co-occupant?')) return;
+    try {
+      await api.delete(`/tenants/${tenantId}/co-occupants/${coId}`);
+      toast.success('Co-occupant removed.');
+      fetchTenants();
+    } catch (err) {
+      toast.error(err.message);
     }
   };
 
@@ -360,15 +381,36 @@ const TenantsPage = () => {
                             ) : (
                               <div className="space-y-2">
                                 {t.coOccupants.map((co, idx) => (
-                                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-surface-card border border-surface-border">
-                                    <div>
-                                      <p className="text-xs font-bold text-white">{co.name}</p>
-                                      {co.phone && <p className="text-[10px] text-slate-500">{co.phone}</p>}
+                                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-surface-card border border-surface-border group/co">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold text-white truncate">{co.name}</p>
+                                      {(co.phone || co.idProof) && (
+                                        <p className="text-[9px] text-slate-500 truncate">
+                                          {co.phone}{co.phone && co.idProof ? ' • ' : ''}{co.idProof && `ID: ${co.idProof}`}
+                                        </p>
+                                      )}
                                     </div>
-                                    {co.idProof && (
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                                        ID: {co.idProof}
-                                      </span>
+                                    {tab === 'active' && (
+                                      <div className="flex items-center gap-1 opacity-0 group-hover/co:opacity-100 transition-opacity">
+                                        <button 
+                                          onClick={() => openEditCoOccupant(t, co)}
+                                          className="p-1.5 rounded-md hover:bg-brand-500/10 text-brand-400 transition-colors"
+                                          title="Edit Co-Occupant"
+                                        >
+                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                          </svg>
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDeleteCoOccupant(t._id, co._id)}
+                                          className="p-1.5 rounded-md hover:bg-danger/10 text-danger transition-colors"
+                                          title="Remove Co-Occupant"
+                                        >
+                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 ))}
@@ -484,20 +526,27 @@ const TenantsPage = () => {
         </form>
       </Modal>
 
-      {/* Add Co-Occupant Modal */}
-      <Modal isOpen={addCoOcc.open} onClose={() => setAddCoOcc({ open: false, tenant: null })} title="Add Co-Occupant" size="sm">
+      {/* Co-Occupant Modal (Add/Edit) */}
+      <Modal 
+        isOpen={coOccModal.open} 
+        onClose={() => setCoOccModal({ open: false, tenant: null, coOccupant: null, mode: 'add' })} 
+        title={coOccModal.mode === 'add' ? 'Add Co-Occupant' : 'Edit Co-Occupant'} 
+        size="sm"
+      >
         <div className="mb-4 p-4 rounded-xl bg-surface border border-surface-border">
-          <p className="text-xs text-slate-500 uppercase font-bold mb-1">Adding To Room {addCoOcc.tenant?.roomId?.roomNumber}</p>
-          <p className="text-white font-bold">{addCoOcc.tenant?.userId?.name}</p>
+          <p className="text-xs text-slate-500 uppercase font-bold mb-1">
+            {coOccModal.mode === 'add' ? 'Adding To' : 'Editing For'} Room {coOccModal.tenant?.roomId?.roomNumber}
+          </p>
+          <p className="text-white font-bold">{coOccModal.tenant?.userId?.name}</p>
         </div>
-        <form onSubmit={handleAddCoOccupant} className="space-y-4">
+        <form onSubmit={handleSaveCoOccupant} className="space-y-4">
           <div>
             <label className="form-label">Name *</label>
             <input 
               type="text" 
               className="form-input" 
-              value={newCoOcc.name} 
-              onChange={e => setNewCoOcc(n => ({ ...n, name: e.target.value }))}
+              value={coOccData.name} 
+              onChange={e => setCoOccData(n => ({ ...n, name: e.target.value }))}
               placeholder="Full Name"
               required 
             />
@@ -507,8 +556,8 @@ const TenantsPage = () => {
             <input 
               type="tel" 
               className="form-input" 
-              value={newCoOcc.phone} 
-              onChange={e => setNewCoOcc(n => ({ ...n, phone: e.target.value }))}
+              value={coOccData.phone} 
+              onChange={e => setCoOccData(n => ({ ...n, phone: e.target.value }))}
               placeholder="Phone Number" 
             />
           </div>
@@ -517,16 +566,16 @@ const TenantsPage = () => {
             <input 
               type="text" 
               className="form-input" 
-              value={newCoOcc.idProof} 
-              onChange={e => setNewCoOcc(n => ({ ...n, idProof: e.target.value }))}
+              value={coOccData.idProof} 
+              onChange={e => setCoOccData(n => ({ ...n, idProof: e.target.value }))}
               placeholder="Aadhar / Passport #" 
             />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setAddCoOcc({ open: false, tenant: null })} className="btn-secondary flex-1">Cancel</button>
-            <button type="submit" disabled={addingCoOcc} className="btn-primary flex-1">
-              {addingCoOcc ? <LoadingSpinner size="sm" label="" /> : null}
-              {addingCoOcc ? 'Adding…' : 'Add Co-Occupant'}
+            <button type="button" onClick={() => setCoOccModal({ open: false, tenant: null, coOccupant: null, mode: 'add' })} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={savingCoOcc} className="btn-primary flex-1">
+              {savingCoOcc ? <LoadingSpinner size="sm" label="" /> : null}
+              {savingCoOcc ? 'Saving…' : (coOccModal.mode === 'add' ? 'Add Co-Occupant' : 'Save Changes')}
             </button>
           </div>
         </form>

@@ -292,15 +292,55 @@ const addCoOccupants = async (req, res, next) => {
       req.user.role
     );
 
-    res.status(200).json({
-      success: true,
-      message: 'Co-occupants added successfully.',
-      coOccupants: result,
-    });
-  } catch (err) {
-    if (err.statusCode) {
-      return res.status(err.statusCode).json({ success: false, message: err.message });
+// ── PATCH /api/tenants/:id/co-occupants/:coId ────────────────────────────
+const updateCoOccupant = async (req, res, next) => {
+  try {
+    const { id, coId } = req.params;
+    const { name, phone, idProof } = req.body;
+
+    const CoOccupant = require('../models/CoOccupant');
+    const co = await CoOccupant.findOne({ _id: coId, tenantId: id });
+    
+    if (!co) {
+      return res.status(404).json({ success: false, message: 'Co-occupant not found.' });
     }
+
+    // Authorization
+    if (req.user.role === 'owner' && String(co.ownerId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    if (name)    co.name = name;
+    if (phone)   co.phone = phone;
+    if (idProof) co.idProof = idProof;
+
+    await co.save();
+    res.status(200).json({ success: true, message: 'Co-occupant updated.', coOccupant: co });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── DELETE /api/tenants/:id/co-occupants/:coId ───────────────────────────
+const deleteCoOccupant = async (req, res, next) => {
+  try {
+    const { id, coId } = req.params;
+
+    const CoOccupant = require('../models/CoOccupant');
+    const co = await CoOccupant.findOne({ _id: coId, tenantId: id });
+
+    if (!co) {
+      return res.status(404).json({ success: false, message: 'Co-occupant not found.' });
+    }
+
+    // Authorization
+    if (req.user.role === 'owner' && String(co.ownerId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    await co.deleteOne();
+    res.status(200).json({ success: true, message: 'Co-occupant deleted.' });
+  } catch (err) {
     next(err);
   }
 };
@@ -312,6 +352,8 @@ module.exports = {
   updateTenant,
   moveOutTenant,
   addCoOccupants,
+  updateCoOccupant,
+  deleteCoOccupant,
   getMyTenancy,
   addTenantValidation,
   moveOutValidation,

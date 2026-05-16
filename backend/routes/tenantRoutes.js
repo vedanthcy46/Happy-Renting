@@ -3,7 +3,7 @@
 const router = require('express').Router();
 const {
   getTenants, getTenant, addTenant, updateTenant, moveOutTenant, getMyTenancy,
-  addCoOccupants, addTenantValidation, moveOutValidation,
+  addCoOccupants, updateCoOccupant, deleteCoOccupant, addTenantValidation, moveOutValidation,
 } = require('../controllers/tenantController');
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -19,5 +19,7 @@ router.post('/',                authorize('superadmin', 'owner'),  addTenantVali
 router.patch('/:id',            authorize('superadmin', 'owner'),  updateTenant);
 router.patch('/:id/moveout',    authorize('superadmin', 'owner'),  moveOutValidation, validate, moveOutTenant);
 router.post ('/:id/co-occupants',authorize('superadmin', 'owner', 'tenant'),  addCoOccupants);
+router.patch('/:id/co-occupants/:coId', authorize('superadmin', 'owner', 'tenant'), updateCoOccupant);
+router.delete('/:id/co-occupants/:coId', authorize('superadmin', 'owner', 'tenant'), deleteCoOccupant);
 
 module.exports = router;
