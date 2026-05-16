@@ -15,6 +15,7 @@ const PropertiesPage = () => {
   const [properties, setProperties] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [filters,    setFilters]    = useState({ ownerId: '', propertyId: '', roomId: '' });
+  const [search, setSearch] = useState('');
   const [showAdd,    setShowAdd]    = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -36,6 +37,12 @@ const PropertiesPage = () => {
   }, [filters.ownerId, toast]);
 
   useEffect(() => { fetchProperties(); }, [fetchProperties]);
+
+  const filteredProperties = properties.filter(p => 
+    !search || 
+    p.name.toLowerCase().includes(search.toLowerCase()) || 
+    p.address.toLowerCase().includes(search.toLowerCase())
+  );
 
   const validateForm = () => {
     const errs = {};
@@ -101,7 +108,7 @@ const PropertiesPage = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title">Properties</h1>
           <p className="text-slate-400 text-sm mt-1">
@@ -109,7 +116,7 @@ const PropertiesPage = () => {
           </p>
         </div>
         {(isOwner || isSuperAdmin) && (
-          <button onClick={openAddModal} className="btn-primary">
+          <button onClick={openAddModal} className="btn-primary w-fit">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -118,19 +125,42 @@ const PropertiesPage = () => {
         )}
       </div>
 
-      {/* Filters (Admin Only) */}
-      <DashboardFilters onFilterChange={setFilters} showOwnerFilter={true} hidePropertyFilter={true} hideRoomFilter={true} />
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+        {/* Filters (Admin Only) */}
+        {isSuperAdmin && (
+          <DashboardFilters 
+            onFilterChange={setFilters} 
+            showOwnerFilter={true} 
+            hidePropertyFilter={true} 
+            hideRoomFilter={true} 
+          />
+        )}
+
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="search"
+            placeholder="Search name or address…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="form-input pl-9 w-full"
+          />
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>
-      ) : properties.length === 0 ? (
+      ) : filteredProperties.length === 0 ? (
         <div className="card p-12 text-center">
-          <div className="text-5xl mb-4">🏠</div>
+          <div className="text-5xl mb-4">🏘️</div>
           <p className="text-slate-400">No properties found.</p>
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {properties.map(p => (
+          {filteredProperties.map(p => (
             <div 
               key={p._id} 
               className={`card p-6 flex flex-col group transition-all duration-300 ${!p.isActive ? 'opacity-50 border-dashed grayscale-[0.5]' : 'hover:border-brand-500'}`}

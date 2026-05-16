@@ -114,7 +114,7 @@ const DashboardPage = () => {
           <p className="text-slate-400 text-sm mt-1">System-wide performance & owner management</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatCard label="Total Owners"     value={stats?.totalOwners}     icon="🛡️" color="bg-brand-600" />
           <StatCard label="Total Properties" value={stats?.totalProperties} icon="🏢" color="bg-purple-600" />
           <StatCard label="Total Tenants"    value={stats?.totalTenants}    icon="👥" color="bg-success" />
@@ -307,7 +307,7 @@ const DashboardPage = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard label="Total Rooms"      value={stats?.totalRooms}      icon="🏠" color="bg-brand-600"    sub="Active inventory" />
         <StatCard label="Full Rooms"       value={stats?.fullRooms}       icon="🔒" color="bg-danger"       sub="Maximum capacity" />
         <StatCard label="Active Tenants"   value={stats?.activeTenants}   icon="👥" color="bg-success"      sub="Current residents" />
@@ -317,24 +317,24 @@ const DashboardPage = () => {
       {/* Financial Summary */}
       <div className="card p-6 border border-brand-500/20 bg-gradient-to-r from-surface-card to-brand-500/5">
         <h2 className="text-lg font-bold text-white mb-6">Rent Summary Dashboard</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-surface-border">
-          <div className="px-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-surface-border">
+          <div className="px-4 pb-4 md:pb-0">
             <p className="text-xs uppercase font-bold text-slate-500 mb-2">Collected Income</p>
-            <p className="text-3xl font-bold text-success">₹{finance.income.toLocaleString()}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-success">₹{finance.income.toLocaleString()}</p>
           </div>
-          <div className="px-4 pt-4 md:pt-0">
+          <div className="px-4 py-4 md:py-0">
             <p className="text-xs uppercase font-bold text-slate-500 mb-2">Pending Dues</p>
-            <p className="text-3xl font-bold text-warning">₹{finance.pending.toLocaleString()}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-warning">₹{finance.pending.toLocaleString()}</p>
           </div>
           <div className="px-4 pt-4 md:pt-0">
             <p className="text-xs uppercase font-bold text-slate-500 mb-2">Overdue Amount</p>
-            <p className="text-3xl font-bold text-danger">₹{finance.overdue.toLocaleString()}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-danger">₹{finance.overdue.toLocaleString()}</p>
           </div>
         </div>
       </div>
 
       {/* Quick actions */}
-      <div className="grid sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         <Link to="/tenants/add" className="card p-6 hover:border-brand-500 transition-all hover:-translate-y-1 duration-300 group">
           <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center text-2xl mb-4 group-hover:bg-brand-500/20 transition-colors">➕</div>
           <h3 className="font-bold text-white text-lg">Move In Tenant</h3>
@@ -356,7 +356,7 @@ const DashboardPage = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Recent activity */}
           {recent.length > 0 && (
-            <div className="card shadow-glass h-full">
+            <div className="card shadow-glass">
               <div className="flex items-center justify-between px-6 py-5 border-b border-surface-border">
                 <h2 className="text-lg font-bold text-white">Recent Active Tenants</h2>
                 <Link to="/tenants" className="text-brand-400 text-sm font-semibold hover:text-brand-300">View All Tenants →</Link>
@@ -386,14 +386,14 @@ const DashboardPage = () => {
 
           {/* Vacancy Tracker */}
           {vacantRooms.length > 0 && (
-            <div className="card shadow-glass h-full mt-6">
+            <div className="card shadow-glass mt-6">
               <div className="flex items-center justify-between px-6 py-5 border-b border-surface-border">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <span className="text-success">🟢</span> Vacancy Tracker
                 </h2>
                 <Link to="/rooms" className="text-brand-400 text-sm font-semibold hover:text-brand-300">Manage Rooms →</Link>
               </div>
-              <div className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {vacantRooms.slice(0, 6).map(r => (
                   <div key={r._id} className="p-4 rounded-xl border border-success/20 bg-success/5 flex flex-col items-center justify-center text-center">
                     <p className="font-bold text-white text-lg mb-1">Room {r.roomNumber}</p>
