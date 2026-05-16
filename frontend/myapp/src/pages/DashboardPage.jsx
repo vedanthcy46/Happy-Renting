@@ -108,7 +108,7 @@ const DashboardPage = () => {
   // ── 👤 SUPER ADMIN VIEW ──────────────────────────────────────────────────
   if (isSuperAdmin) {
     return (
-      <div className="space-y-8 animate-fade-in overflow-x-hidden">
+      <div className="space-y-8 animate-fade-in">
         <div>
           <h1 className="page-title">Admin Overview</h1>
           <p className="text-slate-400 text-sm mt-1">System-wide performance & owner management</p>
@@ -200,7 +200,7 @@ const DashboardPage = () => {
     }
 
     return (
-      <div className="max-w-4xl mx-auto animate-slide-up space-y-8 overflow-x-hidden">
+      <div className="max-w-4xl mx-auto animate-slide-up space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="page-title text-3xl">Hello, {user?.name.split(' ')[0]} 👋</h1>
           <StatusBadge status="active" />
@@ -299,7 +299,7 @@ const DashboardPage = () => {
 
   // ── 🏠 OWNER VIEW ────────────────────────────────────────────────────────
   return (
-    <div className="space-y-8 animate-fade-in overflow-x-hidden">
+    <div className="space-y-8 animate-fade-in">
       <div>
         <h1 className="page-title">Management Dashboard</h1>
         <p className="text-slate-400 text-sm mt-1">
