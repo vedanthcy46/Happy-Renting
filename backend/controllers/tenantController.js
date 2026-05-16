@@ -291,6 +291,18 @@ const addCoOccupants = async (req, res, next) => {
       req.user._id,
       req.user.role
     );
+    res.status(200).json({
+      success: true,
+      message: 'Co-occupants added successfully.',
+      coOccupants: result,
+    });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
 
 // ── PATCH /api/tenants/:id/co-occupants/:coId ────────────────────────────
 const updateCoOccupant = async (req, res, next) => {
