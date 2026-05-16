@@ -40,10 +40,13 @@ const tenantRoutes   = require('./routes/tenantRoutes');
 const paymentRoutes  = require('./routes/paymentRoutes');
 const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
+const healthRoutes    = require('./routes/healthRoutes');
+const { initKeepAlive } = require('./services/keepAliveService');
 
 // ── Connect to DB ──────────────────────────────────────────────────────────
 connectDB();
 startCronJobs();
+initKeepAlive();
 
 const app = express();
 
@@ -95,15 +98,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    status : 'ok',
-    service: 'HappyRent API',
-    server : SERVER_ID,
-    uptime : Math.floor(process.uptime()),
-    time   : new Date().toISOString(),
-  });
-});
+app.use('/health', healthRoutes);
 
 // ── 9. API Routes ──────────────────────────────────────────────────────────
 app.use('/api/auth',       authRoutes);
