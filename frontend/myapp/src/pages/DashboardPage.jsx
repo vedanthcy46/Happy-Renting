@@ -108,7 +108,7 @@ const DashboardPage = () => {
   // ── 👤 SUPER ADMIN VIEW ──────────────────────────────────────────────────
   if (isSuperAdmin) {
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 animate-fade-in overflow-x-hidden">
         <div>
           <h1 className="page-title">Admin Overview</h1>
           <p className="text-slate-400 text-sm mt-1">System-wide performance & owner management</p>
@@ -120,14 +120,14 @@ const DashboardPage = () => {
           <StatCard label="Total Tenants"    value={stats?.totalTenants}    icon="👥" color="bg-success" />
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 card">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 card min-w-0">
             <div className="px-6 py-4 border-b border-surface-border flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Owner → Property Mapping</h2>
               <Link to="/users" className="btn-ghost btn-sm text-brand-400">Manage Owners</Link>
             </div>
-            <div className="table-wrapper rounded-none border-none">
-              <table className="data-table">
+            <div className="table-wrapper rounded-none border-none overflow-x-auto">
+              <table className="data-table min-w-[700px]">
                 <thead>
                   <tr>
                     <th>Owner Name</th>
@@ -200,19 +200,19 @@ const DashboardPage = () => {
     }
 
     return (
-      <div className="max-w-4xl mx-auto animate-slide-up space-y-8">
-        <div className="flex items-center justify-between">
+      <div className="max-w-4xl mx-auto animate-slide-up space-y-8 overflow-x-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="page-title text-3xl">Hello, {user?.name.split(' ')[0]} 👋</h1>
           <StatusBadge status="active" />
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6 min-w-0">
             <div className="card p-8 bg-gradient-to-br from-surface-card to-brand-900/10">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                 <span className="text-brand-400">🏠</span> My Room Details
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 <div><p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Room</p><p className="text-xl text-white font-bold">{t.roomId?.roomNumber}</p></div>
                 <div><p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Floor</p><p className="text-xl text-white font-bold">{t.roomId?.floor || '—'}</p></div>
                 <div><p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Rent</p><p className="text-xl text-brand-400 font-bold">₹{t.roomId?.monthlyRent?.toLocaleString()}</p></div>
@@ -257,7 +257,7 @@ const DashboardPage = () => {
 
                    <div className="pt-4 border-t border-white/5">
                      <p className="text-slate-500 text-[10px] uppercase font-bold mb-1">Status</p>
-                     <div className="flex items-center justify-between">
+                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                        <StatusBadge status={currentPayment.status} />
                        <p className="text-2xl font-bold text-white">₹{currentPayment.amount?.toLocaleString()}</p>
                      </div>
@@ -299,7 +299,7 @@ const DashboardPage = () => {
 
   // ── 🏠 OWNER VIEW ────────────────────────────────────────────────────────
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in overflow-x-hidden">
       <div>
         <h1 className="page-title">Management Dashboard</h1>
         <p className="text-slate-400 text-sm mt-1">
