@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Shield, BarChart3, CreditCard, MessageSquare, ArrowRight, Sun, Moon } from 'lucide-react';
+import { Home, Shield, BarChart3, CreditCard, MessageSquare, ArrowRight} from 'lucide-react';
 // import { useTheme } from '../context/ThemeContext';
 
 const LandingPage = () => {
