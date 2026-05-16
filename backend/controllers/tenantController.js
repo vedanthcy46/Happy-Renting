@@ -350,9 +350,14 @@ const deleteCoOccupant = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
-    await co.deleteOne();
+    const tenantService = require('../services/tenantService');
+    await tenantService.deleteCoOccupant(id, coId, req.user._id, req.user.role);
+
     res.status(200).json({ success: true, message: 'Co-occupant deleted.' });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
     next(err);
   }
 };

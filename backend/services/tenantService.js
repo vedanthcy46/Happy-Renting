@@ -406,4 +406,65 @@ const addCoOccupants = async (tenantId, newOccupants, callerId, callerRole) => {
   }
 };
 
-module.exports = { moveIn, moveOut, addCoOccupants };
+const deleteCoOccupant = async (tenantId, coOccupantId, callerId, callerRole) => {
+  const tenant = await Tenant.findById(tenantId).select('status ownerId roomId userId');
+  if (!tenant) {
+    const err = new Error('Tenant record not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (tenant.status !== 'active') {
+    const err = new Error('Cannot remove co-occupants from a vacated tenancy.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (callerRole === 'tenant' && String(tenant.userId) !== String(callerId)) {
+    const err = new Error('Access denied. You can only remove your own co-occupants.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (callerRole === 'owner' && String(tenant.ownerId) !== String(callerId)) {
+    const err = new Error('Access denied.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const coOccupant = await CoOccupant.findOne({ _id: coOccupantId, tenantId }).session(session);
+      if (!coOccupant) {
+        const err = new Error('Co-occupant not found.');
+        err.statusCode = 404;
+        throw err;
+      }
+
+      const roomUpdate = await Room.findOneAndUpdate(
+        { _id: tenant.roomId, currentOccupancy: { $gte: 1 } },
+        { $inc: { currentOccupancy: -1 } },
+        { new: true, session }
+      );
+
+      if (!roomUpdate) {
+        logger.warn(
+          `[CO-OCCUPANT DELETE] Failed atomic decrement for room=${tenant.roomId}. ` +
+          'Setting occupancy to 0 to avoid negative counts.'
+        );
+        await Room.findByIdAndUpdate(tenant.roomId, { $set: { currentOccupancy: 0 } }, { session });
+      }
+
+      await CoOccupant.deleteOne({ _id: coOccupantId, tenantId }).session(session);
+    });
+
+    logger.info(`[CO-OCCUPANT DELETED] tenant=${tenantId} coOccupant=${coOccupantId} by=${callerId}`);
+    await logActivity(callerId, 'CO_OCCUPANT_REMOVED', tenantId, 'Tenant', `Removed co-occupant ${coOccupantId} from tenant ${tenantId}`);
+    return true;
+  } finally {
+    await session.endSession();
+  }
+};
+
+module.exports = { moveIn, moveOut, addCoOccupants, deleteCoOccupant };
