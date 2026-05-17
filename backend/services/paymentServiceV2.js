@@ -55,19 +55,30 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
     const [year, monthNum] = month.split('-').map(Number);
     const dueDate = new Date(year, monthNum - 1, dueDay);
 
-    rentRecord = await MonthlyRentRecord.create({
-      tenantId,
-      userId: tenant.userId,
-      roomId: tenant.roomId,
-      propertyId: tenant.propertyId,
-      ownerId: tenant.ownerId,
-      month,
-      totalRent,
-      dueDate,
-      notes: options.notes || 'System generated monthly rent record.',
-    });
+    try {
+      rentRecord = await MonthlyRentRecord.create({
+        tenantId,
+        userId: tenant.userId,
+        roomId: tenant.roomId,
+        propertyId: tenant.propertyId,
+        ownerId: tenant.ownerId,
+        month,
+        totalRent,
+        rentAmountAtGeneration: totalRent, // Snapshot
+        dueDate,
+        notes: options.notes || 'System generated monthly rent record.',
+      });
 
-    logger.info(`[RENT RECORD] Created rentRecordId=${rentRecord._id} for tenant=${tenantId} month=${month}`);
+      logger.info(`[RENT RECORD] Created rentRecordId=${rentRecord._id} for tenant=${tenantId} month=${month}`);
+    } catch (createErr) {
+      // Idempotency check: If two parallel requests try to create the same month record, E11000 fires
+      if (createErr.code === 11000) {
+        logger.warn(`[RENT RECORD] Duplicate creation attempt for tenant=${tenantId} month=${month}, fetching existing`);
+        rentRecord = await MonthlyRentRecord.findOne({ tenantId, month });
+      } else {
+        throw createErr;
+      }
+    }
   } else if (options.updateTotalRent && totalRent !== rentRecord.totalRent) {
     // Update total rent if provided (e.g., rent increase)
     rentRecord.totalRent = totalRent;
@@ -106,7 +117,8 @@ const addPaymentTransaction = async (params, caller) => {
     transactionId,
     paymentDate = new Date(),
     note,
-    proofImage
+    proofImage,
+    idempotencyKey
   } = params;
 
   // Validation
@@ -152,21 +164,32 @@ const addPaymentTransaction = async (params, caller) => {
     throw err;
   }
 
-  // Create transaction
-  const transaction = await PaymentTransaction.create({
-    rentRecordId,
-    tenantId,
-    ownerId: rentRecord.ownerId,
-    propertyId: rentRecord.propertyId,
-    amount,
-    paymentMethod,
-    transactionId: transactionId || null,
-    paymentDate,
-    note,
-    proofImage: proofImage || { secureUrl: null, publicId: null },
-    recordedBy: caller.id,
-    status: 'completed',
-  });
+  // Create transaction with idempotency protection
+  let transaction;
+  try {
+    transaction = await PaymentTransaction.create({
+      rentRecordId,
+      tenantId,
+      ownerId: rentRecord.ownerId,
+      propertyId: rentRecord.propertyId,
+      amount,
+      paymentMethod,
+      transactionId: transactionId || null,
+      paymentDate,
+      note,
+      proofImage: proofImage || { secureUrl: null, publicId: null },
+      recordedBy: caller.id,
+      status: 'completed',
+      idempotencyKey: idempotencyKey || null,
+    });
+  } catch (err) {
+    if (err.code === 11000 && err.keyPattern && err.keyPattern.idempotencyKey) {
+      const duplicateErr = new Error('Duplicate payment submission detected.');
+      duplicateErr.statusCode = 409; // Conflict
+      throw duplicateErr;
+    }
+    throw err;
+  }
 
   logger.info(`[TRANSACTION] Created txnId=${transaction._id} rentId=${rentRecordId} amount=₹${amount}`);
 

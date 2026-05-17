@@ -45,6 +45,11 @@ const monthlyRentRecordSchema = new mongoose.Schema(
       required: [true, 'Total rent is required'],
       min     : [0, 'Total rent cannot be negative'],
     },
+    // Snapshot of the rent amount at the exact time this record was generated
+    rentAmountAtGeneration: {
+      type    : Number,
+      required: [true, 'Snapshot of rent amount is required'],
+    },
     // How much has been paid (sum of all transactions)?
     // This is calculated, but stored for quick access
     totalPaid: {
@@ -99,9 +104,16 @@ const monthlyRentRecordSchema = new mongoose.Schema(
       default: 0,
       min    : [0, 'Advance balance cannot be negative'],
     },
+    // Controls how advance balance is treated in future months
+    advanceBalanceMode: {
+      type    : String,
+      enum    : ['auto_apply', 'manual_apply'],
+      default : 'auto_apply',
+    },
   },
   {
     timestamps: true,
+    optimisticConcurrency: true, // Enables __v checking on save()
     toJSON: {
       transform(_doc, ret) {
         delete ret.__v;

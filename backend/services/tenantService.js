@@ -27,11 +27,11 @@
  */
 
 const mongoose = require('mongoose');
-const Tenant   = require('../models/Tenant');
-const Room     = require('../models/Room');
-const User     = require('../models/User');
+const Tenant = require('../models/Tenant');
+const Room = require('../models/Room');
+const User = require('../models/User');
 const emailService = require('./emailService');
-const logger   = require('../config/logger');
+const logger = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
 
 const CoOccupant = require('../models/CoOccupant');
@@ -55,9 +55,9 @@ const Property = require('../models/Property');
  * @returns {Tenant} the created tenant (populated)
  */
 const moveIn = async (params, performedBy) => {
-  const { 
-    userId, roomId, propertyId, ownerId, joinDate, advancePaid, securityDeposit, notes, 
-    phone, idProof, coOccupants = [] 
+  const {
+    userId, roomId, propertyId, ownerId, joinDate, advancePaid, securityDeposit, notes,
+    phone, idProof, coOccupants = []
   } = params;
 
   // ── Pre-transaction checks ──
@@ -131,9 +131,9 @@ const moveIn = async (params, performedBy) => {
       // 3) Atomic capacity check + increment by totalOccupantsToAdd
       const updatedRoom = await Room.findOneAndUpdate(
         {
-          _id             : roomId,
+          _id: roomId,
           ownerId,
-          isActive        : true,
+          isActive: true,
           currentOccupancy: { $lte: room.capacity - totalOccupantsToAdd },
         },
         { $inc: { currentOccupancy: totalOccupantsToAdd } },
@@ -173,9 +173,9 @@ const moveIn = async (params, performedBy) => {
         const coOccupantDocs = coOccupants.map(co => ({
           tenantId: tenant._id,
           ownerId,
-          name    : co.name,
-          phone   : co.phone || '',
-          idProof : co.idProof || '',
+          name: co.name,
+          phone: co.phone || '',
+          idProof: co.idProof || '',
         }));
         await CoOccupant.create(coOccupantDocs, { session, ordered: true });
       }
@@ -183,8 +183,8 @@ const moveIn = async (params, performedBy) => {
 
     // Populate outside transaction
     await tenant.populate([
-      { path: 'userId',     select: 'name email' },
-      { path: 'roomId',     select: 'roomNumber floor monthlyRent currentOccupancy capacity' },
+      { path: 'userId', select: 'name email' },
+      { path: 'roomId', select: 'roomNumber floor monthlyRent currentOccupancy capacity' },
       { path: 'propertyId', select: 'name address' },
     ]);
 
@@ -202,14 +202,14 @@ const moveIn = async (params, performedBy) => {
         User.findById(tenant.ownerId),
         Property.findById(tenant.propertyId)
       ]);
-      
+
       if (owner && property) {
         // tempPassword should be passed in params or retrieved
         await emailService.sendTenantWelcome(
-          tenant.userId, 
-          params.tempPassword || '********', 
-          property, 
-          tenant.roomId, 
+          tenant.userId,
+          params.tempPassword || '********',
+          property,
+          tenant.roomId,
           owner.name,
           user.emailVerificationToken
         );
@@ -277,8 +277,8 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
         { _id: tenantId, status: 'active' },
         {
           $set: {
-            status   : 'vacated',
-            exitDate : exit,
+            status: 'vacated',
+            exitDate: exit,
             vacatedBy: callerId,
             ...(notes ? { notes } : {}),
           },
@@ -298,8 +298,8 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
       // 3) Decrement room occupancy by totalOccupantsToRemove
       const roomUpdate = await Room.findOneAndUpdate(
         {
-          _id             : tenant.roomId,
-          ownerId         : tenant.ownerId,
+          _id: tenant.roomId,
+          ownerId: tenant.ownerId,
           currentOccupancy: { $gte: totalOccupantsToRemove },
         },
         { $inc: { currentOccupancy: -totalOccupantsToRemove } },
@@ -374,9 +374,9 @@ const addCoOccupants = async (tenantId, newOccupants, callerId, callerRole) => {
     await session.withTransaction(async () => {
       // 1. Increment room occupancy
       const updatedRoom = await Room.findOneAndUpdate(
-        { 
-          _id: tenant.roomId, 
-          currentOccupancy: { $lte: room.capacity - totalToAdd } 
+        {
+          _id: tenant.roomId,
+          currentOccupancy: { $lte: room.capacity - totalToAdd }
         },
         { $inc: { currentOccupancy: totalToAdd } },
         { new: true, session }

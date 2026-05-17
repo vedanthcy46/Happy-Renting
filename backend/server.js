@@ -40,8 +40,8 @@ const tenantRoutes   = require('./routes/tenantRoutes');
 const paymentRoutes  = require('./routes/paymentRoutes');
 const paymentRoutesV2 = require('./routes/paymentRoutesV2');
 const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
-const complaintRoutes = require('./routes/complaintRoutes');
 const healthRoutes    = require('./routes/healthRoutes');
+const systemRoutes    = require('./routes/systemRoutes');
 const { initKeepAlive } = require('./services/keepAliveService');
 
 // ── Connect to DB ──────────────────────────────────────────────────────────
@@ -109,8 +109,8 @@ app.use('/api/rooms',      roomRoutes);
 app.use('/api/tenants',    tenantRoutes);
 app.use('/api/payments',   paymentRoutes);
 app.use('/api/v2/payments',   paymentRoutesV2); // New ledger-based system
-app.use('/api/owner-requests', ownerRequestRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/system', systemRoutes);
 
 // ── 10. 404 + Global error handler ────────────────────────────────────────
 app.use(notFound);

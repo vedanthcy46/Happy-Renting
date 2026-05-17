@@ -12,6 +12,7 @@ const MyRoomPage = () => {
   const [loading, setLoading] = useState(true);
   const [showAddRoommate, setShowAddRoommate] = useState(false);
   const [roommateData, setRoommateData] = useState({ name: '', phone: '', idProof: '' });
+  const [editRoommateId, setEditRoommateId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchMyRoom = useCallback(async () => {
@@ -19,10 +20,10 @@ const MyRoomPage = () => {
       setLoading(true);
       const [roomRes, payRes] = await Promise.all([
         api.get('/tenants/my'),
-        api.get('/payments') // fetches tenant's own payments due to backend isolation
+        api.get('/v2/payments') // fetches tenant's own rent records
       ]);
       setTenancy(roomRes.data.tenant);
-      setPayments(payRes.data.payments || []);
+      setPayments(payRes.data.rentRecords || []);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -36,16 +37,41 @@ const MyRoomPage = () => {
     
     setSubmitting(true);
     try {
-      await api.post(`/tenants/${tenancy._id}/co-occupants`, { coOccupants: [roommateData] });
-      toast.success('Roommate added successfully!');
+      if (editRoommateId) {
+        await api.patch(`/tenants/${tenancy._id}/co-occupants/${editRoommateId}`, roommateData);
+        toast.success('Roommate updated successfully!');
+      } else {
+        await api.post(`/tenants/${tenancy._id}/co-occupants`, { coOccupants: [roommateData] });
+        toast.success('Roommate added successfully!');
+      }
       setShowAddRoommate(false);
+      setEditRoommateId(null);
       setRoommateData({ name: '', phone: '', idProof: '' });
       fetchMyRoom(); // Refresh data
     } catch (err) {
-      toast.error(err.message || 'Failed to add roommate.');
+      toast.error(err.message || 'Failed to save roommate.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDeleteRoommate = async (coId) => {
+    if (!window.confirm("Are you sure you want to remove this roommate?")) return;
+    try {
+      setLoading(true);
+      await api.delete(`/tenants/${tenancy._id}/co-occupants/${coId}`);
+      toast.success('Roommate removed successfully!');
+      fetchMyRoom();
+    } catch (err) {
+      toast.error(err.message || 'Failed to remove roommate.');
+      setLoading(false);
+    }
+  };
+
+  const openEditRoommate = (co) => {
+    setEditRoommateId(co._id);
+    setRoommateData({ name: co.name || '', phone: co.phone || '', idProof: co.idProof || '' });
+    setShowAddRoommate(true);
   };
 
   useEffect(() => { fetchMyRoom(); }, [fetchMyRoom]);
@@ -219,15 +245,25 @@ const MyRoomPage = () => {
         </div>
         {tenancy.coOccupants && tenancy.coOccupants.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {tenancy.coOccupants.map((co, idx) => (
-              <div key={idx} className="p-3 rounded-xl bg-surface border border-surface-border">
-                <p className="text-sm font-bold text-white">{co.name}</p>
-                {co.phone && <p className="text-xs text-slate-500 font-mono mt-0.5">{co.phone}</p>}
-                {co.idProof && (
-                  <div className="mt-2 pt-2 border-t border-surface-border">
-                    <span className="text-[10px] text-slate-400 uppercase">ID Proof provided</span>
-                  </div>
-                )}
+            {tenancy.coOccupants.map((co) => (
+              <div key={co._id} className="p-3 rounded-xl bg-surface border border-surface-border relative group">
+                <div className="pr-12">
+                  <p className="text-sm font-bold text-white truncate">{co.name}</p>
+                  {co.phone && <p className="text-xs text-slate-500 font-mono mt-0.5">{co.phone}</p>}
+                  {co.idProof && (
+                    <div className="mt-2 pt-2 border-t border-surface-border">
+                      <span className="text-[10px] text-slate-400 uppercase">ID Proof provided</span>
+                    </div>
+                  )}
+                </div>
+                <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openEditRoommate(co)} className="text-brand-400 hover:text-brand-300" title="Edit">
+                    ✏️
+                  </button>
+                  <button onClick={() => handleDeleteRoommate(co._id)} className="text-danger hover:text-red-400" title="Delete">
+                    🗑️
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -254,12 +290,12 @@ const MyRoomPage = () => {
                   {pay.status === 'paid' ? '✓' : pay.status === 'pending' ? '⏳' : '!'}
                 </div>
                 
-                {/* Card */}
                 <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-surface-border bg-surface-card shadow-sm transition-all hover:shadow-glow hover:border-brand-500/30">
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-bold text-white text-lg">{pay.month}</span>
                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border
                       ${pay.status === 'paid' ? 'bg-success/10 text-success border-success/20' : 
+                        pay.status === 'partial' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
                         pay.status === 'pending' ? 'bg-warning/10 text-warning border-warning/20' : 
                         pay.status === 'overdue' ? 'bg-danger/10 text-danger border-danger/20' : 
                         'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
@@ -267,31 +303,29 @@ const MyRoomPage = () => {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Amount:</span>
-                    <span className="text-brand-400 font-bold">₹{pay.amount.toLocaleString()}</span>
+                    <span className="text-slate-400">Total Rent:</span>
+                    <span className="text-white font-bold">₹{pay.totalRent.toLocaleString()}</span>
                   </div>
-                  {pay.paidDate && (
-                    <div className="flex items-center justify-between text-xs mt-2 pt-2 border-t border-surface-border">
-                      <span className="text-slate-500">Paid On:</span>
-                      <span className="text-slate-300">{new Date(pay.paidDate).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                  {pay.method && (
-                    <div className="flex items-center justify-between text-xs mt-1">
-                      <span className="text-slate-500">Method:</span>
-                      <span className="text-slate-300 uppercase">{pay.method.replace('_', ' ')}</span>
-                    </div>
-                  )}
-                  {(pay.status === 'pending' || pay.status === 'overdue' || pay.status === 'failed') && (
+                  <div className="flex items-center justify-between text-sm mt-1">
+                    <span className="text-slate-400">Paid:</span>
+                    <span className="text-green-400 font-bold">₹{pay.totalPaid.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mt-1 pt-1 border-t border-surface-border">
+                    <span className="text-slate-300">Remaining:</span>
+                    <span className="text-brand-400 font-bold">₹{pay.remainingAmount.toLocaleString()}</span>
+                  </div>
+                  {(pay.remainingAmount > 0) && (
                     <div className="mt-4 pt-3 border-t border-surface-border">
                       <Link to={`/tenant/pay/${pay._id}`} className="btn-primary w-full text-xs py-2 justify-center shadow-glow">
-                        Pay Now
+                        View / Pay
                       </Link>
                     </div>
                   )}
-                  {pay.status === 'verification_pending' && (
-                    <div className="mt-4 pt-3 border-t border-surface-border text-center">
-                      <span className="text-[10px] text-brand-400 font-bold uppercase tracking-widest">Verifying Proof...</span>
+                  {pay.status === 'paid' && (
+                    <div className="mt-4 pt-3 border-t border-surface-border">
+                      <Link to={`/tenant/pay/${pay._id}`} className="text-brand-400 hover:text-brand-300 text-xs font-bold underline text-center block">
+                        View Ledger & Receipts
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -314,11 +348,13 @@ const MyRoomPage = () => {
         </p>
       </div>
 
-      <Modal isOpen={showAddRoommate} onClose={() => setShowAddRoommate(false)} title="Add Roommate / Member" size="md">
+      <Modal isOpen={showAddRoommate} onClose={() => { setShowAddRoommate(false); setEditRoommateId(null); setRoommateData({ name: '', phone: '', idProof: '' }); }} title={editRoommateId ? "Edit Roommate" : "Add Roommate / Member"} size="md">
         <form onSubmit={handleAddRoommate} className="space-y-4">
-          <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-lg text-xs text-brand-300 mb-2">
-            Remaining Capacity: <strong>{room.capacity - room.currentOccupancy} person(s)</strong>
-          </div>
+          {!editRoommateId && (
+            <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-lg text-xs text-brand-300 mb-2">
+              Remaining Capacity: <strong>{room.capacity - room.currentOccupancy} person(s)</strong>
+            </div>
+          )}
           <div>
             <label className="form-label">Full Name *</label>
             <input 
@@ -353,7 +389,7 @@ const MyRoomPage = () => {
           <div className="flex gap-4 pt-4">
             <button type="button" onClick={() => setShowAddRoommate(false)} className="btn-secondary flex-1 justify-center">Cancel</button>
             <button type="submit" disabled={submitting} className="btn-primary flex-1 justify-center">
-              {submitting ? 'Adding...' : 'Add Roommate'}
+              {submitting ? 'Saving...' : (editRoommateId ? 'Update Roommate' : 'Add Roommate')}
             </button>
           </div>
         </form>

@@ -70,11 +70,14 @@ const tenantSchema = new mongoose.Schema(
       trim     : true,
       maxlength: [500, 'Notes cannot exceed 500 characters'],
     },
-    // Track who performed the move-out
     vacatedBy: {
       type   : mongoose.Schema.Types.ObjectId,
       ref    : 'User',
       default: null,
+    },
+    privacyDataPurged: {
+      type   : Boolean,
+      default: false,
     },
   },
   {
@@ -95,6 +98,7 @@ tenantSchema.virtual('coOccupants', {
   ref: 'CoOccupant',
   localField: '_id',
   foreignField: 'tenantId',
+  match: { status: 'active' }
 });
 
 // ── Business rule: a user can only be an active tenant once ────────────────

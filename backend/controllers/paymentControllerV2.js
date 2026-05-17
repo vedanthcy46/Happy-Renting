@@ -14,6 +14,7 @@ const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const Tenant = require('../models/Tenant');
 const logger = require('../config/logger');
+const { Transform } = require('stream');
 
 // ─────────────────────────────────────────────────────────────────────────
 // VALIDATION CHAINS
@@ -194,7 +195,7 @@ const updateRentRecord = async (req, res, next) => {
 
 const addPaymentTransaction = async (req, res, next) => {
   try {
-    const { rentRecordId, tenantId, amount, paymentMethod, paymentDate, note, transactionId } = req.body;
+    const { rentRecordId, tenantId, amount, paymentMethod, paymentDate, note, transactionId, idempotencyKey } = req.body;
 
     // Ensure rent record exists
     let rentRecord = await MonthlyRentRecord.findById(rentRecordId);
@@ -207,6 +208,14 @@ const addPaymentTransaction = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
+    let proofImage = null;
+    if (req.file) {
+      proofImage = {
+        secureUrl: req.file.path,
+        publicId: req.file.filename,
+      };
+    }
+
     // Add transaction
     const transaction = await paymentServiceV2.addPaymentTransaction(
       {
@@ -217,6 +226,8 @@ const addPaymentTransaction = async (req, res, next) => {
         paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
         note,
         transactionId,
+        proofImage,
+        idempotencyKey,
       },
       { id: req.user._id, role: req.user.role }
     );
@@ -340,6 +351,81 @@ const getTransactionHistory = async (req, res, next) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// GET: Export Transactions as CSV (Memory-Safe Stream)
+// ─────────────────────────────────────────────────────────────────────────
+const exportTransactionsCSV = async (req, res, next) => {
+  try {
+    const { month, year } = req.query; // optional filtering
+    const filters = {};
+
+    // Enforce role isolation
+    if (req.user.role === 'owner') {
+      filters.ownerId = req.user._id;
+    } else if (req.user.role === 'tenant') {
+      filters.tenantId = req.user._id;
+    }
+
+    if (month && year) {
+      // Create date range for the specified month
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0, 23, 59, 59, 999);
+      filters.paymentDate = { $gte: start, $lte: end };
+    }
+
+    // Set HTTP headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="transactions_export_${Date.now()}.csv"`);
+
+    // Create a custom Transform stream to convert JSON to CSV
+    const csvTransform = new Transform({
+      objectMode: true,
+      transform(doc, encoding, callback) {
+        if (!this.headerWritten) {
+          this.push('Transaction ID,Date,Amount,Method,Status,Note\n');
+          this.headerWritten = true;
+        }
+
+        // Properly escape strings for CSV (wrap in quotes if contains comma)
+        const escapeCSV = (str) => {
+          if (!str) return '';
+          const s = String(str).replace(/"/g, '""');
+          return `"${s}"`;
+        };
+
+        const dateStr = doc.paymentDate ? new Date(doc.paymentDate).toISOString().split('T')[0] : '';
+        const row = [
+          escapeCSV(doc._id.toString()),
+          escapeCSV(dateStr),
+          doc.amount,
+          escapeCSV(doc.paymentMethod),
+          escapeCSV(doc.status),
+          escapeCSV(doc.note)
+        ].join(',');
+
+        this.push(row + '\n');
+        callback();
+      }
+    });
+
+    // Mongoose cursor stream directly piped to response
+    PaymentTransaction.find(filters)
+      .sort({ paymentDate: -1 })
+      .lean()
+      .cursor()
+      .pipe(csvTransform)
+      .on('error', (err) => {
+        logger.error(`[CSV STREAM ERROR] ${err.message}`);
+        // Cannot send 500 cleanly if headers are already sent, but we can end the stream
+        res.end();
+      })
+      .pipe(res);
+
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   // Validations
   rentRecordValidation,
@@ -353,4 +439,5 @@ module.exports = {
   reversePaymentTransaction,
   getPaymentSummary,
   getTransactionHistory,
+  exportTransactionsCSV,
 };

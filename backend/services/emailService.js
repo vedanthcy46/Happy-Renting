@@ -9,8 +9,11 @@ const logger      = require('../config/logger');
  * Centralized service for sending automated email notifications via Resend API.
  */
 
+const NotificationQueue = require('../models/NotificationQueue');
+
 const WEBSITE_URL = (process.env.CLIENT_URL || 'https://happyrenting.netlify.app').replace(/\/$/, '');
 
+// ── Immediate Email Sending (For Auth/Critical) ─────────────────────────────
 const sendEmail = async (to, subject, html) => {
   try {
     if (!to) {
@@ -18,7 +21,6 @@ const sendEmail = async (to, subject, html) => {
       return;
     }
 
-    // Production-ready: Use the verified domain email address
     const fromAddress = process.env.RESEND_FROM_EMAIL || 'support@happyrenting.co.in';
     const replyToAddress = process.env.ADMIN_EMAIL || 'vedanthh46@gmail.com';
 
@@ -38,6 +40,25 @@ const sendEmail = async (to, subject, html) => {
     logger.info(`[EMAIL SENT] to=${to} subject="${subject}" id=${data.id}`);
   } catch (err) {
     logger.error(`[EMAIL ERROR] failed to send to=${to}: ${err.message}`);
+  }
+};
+
+// ── Queued Email Sending (For Reminders/Receipts) ───────────────────────────
+const queueEmail = async (to, subject, html, type = 'alert') => {
+  try {
+    if (!to) {
+      logger.warn(`[QUEUE SKIP] No recipient address provided for subject: ${subject}`);
+      return;
+    }
+    await NotificationQueue.create({
+      to,
+      subject,
+      body: html,
+      type
+    });
+    logger.info(`[QUEUE ADDED] to=${to} subject="${subject}"`);
+  } catch (err) {
+    logger.error(`[QUEUE ERROR] failed to enqueue email to=${to}: ${err.message}`);
   }
 };
 
@@ -99,7 +120,7 @@ const sendComplaintResolvedNotification = async (tenantUser, complaint, property
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'alert');
 };
 
 // ── 1. Complaint Raised (To Owner) ───────────────────────────────────────────
@@ -121,7 +142,7 @@ const sendComplaintNotification = async (owner, tenant, complaint, property, roo
       ${getFooter()}
     </div>
   `;
-  await sendEmail(owner.email, subject, html);
+  await queueEmail(owner.email, subject, html, 'alert');
 };
 
 // ── 2. Payment Proof Uploaded (To Owner) ─────────────────────────────────────
@@ -142,7 +163,7 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
       ${getFooter()}
     </div>
   `;
-  await sendEmail(owner.email, subject, html);
+  await queueEmail(owner.email, subject, html, 'receipt');
 };
 
 // ── 3. Payment Verified (To Tenant) ──────────────────────────────────────────
@@ -170,7 +191,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'alert');
 };
 
 // ── 4. Rent Due Reminder (To Tenant) ─────────────────────────────────────────
@@ -191,7 +212,7 @@ const sendRentDueReminder = async (tenantUser, payment, property, room, owner) =
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'reminder');
 };
 
 // ── 5. Overdue Alert (To Tenant) ─────────────────────────────────────────────
@@ -211,7 +232,7 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'alert');
 };
 
 // ── 6. Password Change Notification ──────────────────────────────────────────
@@ -268,7 +289,7 @@ const sendRequestUnderReview = async (request) => {
       ${getFooter()}
     </div>
   `;
-  await sendEmail(request.email, subject, html);
+  await queueEmail(request.email, subject, html, 'alert');
 };
 
 // ── 9. Owner Request Approved ───────────────────────────────────────────────
@@ -307,7 +328,7 @@ const sendRequestRejected = async (request, reason) => {
       ${getFooter()}
     </div>
   `;
-  await sendEmail(request.email, subject, html);
+  await queueEmail(request.email, subject, html, 'alert');
 };
 
 // ── 11. Admin Notification: New Request ────────────────────────────────────
@@ -329,7 +350,7 @@ const sendAdminNewRequestAlert = async (request) => {
       ${getFooter()}
     </div>
   `;
-  await sendEmail(adminEmail, subject, html);
+  await queueEmail(adminEmail, subject, html, 'alert');
 };
 
 // ── 12. Tenant Onboarding ───────────────────────────────────────────────────
@@ -441,7 +462,7 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'receipt');
 };
 
 module.exports = {
@@ -461,3 +482,34 @@ module.exports = {
   sendVerificationEmail,
   sendPaymentTransactionNotification,
 };
+
+// ── Background Queue Processor ──────────────────────────────────────────────
+const processNotificationQueue = async () => {
+  try {
+    const pendingNotifications = await NotificationQueue.find({
+      status: { $in: ['pending', 'failed'] },
+      retryCount: { $lt: 3 } // Give up after 3 tries
+    }).sort({ createdAt: 1 }).limit(20);
+
+    if (pendingNotifications.length === 0) return;
+
+    logger.info(`[QUEUE] Processing ${pendingNotifications.length} emails...`);
+
+    for (const notification of pendingNotifications) {
+      try {
+        await sendEmail(notification.to, notification.subject, notification.body);
+        notification.status = 'sent';
+        await notification.save();
+      } catch (err) {
+        notification.retryCount += 1;
+        notification.status = 'failed';
+        notification.errorLog = err.message;
+        await notification.save();
+      }
+    }
+  } catch (err) {
+    logger.error(`[QUEUE PROCESSOR ERROR] ${err.message}`);
+  }
+};
+
+module.exports.processNotificationQueue = processNotificationQueue;

@@ -30,6 +30,11 @@ const coOccupantSchema = new mongoose.Schema(
       trim     : true,
       default  : '',
     },
+    status: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active'
+    }
   },
   {
     timestamps: true,

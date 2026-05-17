@@ -16,11 +16,15 @@ const {
   reversePaymentTransaction,
   getPaymentSummary,
   getTransactionHistory,
+  exportTransactionsCSV,
   rentRecordValidation,
   transactionValidation,
 } = require('../controllers/paymentControllerV2');
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const { createUploadMiddleware } = require('../middleware/uploadMiddleware');
+
+const upload = createUploadMiddleware('payment_proofs');
 
 router.use(authenticate);
 
@@ -66,14 +70,15 @@ router.patch(
 router.post(
   '/:rentRecordId/transactions',
   authorize('superadmin', 'owner', 'tenant'),
+  upload.single('image'),
   transactionValidation,
   validate,
   addPaymentTransaction
 );
 
 // Reverse a payment transaction
-router.delete(
-  '/transactions/:transactionId',
+router.post(
+  '/transactions/:transactionId/reverse',
   authorize('superadmin', 'owner'),
   reversePaymentTransaction
 );
@@ -94,6 +99,13 @@ router.get(
   '/history/transactions',
   authorize('superadmin', 'owner', 'tenant'),
   getTransactionHistory
+);
+
+// Export transactions as CSV stream
+router.get(
+  '/export/csv',
+  authorize('superadmin', 'owner'),
+  exportTransactionsCSV
 );
 
 module.exports = router;

@@ -44,12 +44,11 @@ const DashboardPage = () => {
       if (isTenant) {
         const [tenantRes, payRes] = await Promise.all([
           api.get('/tenants/my'),
-          api.get('/payments?limit=1') // Get latest payment
+          api.get('/v2/payments') // Get latest rent records
         ]);
         setStats({ tenancy: tenantRes.data.tenant });
-        // The backend returns payments sorted by month desc
-        if (payRes.data.payments?.length > 0) {
-          setCurrentPayment(payRes.data.payments[0]);
+        if (payRes.data.rentRecords?.length > 0) {
+          setCurrentPayment(payRes.data.rentRecords[0]);
         }
       } else if (isSuperAdmin) {
         const [statsRes, mappingRes, logsRes] = await Promise.all([
@@ -65,26 +64,27 @@ const DashboardPage = () => {
         const [roomsRes, tenantsRes, paymentsRes, summaryRes] = await Promise.all([
           api.get('/rooms'),
           api.get('/tenants?status=active'),
-          api.get('/payments?status=pending'),
-          api.get('/payments/summary'),
+          api.get('/v2/payments?status=pending'),
+          api.get('/v2/payments/summary/metrics'),
         ]);
         const rooms    = roomsRes.data.rooms;
         const tenants  = tenantsRes.data.tenants;
-        const payments = paymentsRes.data.payments;
+        const payments = paymentsRes.data.rentRecords || [];
         setStats({
           totalRooms    : rooms.length,
           fullRooms     : rooms.filter(r => r.isFull).length,
           activeTenants : tenants.length,
-          pendingPayments: payments.length,
+          pendingPayments: summaryRes.data.metrics?.pendingCount || 0,
         });
         setRecent(tenants.slice(0, 5));
         setVacantRooms(rooms.filter(r => !r.isFull));
         
-        const sumData = summaryRes.data.summary || [];
-        const paidAmount = sumData.find(s => s._id === 'paid')?.totalAmount || 0;
-        const pendAmount = sumData.find(s => s._id === 'pending')?.totalAmount || 0;
-        const overAmount = sumData.find(s => s._id === 'overdue')?.totalAmount || 0;
-        setFinance({ income: paidAmount, pending: pendAmount, overdue: overAmount });
+        const metrics = summaryRes.data.metrics || {};
+        setFinance({ 
+          income: metrics.totalCollected || 0, 
+          pending: metrics.totalOutstanding || 0, // In V2, outstanding includes partials
+          overdue: 0 // We don't have separate overdue amount natively, but we can compute or omit. We'll use 0 or update backend. Let's just use pending.
+        });
       }
     } catch (err) {
       toast.error(err.message);
@@ -259,23 +259,21 @@ const DashboardPage = () => {
                      <p className="text-slate-500 text-[10px] uppercase font-bold mb-1">Status</p>
                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                        <StatusBadge status={currentPayment.status} />
-                       <p className="text-2xl font-bold text-white">₹{currentPayment.amount?.toLocaleString()}</p>
+                       <div className="text-right">
+                         <p className="text-2xl font-bold text-white">₹{currentPayment.remainingAmount?.toLocaleString()}</p>
+                         <p className="text-[10px] text-slate-400">Remaining</p>
+                       </div>
                      </div>
                    </div>
 
-                   {(currentPayment.status === 'pending' || currentPayment.status === 'overdue' || currentPayment.status === 'failed') ? (
+                   {(currentPayment.remainingAmount > 0) ? (
                      <Link to={`/tenant/pay/${currentPayment._id}`} className="btn-primary w-full mt-4 py-3 justify-center shadow-glow">
                        Pay Now
                      </Link>
-                   ) : currentPayment.status === 'verification_pending' ? (
-                     <div className="mt-4 p-3 rounded-lg bg-brand-500/10 border border-brand-500/20 text-center">
-                       <p className="text-xs text-brand-400 font-bold uppercase tracking-widest animate-pulse">Under Verification</p>
-                       <p className="text-[10px] text-slate-400 mt-1 text-balance">Owner is reviewing your proof.</p>
-                     </div>
                    ) : (
                      <div className="mt-4 p-3 rounded-lg bg-success/10 border border-success/20 text-center">
-                       <p className="text-xs text-success font-bold uppercase tracking-widest">Paid & Verified</p>
-                       <p className="text-[10px] text-slate-400 mt-1">Next bill will be generated soon.</p>
+                       <p className="text-xs text-success font-bold uppercase tracking-widest">Fully Paid</p>
+                       <p className="text-[10px] text-slate-400 mt-1">Thank you for timely payment.</p>
                      </div>
                    )}
                  </div>
@@ -352,8 +350,8 @@ const DashboardPage = () => {
         </Link>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Recent activity */}
           {recent.length > 0 && (
             <div className="card shadow-glass">
