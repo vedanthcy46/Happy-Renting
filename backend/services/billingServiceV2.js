@@ -273,6 +273,24 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
           totalDue: { $sum: '$totalRent' },
           totalCollected: { $sum: '$totalPaid' },
           totalOutstanding: { $sum: '$remainingAmount' },
+          totalPending: {
+            $sum: {
+              $cond: [
+                { $in: ['$status', ['pending', 'partial']] },
+                '$remainingAmount',
+                0
+              ]
+            }
+          },
+          totalOverdue: {
+            $sum: {
+              $cond: [
+                { $eq: ['$status', 'overdue'] },
+                '$remainingAmount',
+                0
+              ]
+            }
+          },
           paidCount: {
             $sum: { $cond: [{ $eq: ['$status', 'paid'] }, 1, 0] }
           },
@@ -293,6 +311,8 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
       totalDue: 0,
       totalCollected: 0,
       totalOutstanding: 0,
+      totalPending: 0,
+      totalOverdue: 0,
       paidCount: 0,
       partialCount: 0,
       pendingCount: 0,

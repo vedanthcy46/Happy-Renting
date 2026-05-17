@@ -64,7 +64,6 @@ const DashboardPage = () => {
         const [roomsRes, tenantsRes, summaryRes] = await Promise.all([
           api.get('/rooms'),
           api.get('/tenants?status=active'),
-          api.get('/v2/payments?status=pending'),
           api.get('/v2/payments/summary/metrics'),
         ]);
         const rooms = roomsRes.data.rooms;
@@ -81,8 +80,8 @@ const DashboardPage = () => {
         const metrics = summaryRes.data.metrics || {};
         setFinance({
           income: metrics.totalCollected || 0,
-          pending: metrics.totalOutstanding || 0, // In V2, outstanding includes partials
-          overdue: 0 // We don't have separate overdue amount natively, but we can compute or omit. We'll use 0 or update backend. Let's just use pending.
+          pending: metrics.totalPending || metrics.totalOutstanding || 0,
+          overdue: metrics.totalOverdue || 0,
         });
       }
     } catch (err) {
