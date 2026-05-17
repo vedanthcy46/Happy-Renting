@@ -567,20 +567,6 @@ const calculateStatus = (totalRent, totalPaid, dueDate) => {
   return 'pending';
 };
 
-module.exports = {
-  ensureMonthlyRentRecord,
-  addPaymentTransaction,
-  getMonthlyRentRecordWithTransactions,
-  getRentRecordsByOwner,
-  getRentRecordsByTenant,
-  updateMonthlyRentRecord,
-  reverseTransaction,
-  calculateStatus,
-  applyAdvanceBalance,
-  verifyTransaction,
-  rejectTransaction,
-};
-
 /**
  * verifyTransaction(transactionId, caller)
  * Marks a 'verifying' transaction as 'completed' and credits it to the MonthlyRentRecord
@@ -680,4 +666,18 @@ const rejectTransaction = async (transactionId, reason, caller) => {
   }
 
   return transaction;
+};
+
+module.exports = {
+  ensureMonthlyRentRecord,
+  addPaymentTransaction,
+  getMonthlyRentRecordWithTransactions,
+  getRentRecordsByOwner,
+  getRentRecordsByTenant,
+  updateMonthlyRentRecord,
+  reverseTransaction,
+  calculateStatus,
+  applyAdvanceBalance,
+  verifyTransaction,
+  rejectTransaction,
 };
