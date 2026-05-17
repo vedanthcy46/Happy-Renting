@@ -16,7 +16,7 @@ const TenantPaymentPage = () => {
   
   const [form, setForm] = useState({
     amount: '',
-    paymentMethod: 'online',
+    paymentMethod: 'bank_transfer',
     transactionId: '',
     note: ''
   });
@@ -195,7 +195,7 @@ const TenantPaymentPage = () => {
                     <label className="form-label">Payment Method</label>
                     <select className="form-select" value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}>
                       <option value="upi">UPI</option>
-                      <option value="online">Online Transfer</option>
+                      <option value="bank_transfer">Online Transfer</option>
                       <option value="cash">Cash</option>
                       <option value="cheque">Cheque</option>
                     </select>

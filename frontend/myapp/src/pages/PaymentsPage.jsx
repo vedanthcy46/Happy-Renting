@@ -18,8 +18,9 @@ const PaymentsPage = () => {
   // Add Transaction Modal State
   const [showAddTxn, setShowAddTxn] = useState(false);
   const [selectedRecordForTxn, setSelectedRecordForTxn] = useState(null);
+  const [proofFile, setProofFile] = useState(null);
   const [txnForm, setTxnForm] = useState({
-    amount: '', method: 'cash', note: '', paymentDate: new Date().toISOString().split('T')[0], transactionId: ''
+    amount: '', method: 'cash', transactionType: 'cash', note: '', paymentDate: new Date().toISOString().split('T')[0], transactionId: ''
   });
 
   // Transaction History Modal State
@@ -48,10 +49,12 @@ const PaymentsPage = () => {
     setTxnForm({
       amount: record.remainingAmount.toString(),
       method: 'cash',
+      transactionType: 'cash',
       note: '',
       paymentDate: new Date().toISOString().split('T')[0],
       transactionId: ''
     });
+    setProofFile(null);
     setShowAddTxn(true);
   };
 
@@ -63,15 +66,26 @@ const PaymentsPage = () => {
     }
     setSubmitting(true);
     try {
-      await api.post(`/v2/payments/${selectedRecordForTxn._id}/transactions`, {
-        ...txnForm,
-        amount: Number(txnForm.amount)
+      const formData = new FormData();
+      formData.append('amount', Number(txnForm.amount));
+      formData.append('paymentMethod', txnForm.method);
+      formData.append('transactionType', txnForm.transactionType || txnForm.method);
+      formData.append('paymentDate', txnForm.paymentDate);
+      if (txnForm.note) formData.append('note', txnForm.note);
+      if (txnForm.transactionId) formData.append('transactionId', txnForm.transactionId);
+      if (proofFile) {
+        formData.append('image', proofFile);
+      }
+
+      await api.post(`/v2/payments/${selectedRecordForTxn._id}/transactions`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       toast.success('Transaction recorded successfully!');
       setShowAddTxn(false);
+      setProofFile(null);
       fetchPayments();
     } catch (err) {
-      toast.error(err.message || 'Failed to record transaction');
+      toast.error(err.response?.data?.message || err.message || 'Failed to record transaction');
     } finally {
       setSubmitting(false);
     }
@@ -238,13 +252,18 @@ const PaymentsPage = () => {
                 value={txnForm.amount} onChange={e => setTxnForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
             </div>
             <div>
-              <label className="form-label">Method *</label>
-              <select className="form-select" value={txnForm.method} onChange={e => setTxnForm(f => ({ ...f, method: e.target.value }))}>
-                <option value="cash">Cash</option>
-                <option value="upi">UPI</option>
+              <label className="form-label">Transaction Type *</label>
+              <select className="form-select" value={txnForm.transactionType} onChange={e => {
+                const val = e.target.value;
+                const method = (val === 'adjustment' || val === 'waiver') ? 'other' : val;
+                setTxnForm(f => ({ ...f, transactionType: val, method }));
+              }}>
+                <option value="cash">Cash Payment</option>
+                <option value="upi">UPI Transfer</option>
                 <option value="bank_transfer">Bank Transfer</option>
-                <option value="cheque">Cheque</option>
-                <option value="other">Other</option>
+                <option value="cheque">Cheque Payment</option>
+                <option value="waiver">Rent Waiver (Adjustment)</option>
+                <option value="adjustment">Manual Adjustment</option>
               </select>
             </div>
           </div>
@@ -259,6 +278,11 @@ const PaymentsPage = () => {
               <input type="text" className="form-input" value={txnForm.transactionId}
                 onChange={e => setTxnForm(f => ({ ...f, transactionId: e.target.value }))} placeholder="UPI Ref, Cheque #..." />
             </div>
+          </div>
+          <div>
+            <label className="form-label">Upload Proof (Optional)</label>
+            <input type="file" accept="image/*" className="form-input text-xs"
+              onChange={e => setProofFile(e.target.files[0])} />
           </div>
           <div>
             <label className="form-label">Notes</label>
@@ -290,9 +314,14 @@ const PaymentsPage = () => {
                   </div>
                 )}
                 <div className="flex justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-lg text-white">₹{txn.amount.toLocaleString()}</span>
-                    <span className="text-xs uppercase font-bold text-brand-400 bg-brand-400/10 px-2 py-0.5 rounded">{txn.paymentMethod.replace('_', ' ')}</span>
+                    <span className="text-xs uppercase font-bold text-brand-400 bg-brand-400/10 px-2 py-0.5 rounded">
+                      {txn.transactionType || txn.paymentMethod}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                      {txn.entrySource ? txn.entrySource.replace('_', ' ') : 'system generated'}
+                    </span>
                   </div>
                   <span className="text-xs font-mono text-slate-400 mt-1">{new Date(txn.paymentDate).toLocaleDateString()}</span>
                 </div>
@@ -302,11 +331,18 @@ const PaymentsPage = () => {
                 </div>
                 
                 <div className="flex justify-between items-end border-t border-surface-border/50 pt-2 mt-2">
-                  <div className="text-[10px] text-slate-500">
-                    <p>Recorded by: {txn.recordedBy?.name || 'Admin'}</p>
+                  <div className="text-[10px] text-slate-500 space-y-1">
+                    <p>Recorded by: <span className="text-white font-medium">{txn.recordedBy?.name || 'Admin'}</span> ({txn.createdByRole || 'system'})</p>
                     {txn.transactionId && <p>Ref: <span className="font-mono text-slate-300">{txn.transactionId}</span></p>}
+                    {txn.proofImage?.secureUrl && (
+                      <p className="pt-1">
+                        <a href={txn.proofImage.secureUrl} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:text-brand-300 font-bold underline flex items-center gap-1">
+                          View Proof Document 🖼️
+                        </a>
+                      </p>
+                    )}
                   </div>
-                  {isOwner && txn.status === 'completed' && idx === 0 && ( // Only allow reversing the latest completed to avoid complex recalculations, or all
+                  {isOwner && txn.status === 'completed' && idx === 0 && ( // Only allow reversing the latest completed
                     <button 
                       onClick={() => handleReverseTransaction(txn._id)} 
                       disabled={submitting}

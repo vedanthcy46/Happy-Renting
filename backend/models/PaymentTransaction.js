@@ -43,6 +43,45 @@ const paymentTransactionSchema = new mongoose.Schema(
       default : 'cash',
       required: true,
     },
+    transactionType: {
+      type: String,
+      enum: [
+        'cash',
+        'upi',
+        'bank_transfer',
+        'cheque',
+        'gateway',
+        'adjustment',
+        'waiver',
+        'advance_applied'
+      ],
+      default: 'cash',
+      required: true
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: function() {
+        return this.recordedBy;
+      }
+    },
+    createdByRole: {
+      type: String,
+      enum: ['tenant', 'owner', 'admin', 'system'],
+      default: 'system'
+    },
+    entrySource: {
+      type: String,
+      enum: [
+        'tenant_upload',
+        'owner_manual',
+        'admin_manual',
+        'auto_adjustment',
+        'gateway_callback',
+        'system_generated'
+      ],
+      default: 'system_generated'
+    },
     // Reference ID for tracking (e.g., UPI ref, bank transfer ID, cheque number)
     transactionId: {
       type : String,
@@ -123,7 +162,7 @@ const paymentTransactionSchema = new mongoose.Schema(
 // Smart Immutability: Prevent editing financial fields after creation
 paymentTransactionSchema.pre('save', function () {
   if (!this.isNew) {
-    const immutableFields = ['amount', 'paymentMethod', 'paymentDate'];
+    const immutableFields = ['amount', 'paymentMethod', 'paymentDate', 'transactionType'];
     
     immutableFields.forEach((field) => {
       if (this.isModified(field)) {

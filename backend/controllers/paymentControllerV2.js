@@ -204,7 +204,7 @@ const addPaymentTransaction = async (req, res, next) => {
   try {
     const rentRecordId = req.body.rentRecordId || req.params.rentRecordId;
     const paymentMethod = req.body.paymentMethod || req.body.method;
-    const { amount, paymentDate, note, transactionId, idempotencyKey } = req.body;
+    const { amount, paymentDate, note, transactionId, idempotencyKey, transactionType, createdBy, createdByRole, entrySource } = req.body;
 
     // Ensure rent record exists
     let rentRecord = await MonthlyRentRecord.findById(rentRecordId);
@@ -239,6 +239,10 @@ const addPaymentTransaction = async (req, res, next) => {
         transactionId,
         proofImage,
         idempotencyKey,
+        transactionType,
+        createdBy,
+        createdByRole,
+        entrySource,
       },
       { id: req.user._id, role: req.user.role }
     );
@@ -393,7 +397,7 @@ const exportTransactionsCSV = async (req, res, next) => {
       objectMode: true,
       transform(doc, encoding, callback) {
         if (!this.headerWritten) {
-          this.push('Transaction ID,Date,Amount,Method,Status,Note\n');
+          this.push('Transaction ID,Date,Amount,Method,Type,Source,Created By Role,Status,Note\n');
           this.headerWritten = true;
         }
 
@@ -410,6 +414,9 @@ const exportTransactionsCSV = async (req, res, next) => {
           escapeCSV(dateStr),
           doc.amount,
           escapeCSV(doc.paymentMethod),
+          escapeCSV(doc.transactionType || doc.paymentMethod),
+          escapeCSV(doc.entrySource || 'system_generated'),
+          escapeCSV(doc.createdByRole || 'system'),
           escapeCSV(doc.status),
           escapeCSV(doc.note)
         ].join(',');

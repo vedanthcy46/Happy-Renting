@@ -132,7 +132,12 @@ const addPaymentTransaction = async (params, caller) => {
     paymentDate = new Date(),
     note,
     proofImage,
-    idempotencyKey
+    idempotencyKey,
+    // New parameters for manual transaction entry classification & audit tracing
+    transactionType,
+    createdBy,
+    createdByRole,
+    entrySource,
   } = params;
 
   // Validation
@@ -142,10 +147,40 @@ const addPaymentTransaction = async (params, caller) => {
     throw err;
   }
 
-  if (!['cash', 'upi', 'bank_transfer', 'cheque', 'other'].includes(paymentMethod)) {
+  const validPaymentMethods = ['cash', 'upi', 'bank_transfer', 'cheque', 'other'];
+  if (!validPaymentMethods.includes(paymentMethod)) {
     const err = new Error('Invalid payment method');
     err.statusCode = 400;
     throw err;
+  }
+
+  // Resolve transactionType and audit fields with strict fallbacks
+  const resolvedTxnType = transactionType || paymentMethod;
+  const validTransactionTypes = [
+    'cash',
+    'upi',
+    'bank_transfer',
+    'cheque',
+    'gateway',
+    'adjustment',
+    'waiver',
+    'advance_applied'
+  ];
+  if (!validTransactionTypes.includes(resolvedTxnType)) {
+    const err = new Error(`Invalid transaction type: '${resolvedTxnType}'`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const resolvedCreatedBy = createdBy || caller.id;
+  const resolvedCreatedByRole = createdByRole || (caller.role === 'superadmin' ? 'admin' : caller.role) || 'system';
+  
+  let resolvedEntrySource = entrySource;
+  if (!resolvedEntrySource) {
+    if (caller.role === 'tenant') resolvedEntrySource = 'tenant_upload';
+    else if (caller.role === 'owner') resolvedEntrySource = 'owner_manual';
+    else if (caller.role === 'superadmin' || caller.role === 'admin') resolvedEntrySource = 'admin_manual';
+    else resolvedEntrySource = 'system_generated';
   }
 
   // Fetch rent record and tenant
@@ -170,10 +205,9 @@ const addPaymentTransaction = async (params, caller) => {
     throw err;
   }
 
-  // Prevent overpayment in single transaction (but allow total > rent for adjustments)
-  const projectedTotal = rentRecord.totalPaid + amount;
-  if (projectedTotal > rentRecord.totalRent && amount > rentRecord.totalRent) {
-    const err = new Error(`Amount exceeds remaining balance of ₹${rentRecord.remainingAmount}`);
+  // Validation rules: prevent future dates too far ahead (e.g. 1 year)
+  if (paymentDate && new Date(paymentDate) > new Date(Date.now() + 86400000 * 365)) {
+    const err = new Error('Invalid future date');
     err.statusCode = 400;
     throw err;
   }
@@ -188,11 +222,15 @@ const addPaymentTransaction = async (params, caller) => {
       propertyId: rentRecord.propertyId,
       amount,
       paymentMethod,
+      transactionType: resolvedTxnType,
       transactionId: transactionId || null,
       paymentDate,
       note,
       proofImage: proofImage || { secureUrl: null, publicId: null },
       recordedBy: caller.id,
+      createdBy: resolvedCreatedBy,
+      createdByRole: resolvedCreatedByRole,
+      entrySource: resolvedEntrySource,
       status: 'completed',
       idempotencyKey: idempotencyKey || undefined,
     });
@@ -205,11 +243,19 @@ const addPaymentTransaction = async (params, caller) => {
     throw err;
   }
 
-  logger.info(`[TRANSACTION] Created txnId=${transaction._id} rentId=${rentRecordId} amount=₹${amount}`);
+  logger.info(`[TRANSACTION] Created txnId=${transaction._id} rentId=${rentRecordId} amount=₹${amount} type=${resolvedTxnType}`);
 
   // Update rent record totals
   rentRecord.totalPaid += amount;
+  if (rentRecord.totalPaid > rentRecord.totalRent) {
+    rentRecord.advanceBalance = rentRecord.totalPaid - rentRecord.totalRent;
+  } else {
+    rentRecord.advanceBalance = 0;
+  }
   await rentRecord.save(); // Pre-save hook will recalculate status & remaining
+
+  // Automatically apply advance balance to subsequent bills
+  await applyAdvanceBalance(tenantId).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
 
   if (caller.role === 'owner') {
     await logActivity(
@@ -217,8 +263,8 @@ const addPaymentTransaction = async (params, caller) => {
       'PAYMENT_TRANSACTION_ADDED',
       transaction._id,
       'PaymentTransaction',
-      `Added ₹${amount} via ${paymentMethod} to month ${rentRecord.month}`
-    );
+      `Added ₹${amount} via ${paymentMethod} (${resolvedTxnType}) to month ${rentRecord.month}`
+    ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
   }
 
   // Send notification to tenant
@@ -254,7 +300,7 @@ const getMonthlyRentRecordWithTransactions = async (rentRecordId) => {
     .populate('userId', 'name email phone')
     .populate('roomId', 'roomNumber floor monthlyRent')
     .populate('propertyId', 'name address')
-    .populate('ownerId', 'name email upiId bankDetails')
+    .populate('ownerId', 'name email upiId upiNumber bankDetails qrCodeImage')
     .lean();
 
   if (!rentRecord) {
@@ -450,6 +496,56 @@ const reverseTransaction = async (transactionId, reason, caller) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────
+// UTILITY: Chronologically distribute advance balances to subsequent outstanding rent records
+// ─────────────────────────────────────────────────────────────────────────
+
+const applyAdvanceBalance = async (tenantId) => {
+  const records = await MonthlyRentRecord.find({ tenantId }).sort({ month: 1 });
+  if (records.length <= 1) return;
+
+  for (let i = 0; i < records.length; i++) {
+    const rec = records[i];
+    if (rec.advanceBalance <= 0) continue;
+
+    // Find subsequent records with remaining balances
+    for (let j = i + 1; j < records.length; j++) {
+      const nextRec = records[j];
+      const remaining = nextRec.totalRent - nextRec.totalPaid;
+      if (remaining <= 0) continue;
+
+      const applyAmount = Math.min(rec.advanceBalance, remaining);
+      if (applyAmount <= 0) continue;
+
+      // Create system-generated advance_applied transaction
+      await PaymentTransaction.create({
+        rentRecordId: nextRec._id,
+        tenantId,
+        ownerId: nextRec.ownerId,
+        propertyId: nextRec.propertyId,
+        amount: applyAmount,
+        paymentMethod: 'other',
+        transactionType: 'advance_applied',
+        note: `Auto-applied advance from month ${rec.month}`,
+        recordedBy: rec.ownerId,
+        createdBy: rec.ownerId,
+        createdByRole: 'system',
+        entrySource: 'auto_adjustment',
+        status: 'completed'
+      });
+
+      // Update balances
+      nextRec.totalPaid += applyAmount;
+      await nextRec.save();
+
+      rec.advanceBalance -= applyAmount;
+      await rec.save();
+
+      if (rec.advanceBalance <= 0) break;
+    }
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────
 // UTILITY: Calculate status based on amounts (called by pre-save hook)
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -476,4 +572,5 @@ module.exports = {
   updateMonthlyRentRecord,
   reverseTransaction,
   calculateStatus,
+  applyAdvanceBalance,
 };

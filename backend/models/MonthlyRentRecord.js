@@ -70,7 +70,7 @@ const monthlyRentRecordSchema = new mongoose.Schema(
     // ─────────────────────────────────────────────────────────────────────
     status: {
       type    : String,
-      enum    : ['pending', 'partial', 'paid', 'overdue'],
+      enum    : ['pending', 'partial', 'paid', 'overdue', 'overpaid'],
       default : 'pending',
     },
     dueDate: {
@@ -141,7 +141,12 @@ monthlyRentRecordSchema.pre('save', function() {
   this.remainingAmount = Math.max(0, this.totalRent - this.totalPaid);
   
   // Auto-calculate status based on amounts
-  if (this.remainingAmount === 0) {
+  if (this.totalPaid > this.totalRent) {
+    this.status = 'overpaid';
+    if (!this.paidOnDate) {
+      this.paidOnDate = new Date();
+    }
+  } else if (this.remainingAmount === 0) {
     this.status = 'paid';
     if (!this.paidOnDate) {
       this.paidOnDate = new Date();
