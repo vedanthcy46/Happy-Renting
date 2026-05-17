@@ -194,7 +194,7 @@ const addPaymentTransaction = async (params, caller) => {
       proofImage: proofImage || { secureUrl: null, publicId: null },
       recordedBy: caller.id,
       status: 'completed',
-      idempotencyKey: idempotencyKey || null,
+      idempotencyKey: idempotencyKey || undefined,
     });
   } catch (err) {
     if (err.code === 11000 && err.keyPattern && err.keyPattern.idempotencyKey) {

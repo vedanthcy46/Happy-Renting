@@ -155,7 +155,13 @@ paymentTransactionSchema.index({ ownerId: 1 });
 // Prevent duplicate transaction IDs for payment methods that use them
 paymentTransactionSchema.index({ transactionId: 1, paymentMethod: 1 }, { sparse: true });
 // Enforce idempotency (prevent duplicate network submissions)
-paymentTransactionSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+paymentTransactionSchema.index(
+  { idempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idempotencyKey: { $type: 'string' } }
+  }
+);
 // Timeline queries
 paymentTransactionSchema.index({ paymentDate: -1 });
 
