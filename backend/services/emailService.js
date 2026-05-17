@@ -120,7 +120,7 @@ const sendComplaintResolvedNotification = async (tenantUser, complaint, property
       ${getFooter()}
     </div>
   `;
-  await queueEmail(tenantUser.email, subject, html, 'alert');
+  await sendEmail(tenantUser.email, subject, html);
 };
 
 // ── 1. Complaint Raised (To Owner) ───────────────────────────────────────────
@@ -142,7 +142,7 @@ const sendComplaintNotification = async (owner, tenant, complaint, property, roo
       ${getFooter()}
     </div>
   `;
-  await queueEmail(owner.email, subject, html, 'alert');
+  await sendEmail(owner.email, subject, html);
 };
 
 // ── 2. Payment Proof Uploaded (To Owner) ─────────────────────────────────────
@@ -165,7 +165,7 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
       ${getFooter()}
     </div>
   `;
-  await queueEmail(owner.email, subject, html, 'receipt');
+  await sendEmail(owner.email, subject, html);
 };
 
 // ── 3. Payment Verified (To Tenant) ──────────────────────────────────────────
@@ -196,7 +196,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
       ${getFooter()}
     </div>
   `;
-  await queueEmail(tenantUser.email, subject, html, 'alert');
+  await sendEmail(tenantUser.email, subject, html);
 };
 
 // ── 4. Rent Due Reminder (To Tenant) ─────────────────────────────────────────
@@ -467,7 +467,7 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
       ${getFooter()}
     </div>
   `;
-  await queueEmail(tenantUser.email, subject, html, 'receipt');
+  await sendEmail(tenantUser.email, subject, html);
 };
 
 module.exports = {
