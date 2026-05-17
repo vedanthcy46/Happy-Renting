@@ -46,9 +46,14 @@ const systemRoutes    = require('./routes/systemRoutes');
 const { initKeepAlive } = require('./services/keepAliveService');
 
 // ── Connect to DB ──────────────────────────────────────────────────────────
-connectDB();
-startCronJobs();
-initKeepAlive();
+const billingServiceV2 = require('./services/billingServiceV2');
+
+(async () => {
+  await connectDB();
+  await billingServiceV2.migrateExistingTenants();
+  startCronJobs();
+  initKeepAlive();
+})();
 
 const app = express();
 

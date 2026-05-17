@@ -79,6 +79,32 @@ const tenantSchema = new mongoose.Schema(
       type   : Boolean,
       default: false,
     },
+    moveInDate: {
+      type   : Date,
+      default: null,
+    },
+    customBillingDay: {
+      type   : Number,
+      min    : [1, 'Custom billing day must be at least 1'],
+      max    : [31, 'Custom billing day cannot exceed 31'],
+      default: null,
+    },
+    billingDay: {
+      type   : Number,
+      default: null,
+    },
+    firstBillingDate: {
+      type   : Date,
+      default: null,
+    },
+    isMigratedTenant: {
+      type   : Boolean,
+      default: false,
+    },
+    migrationBackfillCompleted: {
+      type   : Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -109,5 +135,47 @@ tenantSchema.index(
 tenantSchema.index({ roomId: 1, status: 1 });
 tenantSchema.index({ ownerId: 1 });
 tenantSchema.index({ propertyId: 1 });
+
+// Pre-save hook: compute billingDay, firstBillingDate and sync rentDueDay
+tenantSchema.pre('save', function() {
+  // 1. Ensure moveInDate defaults to joinDate or current time
+  if (!this.moveInDate) {
+    this.moveInDate = this.joinDate || new Date();
+  }
+
+  // 2. Compute billingDay: use customBillingDay if set, otherwise fallback to moveInDate day
+  if (this.customBillingDay) {
+    this.billingDay = this.customBillingDay;
+  } else {
+    this.billingDay = new Date(this.moveInDate).getDate();
+  }
+
+  // Also sync the legacy rentDueDay field so we don't break legacy queries or controllers
+  this.rentDueDay = this.billingDay;
+
+  // 3. Compute firstBillingDate: must NEVER start in the same cycle as move-in
+  // Only calculate ONCE when the stay is first created or if firstBillingDate is missing
+  if (!this.firstBillingDate) {
+    const moveIn = new Date(this.moveInDate);
+    let year = moveIn.getFullYear();
+    let month = moveIn.getMonth(); // 0-11
+    
+    // Start with the next calendar month
+    month += 1;
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+    
+    // Set to billingDay
+    const tempDate = new Date(year, month, this.billingDay, 12, 0, 0, 0);
+    // If the day got wrapped (e.g. 31st in Feb), cap it to the last day of the target month
+    if (tempDate.getMonth() !== (month % 12)) {
+      this.firstBillingDate = new Date(year, month + 1, 0, 12, 0, 0, 0); // Last day of target month
+    } else {
+      this.firstBillingDate = tempDate;
+    }
+  }
+});
 
 module.exports = mongoose.model('Tenant', tenantSchema);

@@ -56,8 +56,8 @@ const Property = require('../models/Property');
  */
 const moveIn = async (params, performedBy) => {
   const {
-    userId, roomId, propertyId, ownerId, joinDate, advancePaid, securityDeposit, notes,
-    phone, idProof, coOccupants = []
+    userId, roomId, propertyId, ownerId, joinDate, moveInDate, advancePaid, securityDeposit, notes,
+    phone, idProof, coOccupants = [], customBillingDay, isMigratedTenant
   } = params;
 
   // ── Pre-transaction checks ──
@@ -157,12 +157,15 @@ const moveIn = async (params, performedBy) => {
             propertyId,
             ownerId,
             joinDate,
+            moveInDate: moveInDate || joinDate,
             phone,
             idProof,
             advancePaid: advancePaid || 0,
             securityDeposit: securityDeposit || 0,
             notes,
             status: 'active',
+            customBillingDay: customBillingDay !== undefined ? customBillingDay : null,
+            isMigratedTenant: !!isMigratedTenant,
           },
         ],
         { session, ordered: true }

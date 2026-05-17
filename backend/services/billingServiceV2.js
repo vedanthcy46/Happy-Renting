@@ -8,44 +8,172 @@
 
 const Tenant = require('../models/Tenant');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
+const MigrationHistory = require('../models/MigrationHistory');
 const paymentServiceV2 = require('./paymentServiceV2');
 const cloudinary = require('../config/cloudinaryConfig');
 const logger = require('../config/logger');
 
 /**
+ * getDueDateForMonth(year, monthIndex, billingDay)
+ * Returns the correct date on the billingDay of the target month index.
+ * Safely caps the day for shorter months (e.g. Feb 28/29, April 30) when day is 31.
+ */
+const getDueDateForMonth = (year, monthIndex, billingDay) => {
+  const tempDate = new Date(year, monthIndex, billingDay);
+  if (tempDate.getMonth() !== monthIndex) {
+    return new Date(year, monthIndex + 1, 0); // Last day of target month
+  }
+  return tempDate;
+};
+
+/**
  * generateMonthlyBills(ownerId)
- * Creates MonthlyRentRecords for all active tenants if not already present
+ * Performs automated billing orchestration for all active stays.
+ * bifurcated into Mode B (Historical Backfill) and Mode A (Future Billing).
  */
 const generateMonthlyBills = async (ownerId) => {
   try {
     const today = new Date();
     const currentMonthStr = today.toISOString().slice(0, 7); // "YYYY-MM"
+    const billingResults = { created: 0, skipped: 0, errors: 0 };
 
-    // 1. Get all strictly active tenants
-    const query = {
+    // ─────────────────────────────────────────────────────────────────────────
+    // MODE B — Historical Backfill Generator for Migrated Tenants
+    // Runs for active stays where isMigratedTenant = true and migrationBackfillCompleted = false
+    // ─────────────────────────────────────────────────────────────────────────
+    const migratedQuery = {
+      status: 'active',
+      isMigratedTenant: true,
+      migrationBackfillCompleted: false
+    };
+    if (ownerId) migratedQuery.ownerId = ownerId;
+
+    const migratedTenancies = await Tenant.find(migratedQuery).populate('roomId', 'monthlyRent');
+
+    for (const tenant of migratedTenancies) {
+      try {
+        if (!tenant.firstBillingDate) {
+          logger.warn(`[BILLING BACKFILL] Skip stayId=${tenant._id}: firstBillingDate is missing`);
+          continue;
+        }
+
+        const startBillingDate = new Date(tenant.firstBillingDate);
+        let year = startBillingDate.getFullYear();
+        let month = startBillingDate.getMonth(); // 0-11
+        const tenantMonthlyRent = tenant.roomId?.monthlyRent || 0;
+
+        let backfillSuccess = true;
+
+        while (true) {
+          const iterMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+          
+          if (iterMonthStr > currentMonthStr) {
+            break; // We have backfilled up to the current date's month
+          }
+
+          // Compute the due date for this historical cycle
+          const cycleDueDate = getDueDateForMonth(year, month, tenant.billingDay || 5);
+
+          // Billing Freeze Check: if exitDate is set and exitDate <= cycleDueDate, freeze all future generation
+          if (tenant.exitDate && new Date(tenant.exitDate) <= cycleDueDate) {
+            logger.info(`[BILLING FREEZE] Skip historical month=${iterMonthStr} for stayId=${tenant._id} (exitDate=${tenant.exitDate.toISOString().slice(0, 10)} <= cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)})`);
+            break;
+          }
+
+          // Check if MonthlyRentRecord already exists
+          const existing = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: iterMonthStr });
+          if (existing) {
+            logger.info(`[BILLING SKIPPED] reason=duplicate_existing_record stayId=${tenant._id} billingMonth=${iterMonthStr}`);
+          } else {
+            try {
+              await paymentServiceV2.ensureMonthlyRentRecord(
+                tenant._id,
+                iterMonthStr,
+                tenantMonthlyRent,
+                {
+                  notes: 'System generated historical billing backfill',
+                }
+              );
+              logger.info(`[BILLING BACKFILL] Created historical bill for stayId=${tenant._id} month=${iterMonthStr}`);
+              billingResults.created++;
+            } catch (createErr) {
+              logger.error(`[BILLING BACKFILL ERROR] Failed to create historical bill for stayId=${tenant._id} month=${iterMonthStr}: ${createErr.message}`);
+              backfillSuccess = false;
+            }
+          }
+
+          // Safely increment month index using integers to avoid day-wrapping bugs
+          month += 1;
+          if (month > 11) {
+            month = 0;
+            year += 1;
+          }
+        }
+
+        // Self-Healing Recovery Check: only complete migration if all months were successfully generated
+        if (backfillSuccess) {
+          tenant.migrationBackfillCompleted = true;
+          await tenant.save();
+          logger.info(`[BILLING BACKFILL] Completed historical backfill for stayId=${tenant._id}`);
+        }
+
+      } catch (err) {
+        logger.error(`[BILLING BACKFILL] Failed historical backfill process for stayId=${tenant._id}: ${err.message}`);
+        billingResults.errors++;
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MODE A — Future Billing Generator
+    // ─────────────────────────────────────────────────────────────────────────
+    const activeQuery = {
       status: 'active',
       $or: [{ exitDate: null }, { exitDate: { $gt: today } }] // Strict billing freeze after vacate
     };
-    if (ownerId) query.ownerId = ownerId;
+    if (ownerId) activeQuery.ownerId = ownerId;
 
-    const activeTenancies = await Tenant.find(query).populate('roomId', 'monthlyRent');
-
-    const billingResults = { created: 0, skipped: 0, errors: 0 };
+    const activeTenancies = await Tenant.find(activeQuery).populate('roomId', 'monthlyRent');
 
     for (const tenant of activeTenancies) {
       try {
+        if (!tenant.firstBillingDate) {
+          continue;
+        }
+
+        const firstBillingMonthStr = tenant.firstBillingDate.toISOString().slice(0, 7);
+        if (currentMonthStr < firstBillingMonthStr) {
+          logger.info(`[BILLING SKIPPED] reason=before_first_billing_date stayId=${tenant._id} billingMonth=${currentMonthStr}`);
+          billingResults.skipped++;
+          continue;
+        }
+
+        const [year, monthNum] = currentMonthStr.split('-').map(Number);
+        const cycleDueDate = getDueDateForMonth(year, monthNum - 1, tenant.billingDay || 5);
+
+        // Billing Freeze Check: if exitDate is set and exitDate <= cycleDueDate, freeze/skip
+        if (tenant.exitDate && new Date(tenant.exitDate) <= cycleDueDate) {
+          logger.info(`[BILLING FREEZE] Skip month=${currentMonthStr} for stayId=${tenant._id} (exitDate=${tenant.exitDate.toISOString().slice(0, 10)} <= cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)})`);
+          continue;
+        }
+
         const monthlyRent = tenant.roomId?.monthlyRent || 0;
 
-        await paymentServiceV2.ensureMonthlyRentRecord(
-          tenant._id,
-          currentMonthStr,
-          monthlyRent,
-          {
-            notes: 'System generated monthly billing',
-          }
-        );
-
-        billingResults.created++;
+        const existing = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: currentMonthStr });
+        if (existing) {
+          logger.info(`[BILLING SKIPPED] reason=duplicate_existing_record stayId=${tenant._id} billingMonth=${currentMonthStr}`);
+          billingResults.skipped++;
+        } else {
+          await paymentServiceV2.ensureMonthlyRentRecord(
+            tenant._id,
+            currentMonthStr,
+            monthlyRent,
+            {
+              notes: 'System generated monthly billing',
+            }
+          );
+          logger.info(`[BILLING] Created bill for stayId=${tenant._id} month=${currentMonthStr}`);
+          billingResults.created++;
+        }
       } catch (err) {
         logger.error(`[BILLING] Failed to create bill for tenant ${tenant._id}: ${err.message}`);
         billingResults.errors++;
@@ -143,10 +271,6 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────
-// PRIVACY PURGE
-// ─────────────────────────────────────────────────────────────────────────
-
 /**
  * Automatically scrub sensitive PII (idProof) from Cloudinary and MongoDB
  * for tenants who vacated more than X days ago.
@@ -193,9 +317,40 @@ const purgePrivacyData = async () => {
   }
 };
 
+/**
+ * migrateExistingTenants()
+ * Safely runs a startup database backfill exactly once system-wide using MigrationHistory tracker.
+ */
+const migrateExistingTenants = async () => {
+  const MIGRATION_ID = 'v2_billing_lifecycle_migration';
+  try {
+    const alreadyMigrated = await MigrationHistory.findOne({ migrationId: MIGRATION_ID });
+    if (alreadyMigrated) {
+      logger.info(`[MIGRATION] Migration '${MIGRATION_ID}' already completed. Skipping.`);
+      return;
+    }
+
+    const legacyTenants = await Tenant.find({ moveInDate: { $exists: false } });
+    if (legacyTenants.length > 0) {
+      logger.info(`[MIGRATION] Found ${legacyTenants.length} legacy stays to migrate to new billing fields...`);
+      for (const tenant of legacyTenants) {
+        await tenant.save();
+        logger.info(`[MIGRATION] Successfully updated stayId=${tenant._id} with new lifecycle parameters.`);
+      }
+      logger.info(`[MIGRATION] All legacy stays updated successfully.`);
+    }
+
+    await MigrationHistory.create({ migrationId: MIGRATION_ID });
+    logger.info(`[MIGRATION] Recorded completion of migration '${MIGRATION_ID}' successfully.`);
+  } catch (err) {
+    logger.error(`[MIGRATION ERROR] Failed to run legacy tenant stay migration: ${err.message}`);
+  }
+};
+
 module.exports = {
   generateMonthlyBills,
   updateOverduePayments,
   getSummaryMetrics,
-  purgePrivacyData
+  purgePrivacyData,
+  migrateExistingTenants
 };

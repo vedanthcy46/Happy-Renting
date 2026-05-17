@@ -17,6 +17,16 @@ const addTenantValidation = [
   body('joinDate')
     .isISO8601().withMessage('Valid join date required (YYYY-MM-DD)')
     .toDate(),
+  body('moveInDate')
+    .optional()
+    .isISO8601().withMessage('Valid move-in date required (YYYY-MM-DD)')
+    .toDate(),
+  body('customBillingDay')
+    .optional()
+    .isInt({ min: 1, max: 31 }).withMessage('Custom billing day must be between 1 and 31'),
+  body('isMigratedTenant')
+    .optional()
+    .isBoolean().withMessage('isMigratedTenant must be a boolean'),
   body('phone')
     .notEmpty().withMessage('Primary tenant phone number is required'),
   body('idProof')
@@ -130,8 +140,8 @@ const getTenant = async (req, res, next) => {
 const addTenant = async (req, res, next) => {
   try {
     const { 
-      userId, roomId, propertyId, joinDate, advancePaid, securityDeposit, 
-      notes, phone, idProof, coOccupants 
+      userId, roomId, propertyId, joinDate, moveInDate, advancePaid, securityDeposit, 
+      notes, phone, idProof, coOccupants, customBillingDay, isMigratedTenant 
     } = req.body;
 
     // Resolve ownerId — always from authenticated session, never from body
@@ -141,8 +151,9 @@ const addTenant = async (req, res, next) => {
 
     const tenant = await tenantService.moveIn(
       { 
-        userId, roomId, propertyId, ownerId, joinDate, 
+        userId, roomId, propertyId, ownerId, joinDate, moveInDate,
         advancePaid, securityDeposit, notes, phone, idProof, coOccupants,
+        customBillingDay, isMigratedTenant,
         tempPassword: req.body.tempPassword || req.body.password 
       },
       req.user._id
@@ -176,19 +187,22 @@ const updateTenant = async (req, res, next) => {
     }
 
     const { 
-      advancePaid, securityDeposit, joinDate, notes, status, rentDueDay,
-      name, email, phone, idProof 
+      advancePaid, securityDeposit, joinDate, moveInDate, notes, status, rentDueDay,
+      name, email, phone, idProof, customBillingDay, isMigratedTenant 
     } = req.body;
 
     // 1) Update Tenant-specific fields
     if (advancePaid    !== undefined) tenant.advancePaid = advancePaid;
     if (securityDeposit !== undefined) tenant.securityDeposit = securityDeposit;
     if (joinDate       !== undefined) tenant.joinDate    = joinDate;
+    if (moveInDate     !== undefined) tenant.moveInDate  = moveInDate;
     if (notes          !== undefined) tenant.notes       = notes;
     if (status         !== undefined) tenant.status      = status;
     if (rentDueDay     !== undefined) tenant.rentDueDay  = rentDueDay;
     if (phone          !== undefined) tenant.phone        = phone;
     if (idProof        !== undefined) tenant.idProof      = idProof;
+    if (customBillingDay !== undefined) tenant.customBillingDay = customBillingDay;
+    if (isMigratedTenant !== undefined) tenant.isMigratedTenant = isMigratedTenant;
 
     // ── Financial Validation ──
     if (Number(tenant.advancePaid) > Number(tenant.securityDeposit)) {
