@@ -27,6 +27,21 @@ const getDueDateForMonth = (year, monthIndex, billingDay) => {
 };
 
 /**
+ * getRentRecordMonthStr(dueYear, dueMonthIndex)
+ * Returns the month string (YYYY-MM) of the stay start cycle, which is
+ * exactly 1 month prior to the cycle due month.
+ */
+const getRentRecordMonthStr = (dueYear, dueMonthIndex) => {
+  let startYear = dueYear;
+  let startMonthIndex = dueMonthIndex - 1;
+  if (startMonthIndex < 0) {
+    startMonthIndex = 11;
+    startYear -= 1;
+  }
+  return `${startYear}-${String(startMonthIndex + 1).padStart(2, '0')}`;
+};
+
+/**
  * generateMonthlyBills(ownerId)
  * Performs automated billing orchestration for all active stays.
  * bifurcated into Mode B (Historical Backfill) and Mode A (Future Billing).
@@ -65,19 +80,16 @@ const generateMonthlyBills = async (ownerId) => {
         let backfillSuccess = true;
 
         while (true) {
-          const iterMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
-          
-          if (iterMonthStr > currentMonthStr) {
-            break; // We have backfilled up to the current date's month
-          }
-
           // Compute the due date for this historical cycle
           const cycleDueDate = getDueDateForMonth(year, month, tenant.billingDay || 5);
 
-          // If the target cycle is in the current month, only backfill if today has reached/passed the due date
-          if (iterMonthStr === currentMonthStr && today < cycleDueDate) {
+          // If today has not reached/passed the due date, we break
+          if (today < cycleDueDate) {
             break;
           }
+
+          // Get target rent record month (1 month prior to the cycle due month, representing the stay start month)
+          const iterMonthStr = getRentRecordMonthStr(year, month);
 
           // Billing Freeze Check: if exitDate is set and exitDate <= cycleDueDate, freeze all future generation
           if (tenant.exitDate && new Date(tenant.exitDate) <= cycleDueDate) {
@@ -169,28 +181,31 @@ const generateMonthlyBills = async (ownerId) => {
           continue;
         }
 
+        // Get target rent record month (1 month prior to the cycle due month, representing the stay start month)
+        const targetMonthStr = getRentRecordMonthStr(year, monthNum - 1);
+
         // Billing Freeze Check: if exitDate is set and exitDate <= cycleDueDate, freeze/skip
         if (tenant.exitDate && new Date(tenant.exitDate) <= cycleDueDate) {
-          logger.info(`[BILLING FREEZE] Skip month=${currentMonthStr} for stayId=${tenant._id} (exitDate=${tenant.exitDate.toISOString().slice(0, 10)} <= cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)})`);
+          logger.info(`[BILLING FREEZE] Skip month=${targetMonthStr} for stayId=${tenant._id} (exitDate=${tenant.exitDate.toISOString().slice(0, 10)} <= cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)})`);
           continue;
         }
 
         const monthlyRent = tenant.roomId?.monthlyRent || 0;
 
-        const existing = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: currentMonthStr });
+        const existing = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: targetMonthStr });
         if (existing) {
-          logger.info(`[BILLING SKIPPED] reason=duplicate_existing_record stayId=${tenant._id} billingMonth=${currentMonthStr}`);
+          logger.info(`[BILLING SKIPPED] reason=duplicate_existing_record stayId=${tenant._id} billingMonth=${targetMonthStr}`);
           billingResults.skipped++;
         } else {
           await paymentServiceV2.ensureMonthlyRentRecord(
             tenant._id,
-            currentMonthStr,
+            targetMonthStr,
             monthlyRent,
             {
               notes: 'System generated monthly billing',
             }
           );
-          logger.info(`[BILLING] Created bill for stayId=${tenant._id} month=${currentMonthStr}`);
+          logger.info(`[BILLING] Created bill for stayId=${tenant._id} month=${targetMonthStr}`);
           billingResults.created++;
         }
       } catch (err) {

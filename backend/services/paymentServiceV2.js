@@ -53,7 +53,21 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
     // Create new rent record
     const dueDay = tenant.rentDueDay || 5;
     const [year, monthNum] = month.split('-').map(Number);
-    const dueDate = new Date(year, monthNum - 1, dueDay);
+    
+    // Set to the next calendar month (e.g. March stay has due date in April)
+    let dueYear = year;
+    let dueMonthIndex = monthNum; // since monthNum is 1-12, this is the index of the next month (0-11)
+    if (dueMonthIndex > 11) {
+      dueMonthIndex = 0;
+      dueYear += 1;
+    }
+
+    let tempDate = new Date(dueYear, dueMonthIndex, dueDay);
+    if (tempDate.getMonth() !== dueMonthIndex) {
+      tempDate = new Date(dueYear, dueMonthIndex + 1, 0); // Last day of target month
+    }
+    tempDate.setHours(12, 0, 0, 0); // Timezone-immune noon-based shift
+    const dueDate = tempDate;
 
     try {
       rentRecord = await MonthlyRentRecord.create({
