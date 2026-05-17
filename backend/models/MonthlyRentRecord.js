@@ -136,7 +136,7 @@ monthlyRentRecordSchema.index({ status: 1 });
 // HOOKS
 // ─────────────────────────────────────────────────────────────────────────
 // Recalculate remainingAmount before saving
-monthlyRentRecordSchema.pre('save', function(next) {
+monthlyRentRecordSchema.pre('save', function() {
   // Ensure remaining is correct
   this.remainingAmount = Math.max(0, this.totalRent - this.totalPaid);
   
@@ -150,8 +150,6 @@ monthlyRentRecordSchema.pre('save', function(next) {
     this.status = 'partial';
   }
   // pending/overdue handled externally
-  
-  next();
 });
 
 module.exports = mongoose.model('MonthlyRentRecord', monthlyRentRecordSchema);

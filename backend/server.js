@@ -112,6 +112,7 @@ app.use('/api/payments',   paymentRoutes);
 app.use('/api/v2/payments',   paymentRoutesV2); // New ledger-based system
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/owner-requests', ownerRequestRoutes);
 
 // ── 10. 404 + Global error handler ────────────────────────────────────────
 app.use(notFound);

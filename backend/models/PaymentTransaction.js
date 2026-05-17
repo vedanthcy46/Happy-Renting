@@ -121,13 +121,13 @@ const paymentTransactionSchema = new mongoose.Schema(
 // HOOKS
 // ─────────────────────────────────────────────────────────────────────────
 // Smart Immutability: Prevent editing financial fields after creation
-paymentTransactionSchema.pre('save', function (next) {
+paymentTransactionSchema.pre('save', function () {
   if (!this.isNew) {
     const immutableFields = ['amount', 'paymentMethod', 'paymentDate'];
     
     immutableFields.forEach((field) => {
       if (this.isModified(field)) {
-        return next(new Error(`Financial field '${field}' is immutable and cannot be modified.`));
+        throw new Error(`Financial field '${field}' is immutable and cannot be modified.`);
       }
     });
 
@@ -141,7 +141,6 @@ paymentTransactionSchema.pre('save', function (next) {
       }
     }
   }
-  next();
 });
 
 // ─────────────────────────────────────────────────────────────────────────
