@@ -212,6 +212,8 @@ const addPaymentTransaction = async (params, caller) => {
     throw err;
   }
 
+  const resolvedStatus = resolvedCreatedByRole === 'tenant' ? 'verifying' : 'completed';
+
   // Create transaction with idempotency protection
   let transaction;
   try {
@@ -231,7 +233,7 @@ const addPaymentTransaction = async (params, caller) => {
       createdBy: resolvedCreatedBy,
       createdByRole: resolvedCreatedByRole,
       entrySource: resolvedEntrySource,
-      status: 'completed',
+      status: resolvedStatus,
       idempotencyKey: idempotencyKey || undefined,
     });
   } catch (err) {
@@ -243,19 +245,21 @@ const addPaymentTransaction = async (params, caller) => {
     throw err;
   }
 
-  logger.info(`[TRANSACTION] Created txnId=${transaction._id} rentId=${rentRecordId} amount=₹${amount} type=${resolvedTxnType}`);
+  logger.info(`[TRANSACTION] Created txnId=${transaction._id} rentId=${rentRecordId} amount=₹${amount} status=${resolvedStatus}`);
 
-  // Update rent record totals
-  rentRecord.totalPaid += amount;
-  if (rentRecord.totalPaid > rentRecord.totalRent) {
-    rentRecord.advanceBalance = rentRecord.totalPaid - rentRecord.totalRent;
-  } else {
-    rentRecord.advanceBalance = 0;
+  // Update rent record totals only if transaction is completed immediately
+  if (resolvedStatus === 'completed') {
+    rentRecord.totalPaid += amount;
+    if (rentRecord.totalPaid > rentRecord.totalRent) {
+      rentRecord.advanceBalance = rentRecord.totalPaid - rentRecord.totalRent;
+    } else {
+      rentRecord.advanceBalance = 0;
+    }
+    await rentRecord.save(); // Pre-save hook will recalculate status & remaining
+
+    // Automatically apply advance balance to subsequent bills
+    await applyAdvanceBalance(tenantId).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
   }
-  await rentRecord.save(); // Pre-save hook will recalculate status & remaining
-
-  // Automatically apply advance balance to subsequent bills
-  await applyAdvanceBalance(tenantId).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
 
   if (caller.role === 'owner') {
     await logActivity(
@@ -573,4 +577,107 @@ module.exports = {
   reverseTransaction,
   calculateStatus,
   applyAdvanceBalance,
+  verifyTransaction,
+  rejectTransaction,
+};
+
+/**
+ * verifyTransaction(transactionId, caller)
+ * Marks a 'verifying' transaction as 'completed' and credits it to the MonthlyRentRecord
+ */
+const verifyTransaction = async (transactionId, caller) => {
+  const transaction = await PaymentTransaction.findById(transactionId);
+  if (!transaction) {
+    const err = new Error('Transaction not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Security: owner isolation
+  if (caller.role === 'owner' && String(transaction.ownerId) !== String(caller.id)) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (transaction.status !== 'verifying') {
+    const err = new Error('Only transactions in verifying status can be verified');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Update status to completed
+  transaction.status = 'completed';
+  transaction.statusReason = 'Verified by owner';
+  await transaction.save();
+
+  // Apply to rent record
+  const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
+  if (rentRecord) {
+    rentRecord.totalPaid += transaction.amount;
+    if (rentRecord.totalPaid > rentRecord.totalRent) {
+      rentRecord.advanceBalance = rentRecord.totalPaid - rentRecord.totalRent;
+    } else {
+      rentRecord.advanceBalance = 0;
+    }
+    await rentRecord.save();
+
+    // Automatically apply advance balance to subsequent bills
+    await applyAdvanceBalance(transaction.tenantId).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
+  }
+
+  if (caller.role === 'owner') {
+    await logActivity(
+      caller.id,
+      'PAYMENT_TRANSACTION_VERIFIED',
+      transaction._id,
+      'PaymentTransaction',
+      `Verified payment of ₹${transaction.amount} for month ${rentRecord?.month || ''}`
+    ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
+  }
+
+  return transaction;
+};
+
+/**
+ * rejectTransaction(transactionId, reason, caller)
+ * Marks a 'verifying' transaction as 'failed' (rejected)
+ */
+const rejectTransaction = async (transactionId, reason, caller) => {
+  const transaction = await PaymentTransaction.findById(transactionId);
+  if (!transaction) {
+    const err = new Error('Transaction not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Security: owner isolation
+  if (caller.role === 'owner' && String(transaction.ownerId) !== String(caller.id)) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (transaction.status !== 'verifying') {
+    const err = new Error('Only transactions in verifying status can be rejected');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Update status to failed
+  transaction.status = 'failed';
+  transaction.statusReason = reason || 'Rejected by owner';
+  await transaction.save();
+
+  if (caller.role === 'owner') {
+    await logActivity(
+      caller.id,
+      'PAYMENT_TRANSACTION_REJECTED',
+      transaction._id,
+      'PaymentTransaction',
+      `Rejected payment of ₹${transaction.amount}. Reason: ${reason}`
+    ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
+  }
+
+  return transaction;
 };

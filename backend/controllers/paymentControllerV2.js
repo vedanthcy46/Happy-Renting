@@ -296,6 +296,60 @@ const reversePaymentTransaction = async (req, res, next) => {
   }
 };
 
+const verifyPaymentTransaction = async (req, res, next) => {
+  try {
+    const { transactionId } = req.params;
+
+    const transaction = await paymentServiceV2.verifyTransaction(
+      transactionId,
+      { id: req.user._id, role: req.user.role }
+    );
+
+    // Fetch updated rent record
+    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment transaction verified successfully',
+      transaction,
+      rentRecord
+    });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
+const rejectPaymentTransaction = async (req, res, next) => {
+  try {
+    const { transactionId } = req.params;
+    const { reason } = req.body;
+
+    const transaction = await paymentServiceV2.rejectTransaction(
+      transactionId,
+      reason,
+      { id: req.user._id, role: req.user.role }
+    );
+
+    // Fetch updated rent record
+    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment transaction rejected successfully',
+      transaction,
+      rentRecord
+    });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────────
 // GET: Payment summary (dashboard metrics)
 // ─────────────────────────────────────────────────────────────────────────
@@ -455,6 +509,8 @@ module.exports = {
   updateRentRecord,
   addPaymentTransaction,
   reversePaymentTransaction,
+  verifyPaymentTransaction,
+  rejectPaymentTransaction,
   getPaymentSummary,
   getTransactionHistory,
   exportTransactionsCSV,

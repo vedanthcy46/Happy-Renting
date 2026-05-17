@@ -14,6 +14,8 @@ const {
   updateRentRecord,
   addPaymentTransaction,
   reversePaymentTransaction,
+  verifyPaymentTransaction,
+  rejectPaymentTransaction,
   getPaymentSummary,
   getTransactionHistory,
   exportTransactionsCSV,
@@ -81,6 +83,20 @@ router.post(
   '/transactions/:transactionId/reverse',
   authorize('superadmin', 'owner'),
   reversePaymentTransaction
+);
+
+// Verify a pending payment transaction
+router.post(
+  '/transactions/:transactionId/verify',
+  authorize('superadmin', 'owner'),
+  verifyPaymentTransaction
+);
+
+// Reject a pending payment transaction
+router.post(
+  '/transactions/:transactionId/reject',
+  authorize('superadmin', 'owner'),
+  rejectPaymentTransaction
 );
 
 // ─────────────────────────────────────────────────────────────────────────

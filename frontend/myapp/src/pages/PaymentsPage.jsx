@@ -47,7 +47,7 @@ const PaymentsPage = () => {
   const handleAddTransactionClick = (record) => {
     setSelectedRecordForTxn(record);
     setTxnForm({
-      amount: record.remainingAmount.toString(),
+      amount: Math.max(0, record.remainingAmount || 0).toString(),
       method: 'cash',
       transactionType: 'cash',
       note: '',
@@ -123,6 +123,43 @@ const PaymentsPage = () => {
       fetchPayments(); // Refresh list to update totals
     } catch (err) {
       toast.error(err.message || 'Failed to update transaction status');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVerifyTransaction = async (transactionId) => {
+    if (!window.confirm("Are you sure you want to verify and approve this payment? This will credit the payment amount to the tenant's invoice.")) return;
+    
+    setSubmitting(true);
+    try {
+      await api.post(`/v2/payments/transactions/${transactionId}/verify`);
+      toast.success('Payment approved and credited successfully');
+      // Refresh history
+      const { data } = await api.get(`/v2/payments/${selectedRecordHistory._id}`);
+      setHistoryTransactions(data.transactions || []);
+      fetchPayments(); // Refresh list to update totals
+    } catch (err) {
+      toast.error(err.message || 'Failed to verify transaction');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRejectTransaction = async (transactionId) => {
+    const reason = window.prompt("Please enter a reason for rejecting this payment proof (optional):");
+    if (reason === null) return; // cancelled
+    
+    setSubmitting(true);
+    try {
+      await api.post(`/v2/payments/transactions/${transactionId}/reject`, { reason: reason || 'Rejected by owner / Invalid proof' });
+      toast.success('Payment proof rejected successfully');
+      // Refresh history
+      const { data } = await api.get(`/v2/payments/${selectedRecordHistory._id}`);
+      setHistoryTransactions(data.transactions || []);
+      fetchPayments(); // Refresh list to update totals
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject transaction');
     } finally {
       setSubmitting(false);
     }
@@ -207,7 +244,7 @@ const PaymentsPage = () => {
                     
                     <td className="text-right">
                       <div className="flex flex-col items-end gap-2">
-                        {isOwner && record.remainingAmount > 0 && (
+                        {isOwner && (
                           <button
                             onClick={() => handleAddTransactionClick(record)}
                             className="btn btn-sm btn-primary bg-brand-600 hover:bg-brand-500 text-[10px] uppercase font-bold px-2 py-1"
@@ -313,11 +350,28 @@ const PaymentsPage = () => {
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             {historyTransactions.map((txn, idx) => (
               <div key={txn._id} className={`p-4 rounded-xl border relative ${txn.status === 'reversed' ? 'bg-surface/30 border-red-900/30 opacity-70' : 'bg-surface border-surface-border'}`}>
-                {txn.status === 'reversed' && (
-                  <div className="absolute top-3 right-3 text-[10px] font-bold text-red-500 border border-red-500/30 px-2 py-0.5 rounded bg-red-500/10 uppercase">
-                    Reversed
-                  </div>
-                )}
+                <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  {txn.status === 'reversed' && (
+                    <span className="text-[10px] font-bold text-red-500 border border-red-500/30 px-2 py-0.5 rounded bg-red-500/10 uppercase">
+                      Reversed
+                    </span>
+                  )}
+                  {txn.status === 'verifying' && (
+                    <span className="text-[10px] font-bold text-yellow-500 border border-yellow-500/30 px-2 py-0.5 rounded bg-yellow-500/10 uppercase animate-pulse">
+                      Verifying
+                    </span>
+                  )}
+                  {txn.status === 'failed' && (
+                    <span className="text-[10px] font-bold text-rose-500 border border-rose-500/30 px-2 py-0.5 rounded bg-rose-500/10 uppercase">
+                      Rejected
+                    </span>
+                  )}
+                  {txn.status === 'completed' && (
+                    <span className="text-[10px] font-bold text-green-500 border border-green-500/30 px-2 py-0.5 rounded bg-green-500/10 uppercase">
+                      Verified
+                    </span>
+                  )}
+                </div>
                 <div className="flex justify-between mb-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-lg text-white">₹{txn.amount.toLocaleString()}</span>
@@ -347,6 +401,24 @@ const PaymentsPage = () => {
                       </p>
                     )}
                   </div>
+                  {isOwner && txn.status === 'verifying' && (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleVerifyTransaction(txn._id)} 
+                        disabled={submitting}
+                        className="text-[10px] font-bold text-green-400 hover:text-green-300 underline decoration-green-400/30"
+                      >
+                        Verify & Approve
+                      </button>
+                      <button 
+                        onClick={() => handleRejectTransaction(txn._id)} 
+                        disabled={submitting}
+                        className="text-[10px] font-bold text-rose-400 hover:text-rose-300 underline decoration-rose-400/30"
+                      >
+                        Reject Proof
+                      </button>
+                    </div>
+                  )}
                   {isOwner && (txn.status === 'completed' || txn.status === 'reversed') && (
                     <button 
                       onClick={() => handleReverseTransaction(txn._id, txn.status === 'completed')} 
