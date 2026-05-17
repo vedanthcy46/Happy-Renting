@@ -148,8 +148,15 @@ monthlyRentRecordSchema.pre('save', function() {
     }
   } else if (this.totalPaid > 0) {
     this.status = 'partial';
+  } else {
+    // If totalPaid is 0, check if it is overdue vs pending based on due date
+    const today = new Date();
+    if (this.dueDate && new Date(this.dueDate) < today) {
+      this.status = 'overdue';
+    } else {
+      this.status = 'pending';
+    }
   }
-  // pending/overdue handled externally
 });
 
 module.exports = mongoose.model('MonthlyRentRecord', monthlyRentRecordSchema);

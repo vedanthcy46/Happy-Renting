@@ -233,7 +233,7 @@ const updateOverduePayments = async (ownerId) => {
     const today = new Date();
     
     const query = {
-      status: { $in: ['pending', 'partial'] },
+      status: 'pending',
       dueDate: { $lt: today },
     };
     if (ownerId) query.ownerId = ownerId;
