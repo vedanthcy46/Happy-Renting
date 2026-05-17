@@ -131,13 +131,10 @@ paymentTransactionSchema.pre('save', function () {
       }
     });
 
-    // Prevent changing status unless it's moving from completed -> reversed
+    // Allow transitioning status between completed and reversed
     if (this.isModified('status')) {
-      const original = this.$locals.originalStatus; 
-      // Mongoose doesn't easily provide original value in pre('save'), 
-      // but if the document was fetched, we can just strictly check:
-      if (this.status !== 'reversed') {
-         // Only allow transition to reversed
+      if (!['completed', 'reversed'].includes(this.status)) {
+        throw new Error(`Invalid status transition to '${this.status}'`);
       }
     }
   }

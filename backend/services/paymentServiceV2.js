@@ -406,34 +406,44 @@ const reverseTransaction = async (transactionId, reason, caller) => {
     throw err;
   }
 
-  if (transaction.status !== 'completed') {
-    const err = new Error('Can only reverse completed transactions');
+  if (transaction.status !== 'completed' && transaction.status !== 'reversed') {
+    const err = new Error('Can only change status of completed or reversed transactions');
     err.statusCode = 400;
     throw err;
   }
 
-  // Mark as reversed
-  transaction.status = 'reversed';
-  transaction.statusReason = reason || 'Transaction reversed';
+  const isReversing = transaction.status === 'completed';
+  const nextStatus = isReversing ? 'reversed' : 'completed';
+
+  // Mark status
+  transaction.status = nextStatus;
+  transaction.statusReason = isReversing ? (reason || 'Transaction reversed') : 'Reversal undone / Re-activated';
   await transaction.save();
 
-  // Update rent record to reduce totalPaid
+  // Update rent record to adjust totalPaid
   const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
   if (rentRecord) {
-    rentRecord.totalPaid = Math.max(0, rentRecord.totalPaid - transaction.amount);
+    if (isReversing) {
+      rentRecord.totalPaid = Math.max(0, rentRecord.totalPaid - transaction.amount);
+    } else {
+      rentRecord.totalPaid += transaction.amount;
+    }
     await rentRecord.save();
   }
 
-  logger.info(`[TRANSACTION] Reversed txnId=${transactionId} amount=₹${transaction.amount}`);
+  logger.info(`[TRANSACTION] Status toggled for txnId=${transactionId} to=${nextStatus} amount=₹${transaction.amount}`);
 
   if (caller.role === 'owner') {
+    const actionType = isReversing ? 'PAYMENT_TRANSACTION_REVERSED' : 'PAYMENT_TRANSACTION_REACTIVATED';
     await logActivity(
       caller.id,
-      'PAYMENT_TRANSACTION_REVERSED',
+      actionType,
       transaction._id,
       'PaymentTransaction',
-      `Reversed transaction of ₹${transaction.amount}. Reason: ${reason}`
-    );
+      isReversing
+        ? `Reversed transaction of ₹${transaction.amount}. Reason: ${reason}`
+        : `Undid reversal of transaction of ₹${transaction.amount}`
+    ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
   }
 
   return transaction;
