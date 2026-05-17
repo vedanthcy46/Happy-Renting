@@ -74,6 +74,11 @@ const generateMonthlyBills = async (ownerId) => {
           // Compute the due date for this historical cycle
           const cycleDueDate = getDueDateForMonth(year, month, tenant.billingDay || 5);
 
+          // If the target cycle is in the current month, only backfill if today has reached/passed the due date
+          if (iterMonthStr === currentMonthStr && today < cycleDueDate) {
+            break;
+          }
+
           // Billing Freeze Check: if exitDate is set and exitDate <= cycleDueDate, freeze all future generation
           if (tenant.exitDate && new Date(tenant.exitDate) <= cycleDueDate) {
             logger.info(`[BILLING FREEZE] Skip historical month=${iterMonthStr} for stayId=${tenant._id} (exitDate=${tenant.exitDate.toISOString().slice(0, 10)} <= cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)})`);
@@ -147,8 +152,22 @@ const generateMonthlyBills = async (ownerId) => {
           continue;
         }
 
+        // Timezone-safe start of billing date check
+        if (today < tenant.firstBillingDate) {
+          logger.info(`[BILLING SKIPPED] reason=before_first_billing_date stayId=${tenant._id} firstBillingDate=${tenant.firstBillingDate.toISOString().slice(0, 10)}`);
+          billingResults.skipped++;
+          continue;
+        }
+
         const [year, monthNum] = currentMonthStr.split('-').map(Number);
         const cycleDueDate = getDueDateForMonth(year, monthNum - 1, tenant.billingDay || 5);
+
+        // Only generate the bill if today has reached or passed the cycle due date!
+        if (today < cycleDueDate) {
+          logger.info(`[BILLING SKIPPED] reason=cycle_due_date_not_reached stayId=${tenant._id} cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)}`);
+          billingResults.skipped++;
+          continue;
+        }
 
         // Billing Freeze Check: if exitDate is set and exitDate <= cycleDueDate, freeze/skip
         if (tenant.exitDate && new Date(tenant.exitDate) <= cycleDueDate) {

@@ -18,13 +18,16 @@ const addTenantValidation = [
     .isISO8601().withMessage('Valid join date required (YYYY-MM-DD)')
     .toDate(),
   body('moveInDate')
+    .customSanitizer(value => value === '' ? undefined : value)
     .optional()
     .isISO8601().withMessage('Valid move-in date required (YYYY-MM-DD)')
     .toDate(),
   body('customBillingDay')
+    .customSanitizer(value => value === '' ? undefined : value)
     .optional()
     .isInt({ min: 1, max: 31 }).withMessage('Custom billing day must be between 1 and 31'),
   body('isMigratedTenant')
+    .customSanitizer(value => value === '' ? undefined : value)
     .optional()
     .isBoolean().withMessage('isMigratedTenant must be a boolean'),
   body('phone')
