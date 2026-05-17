@@ -58,7 +58,6 @@ const generateMonthlyBills = async (ownerId) => {
     // ─────────────────────────────────────────────────────────────────────────
     const migratedQuery = {
       status: 'active',
-      isMigratedTenant: true,
       migrationBackfillCompleted: false
     };
     if (ownerId) migratedQuery.ownerId = ownerId;
