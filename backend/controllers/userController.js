@@ -48,7 +48,7 @@ const getAdminStats = async (req, res, next) => {
     const [ownersCount, propertiesCount, tenantsCount] = await Promise.all([
       User.countDocuments({ role: 'owner' }),
       Property.countDocuments({}),
-      Tenant.countDocuments({}),
+      Tenant.countDocuments({ status: 'active' }),
     ]);
 
     res.status(200).json({
@@ -72,7 +72,7 @@ const getOwnerPropertyMapping = async (req, res, next) => {
     const mapping = await Promise.all(owners.map(async (owner) => {
       const [propCount, tenantCount] = await Promise.all([
         Property.countDocuments({ ownerId: owner._id }),
-        Tenant.countDocuments({ ownerId: owner._id }),
+        Tenant.countDocuments({ ownerId: owner._id, status: 'active' }),
       ]);
       
       return {
