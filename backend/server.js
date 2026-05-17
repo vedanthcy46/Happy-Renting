@@ -38,6 +38,7 @@ const propertyRoutes = require('./routes/propertyRoutes');
 const roomRoutes     = require('./routes/roomRoutes');
 const tenantRoutes   = require('./routes/tenantRoutes');
 const paymentRoutes  = require('./routes/paymentRoutes');
+const paymentRoutesV2 = require('./routes/paymentRoutesV2');
 const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const healthRoutes    = require('./routes/healthRoutes');
@@ -107,6 +108,7 @@ app.use('/api/properties', propertyRoutes);
 app.use('/api/rooms',      roomRoutes);
 app.use('/api/tenants',    tenantRoutes);
 app.use('/api/payments',   paymentRoutes);
+app.use('/api/v2/payments',   paymentRoutesV2); // New ledger-based system
 app.use('/api/owner-requests', ownerRequestRoutes);
 app.use('/api/complaints', complaintRoutes);
 

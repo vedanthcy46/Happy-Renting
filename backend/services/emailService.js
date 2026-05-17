@@ -410,6 +410,40 @@ const sendVerificationEmail = async (user, token) => {
   await sendEmail(user.email, subject, html);
 };
 
+// ── NEW: Payment Transaction Notification (V2 System) ────────────────────────
+const sendPaymentTransactionNotification = async (tenantUser, transaction, rentRecord, property, room, owner) => {
+  const subject = `Payment Recorded for ${rentRecord.month} - Happy Renting`;
+  const balanceText = rentRecord.remainingAmount > 0
+    ? `<p><strong>Remaining Balance:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>`
+    : `<p style="color: #16a34a;"><strong>✓ Rent Fully Paid for ${rentRecord.month}</strong></p>`;
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">Payment Received</h2>
+      <p>Hello <strong>${tenantUser.name}</strong>,</p>
+      <p>We have recorded your payment for <strong>${rentRecord.month}</strong>.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Amount Paid:</strong> ₹${transaction.amount.toLocaleString()}</p>
+      <p><strong>Payment Method:</strong> ${transaction.paymentMethod.toUpperCase()}</p>
+      <p><strong>Transaction Date:</strong> ${formatDateOnly(transaction.paymentDate)}</p>
+      ${transaction.note ? `<p><strong>Note:</strong> ${transaction.note}</p>` : ''}
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <div style="padding: 15px; background: #f0f9ff; border-left: 4px solid #2563eb; border-radius: 4px;">
+        <p><strong>Total Rent:</strong> ₹${rentRecord.totalRent.toLocaleString()}</p>
+        <p><strong>Total Paid:</strong> ₹${rentRecord.totalPaid.toLocaleString()}</p>
+        ${balanceText}
+      </div>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Property:</strong> ${property.name}</p>
+      <p><strong>Room:</strong> ${room.roomNumber}</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('View Payment Details')}
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(tenantUser.email, subject, html);
+};
+
 module.exports = {
   sendComplaintNotification,
   sendComplaintResolvedNotification,
@@ -425,4 +459,5 @@ module.exports = {
   sendAdminNewRequestAlert,
   sendTenantWelcome,
   sendVerificationEmail,
+  sendPaymentTransactionNotification,
 };
