@@ -23,24 +23,24 @@ const DashboardPage = () => {
   const { user, isTenant, isSuperAdmin, isOwner, refreshUser } = useAuth();
   const toast = useToast();
 
-  const [stats,    setStats]    = useState(null);
-  const [recent,   setRecent]   = useState([]);
-  const [mapping,  setMapping]  = useState([]);
-  const [logs,     setLogs]     = useState([]);
+  const [stats, setStats] = useState(null);
+  const [recent, setRecent] = useState([]);
+  const [mapping, setMapping] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [vacantRooms, setVacantRooms] = useState([]);
-  const [finance,  setFinance]  = useState({ income: 0, pending: 0, overdue: 0 });
-  const [loading,  setLoading]  = useState(true);
+  const [finance, setFinance] = useState({ income: 0, pending: 0, overdue: 0 });
+  const [loading, setLoading] = useState(true);
   const [currentPayment, setCurrentPayment] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // Refresh user details to get latest payment config
       if (isOwner) {
-        await refreshUser().catch(() => {});
+        await refreshUser().catch(() => { });
       }
-      
+
       if (isTenant) {
         const [tenantRes, payRes] = await Promise.all([
           api.get('/tenants/my'),
@@ -61,27 +61,26 @@ const DashboardPage = () => {
         setLogs(logsRes.data.logs || []);
       } else {
         // Owner view
-        const [roomsRes, tenantsRes, paymentsRes, summaryRes] = await Promise.all([
+        const [roomsRes, tenantsRes, summaryRes] = await Promise.all([
           api.get('/rooms'),
           api.get('/tenants?status=active'),
           api.get('/v2/payments?status=pending'),
           api.get('/v2/payments/summary/metrics'),
         ]);
-        const rooms    = roomsRes.data.rooms;
-        const tenants  = tenantsRes.data.tenants;
-        const payments = paymentsRes.data.rentRecords || [];
+        const rooms = roomsRes.data.rooms;
+        const tenants = tenantsRes.data.tenants;
         setStats({
-          totalRooms    : rooms.length,
-          fullRooms     : rooms.filter(r => r.isFull).length,
-          activeTenants : tenants.length,
+          totalRooms: rooms.length,
+          fullRooms: rooms.filter(r => r.isFull).length,
+          activeTenants: tenants.length,
           pendingPayments: summaryRes.data.metrics?.pendingCount || 0,
         });
         setRecent(tenants.slice(0, 5));
         setVacantRooms(rooms.filter(r => !r.isFull));
-        
+
         const metrics = summaryRes.data.metrics || {};
-        setFinance({ 
-          income: metrics.totalCollected || 0, 
+        setFinance({
+          income: metrics.totalCollected || 0,
           pending: metrics.totalOutstanding || 0, // In V2, outstanding includes partials
           overdue: 0 // We don't have separate overdue amount natively, but we can compute or omit. We'll use 0 or update backend. Let's just use pending.
         });
@@ -115,9 +114,9 @@ const DashboardPage = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <StatCard label="Total Owners"     value={stats?.totalOwners}     icon="🛡️" color="bg-brand-600" />
+          <StatCard label="Total Owners" value={stats?.totalOwners} icon="🛡️" color="bg-brand-600" />
           <StatCard label="Total Properties" value={stats?.totalProperties} icon="🏢" color="bg-purple-600" />
-          <StatCard label="Total Tenants"    value={stats?.totalTenants}    icon="👥" color="bg-success" />
+          <StatCard label="Total Tenants" value={stats?.totalTenants} icon="👥" color="bg-success" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -149,7 +148,7 @@ const DashboardPage = () => {
               </table>
             </div>
           </div>
-          
+
           {/* Activity Logs */}
           <div className="card flex flex-col h-[500px]">
             <div className="px-6 py-4 border-b border-surface-border">
@@ -235,53 +234,53 @@ const DashboardPage = () => {
           <div className="space-y-6">
             {/* Active Bill Card (Tenant) */}
             <div className="card p-6 border-brand-500/30 bg-brand-500/5 relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                 <span className="text-6xl">💸</span>
-               </div>
-               <h3 className="font-bold text-white mb-4 uppercase text-xs tracking-widest text-brand-400">Current Month Bill</h3>
-               
-               {currentPayment ? (
-                 <div className="space-y-4 relative z-10">
-                   <div className="flex justify-between items-end">
-                     <div>
-                       <p className="text-slate-500 text-[10px] uppercase font-bold">Month</p>
-                       <p className="text-xl font-bold text-white">{currentPayment.month}</p>
-                     </div>
-                     <div className="text-right">
-                       <p className="text-slate-500 text-[10px] uppercase font-bold">Due Date</p>
-                       <p className={`text-sm font-mono ${currentPayment.status === 'overdue' ? 'text-danger font-bold' : 'text-white'}`}>
-                         {currentPayment.dueDate ? new Date(currentPayment.dueDate).toLocaleDateString() : '—'}
-                       </p>
-                     </div>
-                   </div>
+              </div>
+              <h3 className="font-bold text-white mb-4 uppercase text-xs tracking-widest text-brand-400">Current Month Bill</h3>
 
-                   <div className="pt-4 border-t border-white/5">
-                     <p className="text-slate-500 text-[10px] uppercase font-bold mb-1">Status</p>
-                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                       <StatusBadge status={currentPayment.status} />
-                       <div className="text-right">
-                         <p className="text-2xl font-bold text-white">₹{currentPayment.remainingAmount?.toLocaleString()}</p>
-                         <p className="text-[10px] text-slate-400">Remaining</p>
-                       </div>
-                     </div>
-                   </div>
+              {currentPayment ? (
+                <div className="space-y-4 relative z-10">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-slate-500 text-[10px] uppercase font-bold">Month</p>
+                      <p className="text-xl font-bold text-white">{currentPayment.month}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-slate-500 text-[10px] uppercase font-bold">Due Date</p>
+                      <p className={`text-sm font-mono ${currentPayment.status === 'overdue' ? 'text-danger font-bold' : 'text-white'}`}>
+                        {currentPayment.dueDate ? new Date(currentPayment.dueDate).toLocaleDateString() : '—'}
+                      </p>
+                    </div>
+                  </div>
 
-                   {(currentPayment.remainingAmount > 0) ? (
-                     <Link to={`/tenant/pay/${currentPayment._id}`} className="btn-primary w-full mt-4 py-3 justify-center shadow-glow">
-                       Pay Now
-                     </Link>
-                   ) : (
-                     <div className="mt-4 p-3 rounded-lg bg-success/10 border border-success/20 text-center">
-                       <p className="text-xs text-success font-bold uppercase tracking-widest">Fully Paid</p>
-                       <p className="text-[10px] text-slate-400 mt-1">Thank you for timely payment.</p>
-                     </div>
-                   )}
-                 </div>
-               ) : (
-                 <div className="py-8 text-center">
-                   <p className="text-slate-500 italic text-sm">No bills generated yet.</p>
-                 </div>
-               )}
+                  <div className="pt-4 border-t border-white/5">
+                    <p className="text-slate-500 text-[10px] uppercase font-bold mb-1">Status</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <StatusBadge status={currentPayment.status} />
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-white">₹{currentPayment.remainingAmount?.toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400">Remaining</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(currentPayment.remainingAmount > 0) ? (
+                    <Link to={`/tenant/pay/${currentPayment._id}`} className="btn-primary w-full mt-4 py-3 justify-center shadow-glow">
+                      Pay Now
+                    </Link>
+                  ) : (
+                    <div className="mt-4 p-3 rounded-lg bg-success/10 border border-success/20 text-center">
+                      <p className="text-xs text-success font-bold uppercase tracking-widest">Fully Paid</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Thank you for timely payment.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-slate-500 italic text-sm">No bills generated yet.</p>
+                </div>
+              )}
             </div>
 
             <div className="card p-6">
@@ -306,10 +305,10 @@ const DashboardPage = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard label="Total Rooms"      value={stats?.totalRooms}      icon="🏠" color="bg-brand-600"    sub="Active inventory" />
-        <StatCard label="Full Rooms"       value={stats?.fullRooms}       icon="🔒" color="bg-danger"       sub="Maximum capacity" />
-        <StatCard label="Active Tenants"   value={stats?.activeTenants}   icon="👥" color="bg-success"      sub="Current residents" />
-        <StatCard label="Pending Rent"     value={stats?.pendingPayments} icon="💰" color="bg-warning"      sub="Payments due" />
+        <StatCard label="Total Rooms" value={stats?.totalRooms} icon="🏠" color="bg-brand-600" sub="Active inventory" />
+        <StatCard label="Full Rooms" value={stats?.fullRooms} icon="🔒" color="bg-danger" sub="Maximum capacity" />
+        <StatCard label="Active Tenants" value={stats?.activeTenants} icon="👥" color="bg-success" sub="Current residents" />
+        <StatCard label="Pending Rent" value={stats?.pendingPayments} icon="💰" color="bg-warning" sub="Payments due" />
       </div>
 
       {/* Financial Summary */}
@@ -416,12 +415,12 @@ const DashboardPage = () => {
           <div className="card p-6 border-brand-500/20 bg-brand-500/5 flex flex-col items-center text-center">
             <h2 className="text-lg font-bold text-white mb-1">Payment Setup</h2>
             <p className="text-xs text-slate-500 mb-6 font-medium uppercase tracking-widest">Active QR Code</p>
-            
+
             <div className="w-full max-w-[180px] aspect-square bg-white rounded-2xl shadow-glow overflow-hidden mb-6 flex items-center justify-center p-2 border-4 border-white/5">
               {user?.qrCodeImage?.secureUrl ? (
-                <img 
-                  src={user.qrCodeImage.secureUrl} 
-                  alt="QR Code" 
+                <img
+                  src={user.qrCodeImage.secureUrl}
+                  alt="QR Code"
                   className="w-full h-full object-contain"
                 />
               ) : (
@@ -441,7 +440,7 @@ const DashboardPage = () => {
               </Link>
             </div>
           </div>
-          
+
           <div className="card p-5">
             <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">System Logs</h4>
             <div className="space-y-3">
