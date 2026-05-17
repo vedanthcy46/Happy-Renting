@@ -40,6 +40,7 @@ const tenantRoutes   = require('./routes/tenantRoutes');
 const paymentRoutes  = require('./routes/paymentRoutes');
 const paymentRoutesV2 = require('./routes/paymentRoutesV2');
 const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
+const complaintRoutes = require('./routes/complaintRoutes');
 const healthRoutes    = require('./routes/healthRoutes');
 const systemRoutes    = require('./routes/systemRoutes');
 const { initKeepAlive } = require('./services/keepAliveService');
