@@ -339,7 +339,7 @@ const updateMonthlyRentRecord = async (rentRecordId, updateData, caller) => {
   }
 
   // Allowed updates
-  const { notes, reminderSent, advanceBalance, totalRent } = updateData;
+  const { notes, reminderSent, advanceBalance, totalRent, status } = updateData;
 
   if (notes !== undefined) {
     rentRecord.notes = notes;
@@ -356,6 +356,14 @@ const updateMonthlyRentRecord = async (rentRecordId, updateData, caller) => {
   // Allow updating total rent if needed (e.g., rent increased mid-month)
   if (totalRent !== undefined && totalRent > 0) {
     rentRecord.totalRent = totalRent;
+  }
+  if (status !== undefined) {
+    if (!['pending', 'partial', 'paid', 'overdue'].includes(status)) {
+      const err = new Error('Invalid status value. Must be pending, partial, paid, or overdue.');
+      err.statusCode = 400;
+      throw err;
+    }
+    rentRecord.status = status;
   }
 
   await rentRecord.save();

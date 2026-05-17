@@ -27,11 +27,18 @@ const rentRecordValidation = [
 ];
 
 const transactionValidation = [
-  body('rentRecordId').isMongoId().withMessage('Valid rent record ID required'),
+  param('rentRecordId').isMongoId().withMessage('Valid rent record ID required'),
   body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
-  body('paymentMethod')
-    .isIn(['cash', 'upi', 'bank_transfer', 'cheque', 'other'])
-    .withMessage('Invalid payment method'),
+  body().custom((value, { req }) => {
+    const method = req.body.paymentMethod || req.body.method;
+    if (!method) {
+      throw new Error('Payment method is required');
+    }
+    if (!['cash', 'upi', 'bank_transfer', 'cheque', 'other'].includes(method)) {
+      throw new Error('Invalid payment method');
+    }
+    return true;
+  }),
   body('paymentDate').optional().isISO8601().withMessage('Invalid payment date'),
   body('note').optional().trim().isLength({ max: 300 }).escape(),
   body('transactionId').optional().trim(),
@@ -195,13 +202,17 @@ const updateRentRecord = async (req, res, next) => {
 
 const addPaymentTransaction = async (req, res, next) => {
   try {
-    const { rentRecordId, tenantId, amount, paymentMethod, paymentDate, note, transactionId, idempotencyKey } = req.body;
+    const rentRecordId = req.body.rentRecordId || req.params.rentRecordId;
+    const paymentMethod = req.body.paymentMethod || req.body.method;
+    const { amount, paymentDate, note, transactionId, idempotencyKey } = req.body;
 
     // Ensure rent record exists
     let rentRecord = await MonthlyRentRecord.findById(rentRecordId);
     if (!rentRecord) {
       return res.status(404).json({ success: false, message: 'Rent record not found' });
     }
+
+    const tenantId = req.body.tenantId || rentRecord.tenantId;
 
     // Security
     if (req.user.role === 'owner' && String(rentRecord.ownerId) !== String(req.user._id)) {
