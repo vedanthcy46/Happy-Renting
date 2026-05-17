@@ -105,19 +105,24 @@ const PaymentsPage = () => {
     }
   };
 
-  const handleReverseTransaction = async (transactionId) => {
-    if (!window.confirm("Are you sure you want to reverse this transaction? This action will restore the remaining balance.")) return;
+  const handleReverseTransaction = async (transactionId, isReversing) => {
+    const confirmMsg = isReversing
+      ? "Are you sure you want to reverse this transaction? This action will restore the remaining balance."
+      : "Are you sure you want to undo this reversal? This action will re-apply the payment to the rent record.";
+    if (!window.confirm(confirmMsg)) return;
     
     setSubmitting(true);
     try {
-      await api.post(`/v2/payments/transactions/${transactionId}/reverse`, { reason: 'Reversed by admin/owner' });
-      toast.success('Transaction reversed successfully');
+      await api.post(`/v2/payments/transactions/${transactionId}/reverse`, { 
+        reason: isReversing ? 'Reversed by admin/owner' : 'Reversal undone / Re-activated' 
+      });
+      toast.success(isReversing ? 'Transaction reversed successfully' : 'Reversal undone successfully');
       // Refresh history
       const { data } = await api.get(`/v2/payments/${selectedRecordHistory._id}`);
       setHistoryTransactions(data.transactions || []);
       fetchPayments(); // Refresh list to update totals
     } catch (err) {
-      toast.error(err.message || 'Failed to reverse transaction');
+      toast.error(err.message || 'Failed to update transaction status');
     } finally {
       setSubmitting(false);
     }
@@ -342,13 +347,13 @@ const PaymentsPage = () => {
                       </p>
                     )}
                   </div>
-                  {isOwner && txn.status === 'completed' && idx === 0 && ( // Only allow reversing the latest completed
+                  {isOwner && (txn.status === 'completed' || txn.status === 'reversed') && (
                     <button 
-                      onClick={() => handleReverseTransaction(txn._id)} 
+                      onClick={() => handleReverseTransaction(txn._id, txn.status === 'completed')} 
                       disabled={submitting}
-                      className="text-[10px] text-red-400 hover:text-red-300 font-bold underline decoration-red-400/30"
+                      className={`text-[10px] font-bold underline ${txn.status === 'completed' ? 'text-red-400 hover:text-red-300 decoration-red-400/30' : 'text-green-400 hover:text-green-300 decoration-green-400/30'}`}
                     >
-                      Reverse
+                      {txn.status === 'completed' ? 'Reverse' : 'Undo Reversal'}
                     </button>
                   )}
                 </div>

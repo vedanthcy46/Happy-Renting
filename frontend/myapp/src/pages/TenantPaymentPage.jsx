@@ -68,7 +68,7 @@ const TenantPaymentPage = () => {
     
     setSubmitting(true);
     const formData = new FormData();
-    formData.append('tenantId', rentRecord.tenantId);
+    formData.append('tenantId', rentRecord.tenantId?._id || rentRecord.tenantId);
     formData.append('amount', form.amount);
     formData.append('paymentMethod', form.paymentMethod);
     if (form.transactionId) formData.append('transactionId', form.transactionId);
