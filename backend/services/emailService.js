@@ -148,14 +148,16 @@ const sendComplaintNotification = async (owner, tenant, complaint, property, roo
 // ── 2. Payment Proof Uploaded (To Owner) ─────────────────────────────────────
 const sendPaymentProofNotification = async (owner, tenant, payment, property, room) => {
   const subject = `Payment Proof Uploaded - ${tenant.name}`;
+  const displayMonth = payment.month || (payment.rentRecordId && payment.rentRecordId.month) || 'Current Month';
+  const displayMethod = (payment.method || payment.paymentMethod || 'other').toUpperCase();
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">Payment Proof Received</h2>
       <p>Hello <strong>${owner.name}</strong>,</p>
-      <p>Tenant <strong>${tenant.name}</strong> has uploaded a payment proof for <strong>${payment.month}</strong>.</p>
+      <p>Tenant <strong>${tenant.name}</strong> has uploaded a payment proof for <strong>${displayMonth}</strong>.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <p><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</p>
-      <p><strong>Method:</strong> ${payment.method.toUpperCase()}</p>
+      <p><strong>Method:</strong> ${displayMethod}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
@@ -168,22 +170,25 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
 
 // ── 3. Payment Verified (To Tenant) ──────────────────────────────────────────
 const sendPaymentStatusNotification = async (tenantUser, payment, property, room, owner) => {
-  const isPaid = payment.status === 'paid';
-  const subject = isPaid ? `Rent Payment Verified - ${payment.month}` : `Rent Payment Issue - ${payment.month}`;
+  const isPaid = payment.status === 'paid' || payment.status === 'completed';
+  const displayMonth = payment.month || (payment.rentRecordId && payment.rentRecordId.month) || 'Current Month';
+  const displayStatus = payment.status === 'completed' ? 'verified' : payment.status;
+  const failureReason = payment.failureReason || payment.statusReason;
+  const subject = isPaid ? `Rent Payment Verified - ${displayMonth}` : `Rent Payment Issue - ${displayMonth}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: ${isPaid ? '#16a34a' : '#dc2626'};">${isPaid ? 'Payment Confirmed' : 'Payment Issue'}</h2>
       <p>Hello <strong>${tenantUser.name}</strong>,</p>
-      <p>Your rent payment for <strong>${payment.month}</strong> has been ${payment.status}.</p>
+      <p>Your rent payment for <strong>${displayMonth}</strong> has been ${displayStatus}.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Status:</strong> ${payment.status.toUpperCase()}</p>
+      <p><strong>Status:</strong> ${displayStatus.toUpperCase()}</p>
       <p><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <p><strong>Owner:</strong> ${owner.name}</p>
-      ${payment.failureReason ? `
+      ${failureReason ? `
         <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px;">
-          <p style="margin: 0; color: #dc2626; font-size: 14px;"><strong>Reason:</strong> ${payment.failureReason}</p>
+          <p style="margin: 0; color: #dc2626; font-size: 14px;"><strong>Reason/Note:</strong> ${failureReason}</p>
         </div>
       ` : ''}
       <hr style="border: 0; border-top: 1px solid #eee;" />

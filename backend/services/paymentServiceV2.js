@@ -271,21 +271,35 @@ const addPaymentTransaction = async (params, caller) => {
     ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
   }
 
-  // Send notification to tenant
+  // Send email notifications
   try {
     const populated = await rentRecord.populate('userId propertyId roomId ownerId');
-    if (populated.userId && populated.userId.email) {
-      await emailService.sendPaymentTransactionNotification(
-        populated.userId,
-        transaction,
-        rentRecord,
-        populated.propertyId,
-        populated.roomId,
-        populated.ownerId
-      );
+    if (resolvedStatus === 'verifying') {
+      // Notify owner about tenant payment proof upload
+      if (populated.ownerId && populated.ownerId.email && populated.userId) {
+        await emailService.sendPaymentProofNotification(
+          populated.ownerId,        // owner
+          populated.userId,         // tenant
+          transaction,              // payment (transaction)
+          populated.propertyId,     // property
+          populated.roomId          // room
+        );
+      }
+    } else {
+      // Notify tenant about successful payment record receipt
+      if (populated.userId && populated.userId.email) {
+        await emailService.sendPaymentTransactionNotification(
+          populated.userId,
+          transaction,
+          rentRecord,
+          populated.propertyId,
+          populated.roomId,
+          populated.ownerId
+        );
+      }
     }
   } catch (emailErr) {
-    logger.error(`[EMAIL] Failed to send transaction notification: ${emailErr.message}`);
+    logger.error(`[EMAIL] Failed to send transaction/proof notification: ${emailErr.message}`);
   }
 
   return transaction;
@@ -622,6 +636,24 @@ const verifyTransaction = async (transactionId, caller) => {
     ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
   }
 
+  // Send status email to tenant
+  try {
+    if (rentRecord) {
+      const populated = await rentRecord.populate('userId propertyId roomId ownerId');
+      if (populated.userId && populated.userId.email) {
+        await emailService.sendPaymentStatusNotification(
+          populated.userId,
+          transaction,
+          populated.propertyId,
+          populated.roomId,
+          populated.ownerId
+        );
+      }
+    }
+  } catch (emailErr) {
+    logger.error(`[EMAIL] Failed to send payment verified notification to tenant: ${emailErr.message}`);
+  }
+
   return transaction;
 };
 
@@ -663,6 +695,25 @@ const rejectTransaction = async (transactionId, reason, caller) => {
       'PaymentTransaction',
       `Rejected payment of ₹${transaction.amount}. Reason: ${reason}`
     ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
+  }
+
+  // Send status email to tenant
+  try {
+    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
+    if (rentRecord) {
+      const populated = await rentRecord.populate('userId propertyId roomId ownerId');
+      if (populated.userId && populated.userId.email) {
+        await emailService.sendPaymentStatusNotification(
+          populated.userId,
+          transaction,
+          populated.propertyId,
+          populated.roomId,
+          populated.ownerId
+        );
+      }
+    }
+  } catch (emailErr) {
+    logger.error(`[EMAIL] Failed to send payment rejected notification to tenant: ${emailErr.message}`);
   }
 
   return transaction;
