@@ -13,8 +13,10 @@ const NotificationQueue = require('../models/NotificationQueue');
 
 const WEBSITE_URL = (process.env.CLIENT_URL || 'https://happyrenting.netlify.app').replace(/\/$/, '');
 
-// ── Immediate Email Sending (For Auth/Critical) ─────────────────────────────
-const sendEmail = async (to, subject, html) => {
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ── Immediate Resilient Email Sending ─────────────────────────────
+const sendEmail = async (to, subject, html, retryCount = 0) => {
   try {
     if (!to) {
       logger.warn(`[EMAIL SKIP] No recipient address provided for subject: ${subject}`);
@@ -33,12 +35,29 @@ const sendEmail = async (to, subject, html) => {
     });
 
     if (error) {
+      // Handle rate limits (429) transparently
+      if (
+        (error.statusCode === 429 || error.name === 'rate_limit_exceeded' || error.message?.includes('limit')) &&
+        retryCount < 3
+      ) {
+        const backoffDelay = (retryCount + 1) * 1000 + Math.random() * 500;
+        logger.warn(`[EMAIL RATE LIMIT] Resend rate limit hit for ${to}. Retrying in ${Math.round(backoffDelay)}ms... (Attempt ${retryCount + 1}/3)`);
+        await sleep(backoffDelay);
+        return sendEmail(to, subject, html, retryCount + 1);
+      }
+
       logger.error(`[EMAIL ERROR] Resend failed for ${to}. Error: ${JSON.stringify(error)}`);
       return;
     }
 
     logger.info(`[EMAIL SENT] to=${to} subject="${subject}" id=${data.id}`);
   } catch (err) {
+    if (retryCount < 3) {
+      const backoffDelay = (retryCount + 1) * 1000 + Math.random() * 500;
+      logger.warn(`[EMAIL ERROR RETRY] Network error for ${to}: ${err.message}. Retrying in ${Math.round(backoffDelay)}ms...`);
+      await sleep(backoffDelay);
+      return sendEmail(to, subject, html, retryCount + 1);
+    }
     logger.error(`[EMAIL ERROR] failed to send to=${to}: ${err.message}`);
   }
 };
