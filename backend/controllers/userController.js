@@ -240,8 +240,10 @@ const deleteUser = async (req, res, next) => {
           // Vacate room
           const room = await Room.findById(t.roomId);
           if (room) {
-            room.currentOccupancy = Math.max(0, room.currentOccupancy - 1);
-            room.isFull = false;
+            const coOccupantCount = await CoOccupant.countDocuments({ tenantId: t._id });
+            const totalOccupantsToRemove = 1 + coOccupantCount;
+            room.currentOccupancy = Math.max(0, room.currentOccupancy - totalOccupantsToRemove);
+            room.isFull = room.currentOccupancy >= room.capacity;
             await room.save();
           }
         }

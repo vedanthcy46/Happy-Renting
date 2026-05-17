@@ -194,6 +194,8 @@ const updateTenant = async (req, res, next) => {
       name, email, phone, idProof, customBillingDay, isMigratedTenant 
     } = req.body;
 
+    const oldStatus = tenant.status;
+
     // 1) Update Tenant-specific fields
     if (advancePaid    !== undefined) tenant.advancePaid = advancePaid;
     if (securityDeposit !== undefined) tenant.securityDeposit = securityDeposit;
@@ -206,6 +208,30 @@ const updateTenant = async (req, res, next) => {
     if (idProof        !== undefined) tenant.idProof      = idProof;
     if (customBillingDay !== undefined) tenant.customBillingDay = customBillingDay;
     if (isMigratedTenant !== undefined) tenant.isMigratedTenant = isMigratedTenant;
+
+    // Handle status change transition from active to vacated
+    if (oldStatus === 'active' && tenant.status === 'vacated') {
+      const CoOccupant = require('../models/CoOccupant');
+      const Room = require('../models/Room');
+      
+      const coOccupantCount = await CoOccupant.countDocuments({ tenantId: tenant._id });
+      const totalOccupantsToRemove = 1 + coOccupantCount;
+      
+      const room = await Room.findById(tenant.roomId);
+      if (room) {
+        room.currentOccupancy = Math.max(0, room.currentOccupancy - totalOccupantsToRemove);
+        room.isFull = room.currentOccupancy >= room.capacity;
+        await room.save();
+      }
+      
+      // Cleanup co-occupants
+      await CoOccupant.deleteMany({ tenantId: tenant._id });
+      
+      // Auto-set exitDate
+      if (!tenant.exitDate) {
+        tenant.exitDate = new Date();
+      }
+    }
 
     // ── Financial Validation ──
     if (Number(tenant.advancePaid) > Number(tenant.securityDeposit)) {
