@@ -91,7 +91,7 @@ const monthlyRentRecordSchema = new mongoose.Schema(
     },
     // Has a due reminder been sent?
     reminderSent: {
-      type   : Boolean,
+      type: Boolean,
       default: false,
     },
     reminderSentAt: {
@@ -100,15 +100,46 @@ const monthlyRentRecordSchema = new mongoose.Schema(
     },
     // For refunds or overpayments carried to next month
     advanceBalance: {
-      type   : Number,
+      type: Number,
       default: 0,
-      min    : [0, 'Advance balance cannot be negative'],
+      min: [0, 'Advance balance cannot be negative'],
     },
     // Controls how advance balance is treated in future months
     advanceBalanceMode: {
-      type    : String,
-      enum    : ['auto_apply', 'manual_apply'],
-      default : 'auto_apply',
+      type: String,
+      enum: ['auto_apply', 'manual_apply'],
+      default: 'auto_apply',
+    },
+    // ── CALENDAR BILLING EXTENSIONS ──────────────────────────────────────────
+    billingMonth: {
+      type: String,
+      default: function() {
+        return this.month;
+      }
+    },
+    billingYear: {
+      type: Number,
+      default: function() {
+        if (this.month) {
+          return parseInt(this.month.split('-')[0], 10);
+        }
+        return new Date().getFullYear();
+      }
+    },
+    billingPeriodStart: {
+      type: Date,
+    },
+    billingPeriodEnd: {
+      type: Date,
+    },
+    billingType: {
+      type: String,
+      enum: ['full', 'prorated_join', 'prorated_moveout', 'adjustment'],
+      default: 'full',
+    },
+    billingModelVersion: {
+      type: Number,
+      default: 2,
     },
   },
   {
@@ -132,11 +163,23 @@ monthlyRentRecordSchema.index({ ownerId: 1, month: 1 });
 monthlyRentRecordSchema.index({ propertyId: 1, month: 1 });
 monthlyRentRecordSchema.index({ status: 1 });
 
-// ─────────────────────────────────────────────────────────────────────────
-// HOOKS
-// ─────────────────────────────────────────────────────────────────────────
 // Recalculate remainingAmount before saving
 monthlyRentRecordSchema.pre('save', function() {
+  // Auto-populate calendar billing extensions if missing
+  if (this.month) {
+    if (!this.billingMonth) this.billingMonth = this.month;
+    const [y, m] = this.month.split('-').map(Number);
+    if (!this.billingYear) this.billingYear = y;
+    
+    if (!this.billingPeriodStart) {
+      this.billingPeriodStart = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    }
+    if (!this.billingPeriodEnd) {
+      const lastDay = new Date(y, m, 0).getDate();
+      this.billingPeriodEnd = new Date(y, m - 1, lastDay, 23, 59, 59, 999);
+    }
+  }
+
   // Ensure remaining is correct
   this.remainingAmount = Math.max(0, this.totalRent - this.totalPaid);
   

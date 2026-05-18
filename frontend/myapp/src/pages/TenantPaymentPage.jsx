@@ -115,9 +115,31 @@ const TenantPaymentPage = () => {
             <h3 className="text-white font-bold mb-4 uppercase text-xs tracking-wider">Rent Record Details</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Month</span>
-                <span className="text-white font-bold">{rentRecord.month}</span>
+                <span className="text-slate-400">Billing Period</span>
+                <span className="text-white font-mono text-sm">
+                  {rentRecord.billingPeriodStart ? (
+                    `${new Date(rentRecord.billingPeriodStart).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} → ${new Date(rentRecord.billingPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+                  ) : (
+                    rentRecord.month
+                  )}
+                </span>
               </div>
+              {rentRecord.billingType && rentRecord.billingType !== 'full' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Billing Type</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    rentRecord.billingType === 'prorated_join' 
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                      : rentRecord.billingType === 'prorated_moveout'
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                  }`}>
+                    {rentRecord.billingType === 'prorated_join' && 'Prorated Move-In'}
+                    {rentRecord.billingType === 'prorated_moveout' && 'Prorated Move-Out'}
+                    {rentRecord.billingType === 'adjustment' && 'Adjustment'}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Due Date</span>
                 <span className="text-white">{rentRecord.dueDate ? new Date(rentRecord.dueDate).toLocaleDateString() : '—'}</span>

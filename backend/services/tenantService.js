@@ -326,6 +326,15 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
       { path: 'roomId', select: 'roomNumber floor currentOccupancy capacity' },
     ]);
 
+    // ── Instant Final Month Prorated Billing Settlement ──
+    try {
+      const billingServiceV2 = require('./billingServiceV2');
+      await billingServiceV2.generateMonthlyBills(updatedTenant.ownerId);
+      logger.info(`[MOVE-OUT] Auto-generated final proration and billing records for tenant=${tenantId}`);
+    } catch (billErr) {
+      logger.error(`[MOVE-OUT] Auto-billing failed for tenant=${tenantId}: ${billErr.message}`);
+    }
+
     logger.info(`[MOVE-OUT] tenant=${tenantId} occupantsRemoved=${totalOccupantsToRemove} room=${tenant.roomId} by=${callerId}`);
     await logActivity(callerId, 'TENANT_VACATED', tenantId, 'Tenant', `Tenant moved out from Room ${tenant.roomId?._id || tenant.roomId}`);
     return updatedTenant;

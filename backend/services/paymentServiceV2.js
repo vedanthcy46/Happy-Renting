@@ -19,9 +19,10 @@ const Tenant = require('../models/Tenant');
 const emailService = require('./emailService');
 const logger = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
+const { getDaysInMonth, calculateProratedRent, generateMonthlyBillingPeriod } = require('../utils/billingHelpers');
 
-// ─────────────────────────────────────────────────────────────────────────
-// CORE: Create or get monthly rent record
+const DEFAULT_RENT_DUE_DAY = parseInt(process.env.DEFAULT_RENT_DUE_DAY || '5', 10);
+
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
@@ -51,8 +52,8 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
 
   if (!rentRecord) {
     // Create new rent record
-    const dueDay = tenant.rentDueDay || 5;
     const [year, monthNum] = month.split('-').map(Number);
+    const dueDay = DEFAULT_RENT_DUE_DAY;
     
     // Set to the next calendar month (e.g. March stay has due date in April)
     let dueYear = year;
@@ -66,8 +67,44 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
     if (tempDate.getMonth() !== dueMonthIndex) {
       tempDate = new Date(dueYear, dueMonthIndex + 1, 0); // Last day of target month
     }
-    tempDate.setHours(12, 0, 0, 0); // Timezone-immune noon-based shift
+    tempDate.setHours(12, 0, 0, 0); // Noon-based immune noon shift
     const dueDate = tempDate;
+
+    // Proration logic
+    let finalRent = totalRent;
+    let billingType = 'full';
+
+    const joinDate = new Date(tenant.moveInDate || tenant.joinDate || Date.now());
+    const joinMonthStr = joinDate.toISOString().slice(0, 7);
+
+    // Get billing period
+    const { start, end, totalDays } = generateMonthlyBillingPeriod(month);
+
+    if (month === joinMonthStr) {
+      // First month proration check
+      const joinDay = joinDate.getDate();
+      if (joinDay > 1) {
+        const occupiedDays = totalDays - joinDay + 1;
+        finalRent = calculateProratedRent(totalRent, occupiedDays, totalDays);
+        billingType = 'prorated_join';
+        logger.info(`[PRORATED BILL GENERATED] tenantId=${tenantId} month=${month} occupiedDays=${occupiedDays} amount=${finalRent} (prorated_join)`);
+      }
+    }
+
+    // Check for move-out proration
+    if (tenant.exitDate) {
+      const exitDate = new Date(tenant.exitDate);
+      const exitMonthStr = exitDate.toISOString().slice(0, 7);
+      if (month === exitMonthStr) {
+        const exitDay = exitDate.getDate();
+        if (exitDay < totalDays) {
+          const occupiedDays = month === joinMonthStr ? Math.max(1, exitDay - joinDate.getDate() + 1) : exitDay;
+          finalRent = calculateProratedRent(totalRent, occupiedDays, totalDays);
+          billingType = 'prorated_moveout';
+          logger.info(`[PRORATED BILL GENERATED] tenantId=${tenantId} month=${month} occupiedDays=${occupiedDays} amount=${finalRent} (prorated_moveout)`);
+        }
+      }
+    }
 
     try {
       rentRecord = await MonthlyRentRecord.create({
@@ -77,13 +114,19 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
         propertyId: tenant.propertyId,
         ownerId: tenant.ownerId,
         month,
-        totalRent,
-        rentAmountAtGeneration: totalRent, // Snapshot
+        totalRent: finalRent,
+        rentAmountAtGeneration: totalRent, // Snapshot of base rent
         dueDate,
-        notes: options.notes || 'System generated monthly rent record.',
+        billingMonth: month,
+        billingYear: year,
+        billingPeriodStart: start,
+        billingPeriodEnd: end,
+        billingType,
+        billingModelVersion: 2,
+        notes: options.notes || `System generated ${billingType} monthly rent record.`,
       });
 
-      logger.info(`[RENT RECORD] Created rentRecordId=${rentRecord._id} for tenant=${tenantId} month=${month}`);
+      logger.info(`[RENT RECORD] Created rentRecordId=${rentRecord._id} for tenant=${tenantId} month=${month} type=${billingType} amount=${finalRent}`);
     } catch (createErr) {
       // Idempotency check: If two parallel requests try to create the same month record, E11000 fires
       if (createErr.code === 11000) {

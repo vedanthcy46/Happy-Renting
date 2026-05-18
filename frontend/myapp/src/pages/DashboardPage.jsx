@@ -247,8 +247,25 @@ const DashboardPage = () => {
                 <div className="space-y-4 relative z-10">
                   <div className="flex justify-between items-end">
                     <div>
-                      <p className="text-slate-500 text-[10px] uppercase font-bold">Month</p>
-                      <p className="text-xl font-bold text-white">{currentPayment.month}</p>
+                      <p className="text-slate-500 text-[10px] uppercase font-bold">Billing Period</p>
+                      <p className="text-sm font-bold text-white font-mono">
+                        {currentPayment.billingPeriodStart ? (
+                          `${new Date(currentPayment.billingPeriodStart).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} → ${new Date(currentPayment.billingPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        ) : (
+                          currentPayment.month
+                        )}
+                      </p>
+                      {currentPayment.billingType && currentPayment.billingType !== 'full' && (
+                        <span className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                          currentPayment.billingType === 'prorated_join' 
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                            : currentPayment.billingType === 'prorated_moveout'
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                        }`}>
+                          {currentPayment.billingType === 'prorated_join' ? 'Prorated Join' : 'Prorated Move-Out'}
+                        </span>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-slate-500 text-[10px] uppercase font-bold">Due Date</p>

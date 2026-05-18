@@ -224,7 +224,26 @@ const PaymentsPage = () => {
                       <p className="font-semibold text-white">Room {record.roomId?.roomNumber}</p>
                       <p className="text-[10px] text-slate-400">{record.propertyId?.name}</p>
                     </td>
-                    <td className="text-slate-400 font-mono">{record.month}</td>
+                    <td className="text-slate-300 font-mono text-xs">
+                      <p className="text-white font-semibold">
+                        {record.billingPeriodStart ? (
+                          `${new Date(record.billingPeriodStart).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} → ${new Date(record.billingPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        ) : (
+                          record.month
+                        )}
+                      </p>
+                      {record.billingType && record.billingType !== 'full' && (
+                        <span className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                          record.billingType === 'prorated_join' 
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                            : record.billingType === 'prorated_moveout'
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                        }`}>
+                          {record.billingType === 'prorated_join' ? 'Prorated Join' : 'Prorated Move-Out'}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-white font-semibold">₹{record.totalRent?.toLocaleString()}</td>
                     
                     {/* Progress Bar Cell */}

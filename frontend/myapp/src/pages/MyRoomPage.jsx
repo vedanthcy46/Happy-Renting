@@ -292,15 +292,34 @@ const MyRoomPage = () => {
                 
                 <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-surface-border bg-surface-card shadow-sm transition-all hover:shadow-glow hover:border-brand-500/30">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-white text-lg">{pay.month}</span>
-                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border
-                      ${pay.status === 'paid' ? 'bg-success/10 text-success border-success/20' : 
-                        pay.status === 'partial' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
-                        pay.status === 'pending' ? 'bg-warning/10 text-warning border-warning/20' : 
-                        pay.status === 'overdue' ? 'bg-danger/10 text-danger border-danger/20' : 
-                        'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
-                      {pay.status}
+                    <span className="font-bold text-white text-sm">
+                      {pay.billingPeriodStart ? (
+                        `${new Date(pay.billingPeriodStart).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} → ${new Date(pay.billingPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+                      ) : (
+                        pay.month
+                      )}
                     </span>
+                    <div className="flex items-center gap-2">
+                      {pay.billingType && pay.billingType !== 'full' && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                          pay.billingType === 'prorated_join' 
+                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' 
+                            : pay.billingType === 'prorated_moveout'
+                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                            : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                        }`}>
+                          {pay.billingType === 'prorated_join' ? 'Prorated Join' : 'Prorated Move-Out'}
+                        </span>
+                      )}
+                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border
+                        ${pay.status === 'paid' ? 'bg-success/10 text-success border-success/20' : 
+                          pay.status === 'partial' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                          pay.status === 'pending' ? 'bg-warning/10 text-warning border-warning/20' : 
+                          pay.status === 'overdue' ? 'bg-danger/10 text-danger border-danger/20' : 
+                          'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
+                        {pay.status}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-400">Total Rent:</span>
