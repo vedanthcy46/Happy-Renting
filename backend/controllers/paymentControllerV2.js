@@ -62,14 +62,21 @@ const getRentRecords = async (req, res, next) => {
       await billingServiceV2.updateOverduePayments(req.user._id)
         .catch(e => logger.error(`Overdue check failed: ${e.message}`));
     } else if (req.user.role === 'tenant') {
-      // Tenant sees only their rent records
-      const tenancy = await Tenant.findOne({ userId: req.user._id, status: 'active' });
-      if (tenancy) {
-        filters.tenantId = tenancy._id;
+      // Tenant sees only their rent records (including past vacated tenancies)
+      const tenancies = await Tenant.find({ userId: req.user._id });
+      
+      if (tenancies && tenancies.length > 0) {
+        filters.tenantId = { $in: tenancies.map(t => t._id) };
 
         // Lazy billing for tenant's owner
-        await billingServiceV2.generateMonthlyBills(tenancy.ownerId)
-          .catch(e => logger.error(`Auto-billing for tenant failed: ${e.message}`));
+        const activeTenancy = tenancies.find(t => t.status === 'active') || tenancies[0];
+        if (activeTenancy) {
+          await billingServiceV2.generateMonthlyBills(activeTenancy.ownerId)
+            .catch(e => logger.error(`Auto-billing for tenant failed: ${e.message}`));
+        }
+      } else {
+        // FAIL-SAFE: If no tenancies found, force an unmatchable filter to prevent data leak
+        filters.tenantId = new mongoose.Types.ObjectId(); 
       }
     }
 
