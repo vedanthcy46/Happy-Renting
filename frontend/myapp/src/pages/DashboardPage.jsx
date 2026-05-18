@@ -68,19 +68,24 @@ const DashboardPage = () => {
         ]);
         const rooms = roomsRes.data.rooms;
         const tenants = tenantsRes.data.tenants;
+        const metrics = summaryRes.data.metrics || {};
+
+        const outstandingCount = (metrics.pendingCount || 0) + (metrics.partialCount || 0) + (metrics.overdueCount || 0);
+        const totalOutstandingRupees = (metrics.totalPending || 0) + (metrics.totalOverdue || 0);
+
         setStats({
           totalRooms: rooms.length,
           fullRooms: rooms.filter(r => r.isFull).length,
           activeTenants: tenants.length,
-          pendingPayments: summaryRes.data.metrics?.pendingCount || 0,
+          pendingCount: outstandingCount,
+          pendingAmount: totalOutstandingRupees,
         });
         setRecent(tenants.slice(0, 5));
         setVacantRooms(rooms.filter(r => !r.isFull));
 
-        const metrics = summaryRes.data.metrics || {};
         setFinance({
           income: metrics.totalCollected || 0,
-          pending: metrics.totalPending || metrics.totalOutstanding || 0,
+          pending: metrics.totalPending || 0,
           overdue: metrics.totalOverdue || 0,
         });
       }
@@ -307,7 +312,13 @@ const DashboardPage = () => {
         <StatCard label="Total Rooms" value={stats?.totalRooms} icon="🏠" color="bg-brand-600" sub="Active inventory" />
         <StatCard label="Full Rooms" value={stats?.fullRooms} icon="🔒" color="bg-danger" sub="Maximum capacity" />
         <StatCard label="Active Tenants" value={stats?.activeTenants} icon="👥" color="bg-success" sub="Current residents" />
-        <StatCard label="Pending Rent" value={stats?.pendingPayments} icon="💰" color="bg-warning" sub="Payments due" />
+        <StatCard 
+          label="Pending Rent" 
+          value={`₹${(stats?.pendingAmount || 0).toLocaleString()}`} 
+          icon="💰" 
+          color="bg-warning" 
+          sub={`${stats?.pendingCount || 0} ${stats?.pendingCount === 1 ? 'payment' : 'payments'} due`} 
+        />
       </div>
 
       {/* Financial Summary */}
