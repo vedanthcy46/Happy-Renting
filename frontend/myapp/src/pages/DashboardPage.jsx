@@ -270,7 +270,7 @@ const DashboardPage = () => {
                     <div className="text-right">
                       <p className="text-slate-500 text-[10px] uppercase font-bold">Due Date</p>
                       <p className={`text-sm font-mono ${currentPayment.status === 'overdue' ? 'text-danger font-bold' : 'text-white'}`}>
-                        {currentPayment.dueDate ? new Date(currentPayment.dueDate).toLocaleDateString() : '—'}
+                        {currentPayment.dueDate ? new Date(currentPayment.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                       </p>
                     </div>
                   </div>

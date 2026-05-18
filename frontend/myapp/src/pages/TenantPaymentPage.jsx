@@ -142,7 +142,7 @@ const TenantPaymentPage = () => {
               )}
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Due Date</span>
-                <span className="text-white">{rentRecord.dueDate ? new Date(rentRecord.dueDate).toLocaleDateString() : '—'}</span>
+                <span className="text-white">{rentRecord.dueDate ? new Date(rentRecord.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
               </div>
               <div className="flex justify-between items-center border-t border-slate-700 pt-4 mt-4">
                 <span className="text-slate-400">Total Rent</span>
