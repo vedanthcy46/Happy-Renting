@@ -66,6 +66,28 @@ const generateMonthlyBills = async (ownerId) => {
 
           const iterMonthStr = `${iterYear}-${String(iterMonth + 1).padStart(2, '0')}`;
 
+          // --- Calendar Due Date Protection ---
+          // The bill should only be generated when today reaches the default due date of the next month.
+          let dueYear = iterYear;
+          let dueMonthIndex = iterMonth + 1; // 0-11 index of next month
+          if (dueMonthIndex > 11) {
+            dueMonthIndex = 0;
+            dueYear += 1;
+          }
+          const defaultDueDay = parseInt(process.env.DEFAULT_RENT_DUE_DAY || '5', 10);
+          
+          let cycleDueDate = new Date(dueYear, dueMonthIndex, defaultDueDay, 12, 0, 0, 0);
+          if (cycleDueDate.getMonth() !== dueMonthIndex) {
+            cycleDueDate = new Date(dueYear, dueMonthIndex + 1, 0, 12, 0, 0, 0);
+          }
+          
+          // If active and due date not reached, skip this and all future months
+          if (tenant.status !== 'vacated' && !tenant.exitDate && today < cycleDueDate) {
+            logger.info(`[BILLING SKIPPED] reason=cycle_due_date_not_reached tenantId=${tenant._id} cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)}`);
+            break; 
+          }
+          // ------------------------------------
+
           // Check if MonthlyRentRecord already exists
           const existing = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: iterMonthStr });
           
