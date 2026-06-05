@@ -19,7 +19,8 @@ const Tenant = require('../models/Tenant');
 const emailService = require('./emailService');
 const logger = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
-const { getDaysInMonth, calculateProratedRent, generateMonthlyBillingPeriod } = require('../utils/billingHelpers');
+const { generateMonthlyBillingPeriod } = require('../utils/billingHelpers');
+const billingCalculationService = require('../utils/billingCalculationService');
 
 const DEFAULT_RENT_DUE_DAY = parseInt(process.env.DEFAULT_RENT_DUE_DAY || '5', 10);
 
@@ -44,6 +45,31 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
     throw err;
   }
 
+  // Pre-calculate Proration Math using Strict Calculation Service
+  const [year, monthNum] = month.split('-').map(Number);
+  const dueDate = billingCalculationService.calculateDueDate(month);
+  
+  const joinDate = new Date(tenant.moveInDate || tenant.joinDate || Date.now());
+  const exitDate = tenant.exitDate ? new Date(tenant.exitDate) : null;
+  
+  const { occupiedDays, totalDays, isProrated } = billingCalculationService.calculateOccupiedDays(month, joinDate, exitDate);
+  
+  let finalRent = totalRent;
+  let billingType = 'full';
+  let proratedDays = null;
+
+  if (isProrated) {
+    finalRent = billingCalculationService.calculateProratedRent(totalRent, occupiedDays, totalDays);
+    proratedDays = occupiedDays;
+    
+    const joinMonthStr = joinDate.toISOString().slice(0, 7);
+    if (month === joinMonthStr) {
+      billingType = 'prorated_join';
+    } else if (exitDate) {
+      billingType = 'prorated_moveout';
+    }
+  }
+
   // Try to find existing record
   let rentRecord = await MonthlyRentRecord.findOne({
     tenantId,
@@ -52,59 +78,7 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
 
   if (!rentRecord) {
     // Create new rent record
-    const [year, monthNum] = month.split('-').map(Number);
-    const dueDay = DEFAULT_RENT_DUE_DAY;
-    
-    // Set to the next calendar month (e.g. March stay has due date in April)
-    let dueYear = year;
-    let dueMonthIndex = monthNum; // since monthNum is 1-12, this is the index of the next month (0-11)
-    if (dueMonthIndex > 11) {
-      dueMonthIndex = 0;
-      dueYear += 1;
-    }
-
-    let tempDate = new Date(dueYear, dueMonthIndex, dueDay);
-    if (tempDate.getMonth() !== dueMonthIndex) {
-      tempDate = new Date(dueYear, dueMonthIndex + 1, 0); // Last day of target month
-    }
-    tempDate.setHours(12, 0, 0, 0); // Noon-based immune noon shift
-    const dueDate = tempDate;
-
-    // Proration logic
-    let finalRent = totalRent;
-    let billingType = 'full';
-
-    const joinDate = new Date(tenant.moveInDate || tenant.joinDate || Date.now());
-    const joinMonthStr = joinDate.toISOString().slice(0, 7);
-
-    // Get billing period
-    const { start, end, totalDays } = generateMonthlyBillingPeriod(month);
-
-    if (month === joinMonthStr) {
-      // First month proration check
-      const joinDay = joinDate.getDate();
-      if (joinDay > 1) {
-        const occupiedDays = totalDays - joinDay + 1;
-        finalRent = calculateProratedRent(totalRent, occupiedDays, totalDays);
-        billingType = 'prorated_join';
-        logger.info(`[PRORATED BILL GENERATED] tenantId=${tenantId} month=${month} occupiedDays=${occupiedDays} amount=${finalRent} (prorated_join)`);
-      }
-    }
-
-    // Check for move-out proration
-    if (tenant.exitDate) {
-      const exitDate = new Date(tenant.exitDate);
-      const exitMonthStr = exitDate.toISOString().slice(0, 7);
-      if (month === exitMonthStr) {
-        const exitDay = exitDate.getDate();
-        if (exitDay < totalDays) {
-          const occupiedDays = month === joinMonthStr ? Math.max(1, exitDay - joinDate.getDate() + 1) : exitDay;
-          finalRent = calculateProratedRent(totalRent, occupiedDays, totalDays);
-          billingType = 'prorated_moveout';
-          logger.info(`[PRORATED BILL GENERATED] tenantId=${tenantId} month=${month} occupiedDays=${occupiedDays} amount=${finalRent} (prorated_moveout)`);
-        }
-      }
-    }
+    const { start, end } = generateMonthlyBillingPeriod(month);
 
     try {
       rentRecord = await MonthlyRentRecord.create({
@@ -115,20 +89,22 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
         ownerId: tenant.ownerId,
         month,
         totalRent: finalRent,
-        rentAmountAtGeneration: totalRent, // Snapshot of base rent
+        rentAmountAtGeneration: finalRent, 
+        fullRentAmount: totalRent,
         dueDate,
         billingMonth: month,
         billingYear: year,
         billingPeriodStart: start,
         billingPeriodEnd: end,
         billingType,
+        isProrated,
+        proratedDays,
         billingModelVersion: 2,
         notes: options.notes || `System generated ${billingType} monthly rent record.`,
       });
 
       logger.info(`[RENT RECORD] Created rentRecordId=${rentRecord._id} for tenant=${tenantId} month=${month} type=${billingType} amount=${finalRent}`);
     } catch (createErr) {
-      // Idempotency check: If two parallel requests try to create the same month record, E11000 fires
       if (createErr.code === 11000) {
         logger.warn(`[RENT RECORD] Duplicate creation attempt for tenant=${tenantId} month=${month}, fetching existing`);
         rentRecord = await MonthlyRentRecord.findOne({ tenantId, month });
@@ -136,11 +112,41 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
         throw createErr;
       }
     }
-  } else if (options.updateTotalRent && totalRent !== rentRecord.totalRent) {
-    // Update total rent if provided (e.g., rent increase)
-    rentRecord.totalRent = totalRent;
-    await rentRecord.save();
-    logger.info(`[RENT RECORD] Updated totalRent for rentRecordId=${rentRecord._id}`);
+  } else {
+    // Phase D & E: Final Settlement Reconciliation or Rent Update on Existing Record
+    let needsSave = false;
+
+    // Recalculate if it became a prorated move-out month AFTER it was already generated
+    if (isProrated && rentRecord.totalRent !== finalRent && billingType === 'prorated_moveout') {
+      const { newTotalRent, advanceBalance, newStatus } = billingCalculationService.calculateFinalSettlement(rentRecord.totalPaid, finalRent);
+      
+      logger.info(`[FINAL SETTLEMENT] Recalculating existing record ${rentRecord._id}. OldRent=${rentRecord.totalRent}, NewRent=${newTotalRent}, Advance=${advanceBalance}`);
+      
+      rentRecord.totalRent = newTotalRent;
+      rentRecord.advanceBalance = advanceBalance;
+      rentRecord.status = newStatus;
+      rentRecord.isProrated = true;
+      rentRecord.proratedDays = proratedDays;
+      rentRecord.billingType = billingType;
+      
+      needsSave = true;
+    } else if (options.updateTotalRent && totalRent !== rentRecord.fullRentAmount) {
+      // Normal rent increase update mid-month
+      rentRecord.fullRentAmount = totalRent;
+      rentRecord.totalRent = finalRent;
+      needsSave = true;
+      logger.info(`[RENT RECORD] Updated fullRentAmount to ${totalRent} for rentRecordId=${rentRecord._id}`);
+    }
+    
+    // Explicit safety enforcement: Ensure legacy records without dueDate get one
+    if (!rentRecord.dueDate) {
+      rentRecord.dueDate = dueDate;
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      await rentRecord.save();
+    }
   }
 
   return rentRecord;

@@ -37,6 +37,36 @@ const logActivity = require('../utils/activityLogger');
 const CoOccupant = require('../models/CoOccupant');
 const Property = require('../models/Property');
 
+// ── Transaction Fallback Helper ──────────────────────────────────────────────
+// Allows local standalone MongoDB to work without throwing Replica Set errors.
+const withTransactionOrFallback = async (operation) => {
+  let session;
+  try {
+    session = await mongoose.startSession();
+  } catch (err) {
+    logger.warn('[TRANSACTION FALLBACK] Could not start session: ' + err.message);
+    return operation(undefined);
+  }
+
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await operation(session);
+    });
+    return result;
+  } catch (err) {
+    if (err.message.includes('Transaction numbers are only allowed on a replica set member') || 
+        err.message.includes('Transactions are not supported') ||
+        err.message.includes('does not support retryable writes')) {
+      logger.warn('[TRANSACTION FALLBACK] Standalone MongoDB detected. Running without transaction.');
+      return operation(undefined);
+    }
+    throw err;
+  } finally {
+    await session.endSession();
+  }
+};
+
 // ── Move-In ────────────────────────────────────────────────────────────────
 /**
  * moveIn(params, performedBy)
@@ -107,82 +137,80 @@ const moveIn = async (params, performedBy) => {
   }
 
   // ── Transaction ──
-  const session = await mongoose.startSession();
   let tenant;
 
-  try {
-    await session.withTransaction(async () => {
-      // 1) Ensure user has no active tenancy
-      const existing = await Tenant.findOne({ userId, status: 'active' }).session(session);
-      if (existing) {
-        const err = new Error('This user already has an active tenancy.');
-        err.statusCode = 409;
-        throw err;
-      }
+  await withTransactionOrFallback(async (session) => {
+    // 1) Ensure user has no active tenancy
+    const existing = await Tenant.findOne({ userId, status: 'active' }).session(session);
+    if (existing) {
+      const err = new Error('This user already has an active tenancy.');
+      err.statusCode = 409;
+      throw err;
+    }
 
-      // 2) Ensure room has no active main tenant (One tenancy per room rule)
-      const roomOccupied = await Tenant.findOne({ roomId, status: 'active' }).session(session);
-      if (roomOccupied) {
-        const err = new Error('Already People are there, look for other room.');
-        err.statusCode = 409;
-        throw err;
-      }
+    // 2) Ensure room has no active main tenant (One tenancy per room rule)
+    const roomOccupied = await Tenant.findOne({ roomId, status: 'active' }).session(session);
+    if (roomOccupied) {
+      const err = new Error('Already People are there, look for other room.');
+      err.statusCode = 409;
+      throw err;
+    }
 
-      // 3) Atomic capacity check + increment by totalOccupantsToAdd
-      const updatedRoom = await Room.findOneAndUpdate(
+    // 3) Atomic capacity check + increment by totalOccupantsToAdd
+    const updatedRoom = await Room.findOneAndUpdate(
+      {
+        _id: roomId,
+        ownerId,
+        isActive: true,
+        currentOccupancy: { $lte: room.capacity - totalOccupantsToAdd },
+      },
+      { $inc: { currentOccupancy: totalOccupantsToAdd } },
+      { new: true, session }
+    );
+
+    if (!updatedRoom) {
+      const err = new Error(
+        `Room ${room.roomNumber} no longer has enough capacity. Another tenant may have just been assigned.`
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // 3) Create primary tenant record
+    [tenant] = await Tenant.create(
+      [
         {
-          _id: roomId,
+          userId,
+          roomId,
+          propertyId,
           ownerId,
-          isActive: true,
-          currentOccupancy: { $lte: room.capacity - totalOccupantsToAdd },
+          joinDate,
+          moveInDate: moveInDate || joinDate,
+          phone,
+          idProof,
+          advancePaid: advancePaid || 0,
+          securityDeposit: securityDeposit || 0,
+          notes,
+          status: 'active',
+          customBillingDay: customBillingDay !== undefined ? customBillingDay : null,
+          isMigratedTenant: !!isMigratedTenant,
         },
-        { $inc: { currentOccupancy: totalOccupantsToAdd } },
-        { new: true, session }
-      );
+      ],
+      { session, ordered: true }
+    );
 
-      if (!updatedRoom) {
-        const err = new Error(
-          `Room ${room.roomNumber} no longer has enough capacity. Another tenant may have just been assigned.`
-        );
-        err.statusCode = 409;
-        throw err;
-      }
-
-      // 3) Create primary tenant record
-      [tenant] = await Tenant.create(
-        [
-          {
-            userId,
-            roomId,
-            propertyId,
-            ownerId,
-            joinDate,
-            moveInDate: moveInDate || joinDate,
-            phone,
-            idProof,
-            advancePaid: advancePaid || 0,
-            securityDeposit: securityDeposit || 0,
-            notes,
-            status: 'active',
-            customBillingDay: customBillingDay !== undefined ? customBillingDay : null,
-            isMigratedTenant: !!isMigratedTenant,
-          },
-        ],
-        { session, ordered: true }
-      );
-
-      // 4) Create co-occupants
-      if (coOccupants.length > 0) {
-        const coOccupantDocs = coOccupants.map(co => ({
-          tenantId: tenant._id,
-          ownerId,
-          name: co.name,
-          phone: co.phone || '',
-          idProof: co.idProof || '',
-        }));
-        await CoOccupant.create(coOccupantDocs, { session, ordered: true });
-      }
-    });
+    // 4) Create co-occupants
+    if (coOccupants.length > 0) {
+      const coOccupantDocs = coOccupants.map(co => ({
+        tenantId: tenant._id,
+        ownerId,
+        name: co.name,
+        phone: co.phone || '',
+        idProof: co.idProof || '',
+      }));
+      await CoOccupant.create(coOccupantDocs, { session, ordered: true });
+    }
+  });
 
     // Populate outside transaction
     await tenant.populate([
@@ -222,10 +250,6 @@ const moveIn = async (params, performedBy) => {
     }
 
     return result;
-
-  } finally {
-    await session.endSession();
-  }
 };
 
 const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
@@ -270,55 +294,53 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
   const totalOccupantsToRemove = 1 + coOccupantCount;
 
   // ── Transaction ──
-  const session = await mongoose.startSession();
   let updatedTenant;
 
-  try {
-    await session.withTransaction(async () => {
-      // 1) Update primary tenant status
-      updatedTenant = await Tenant.findOneAndUpdate(
-        { _id: tenantId, status: 'active' },
-        {
-          $set: {
-            status: 'vacated',
-            exitDate: exit,
-            vacatedBy: callerId,
-            ...(notes ? { notes } : {}),
-          },
+  await withTransactionOrFallback(async (session) => {
+    // 1) Update primary tenant status
+    updatedTenant = await Tenant.findOneAndUpdate(
+      { _id: tenantId, status: 'active' },
+      {
+        $set: {
+          status: 'vacated',
+          exitDate: exit,
+          vacatedBy: callerId,
+          ...(notes ? { notes } : {}),
         },
-        { new: true, session }
+      },
+      { new: true, session }
+    );
+
+    if (!updatedTenant) {
+      const err = new Error('Tenant is no longer active — possible concurrent move-out.');
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // 2) Remove all co-occupants
+    await CoOccupant.deleteMany({ tenantId }, { session });
+
+    // 3) Decrement room occupancy by totalOccupantsToRemove
+    const roomUpdate = await Room.findOneAndUpdate(
+      {
+        _id: tenant.roomId,
+        ownerId: tenant.ownerId,
+        currentOccupancy: { $gte: totalOccupantsToRemove },
+      },
+      { $inc: { currentOccupancy: -totalOccupantsToRemove } },
+      { new: true, session }
+    );
+
+    if (!roomUpdate) {
+      logger.warn(
+        `[MOVE-OUT] Consistency warning: could not decrement occupancy by ${totalOccupantsToRemove} for room=${tenant.roomId}. ` +
+        `Falling back to safety decrement.`
       );
-
-      if (!updatedTenant) {
-        const err = new Error('Tenant is no longer active — possible concurrent move-out.');
-        err.statusCode = 409;
-        throw err;
-      }
-
-      // 2) Remove all co-occupants
-      await CoOccupant.deleteMany({ tenantId }, { session });
-
-      // 3) Decrement room occupancy by totalOccupantsToRemove
-      const roomUpdate = await Room.findOneAndUpdate(
-        {
-          _id: tenant.roomId,
-          ownerId: tenant.ownerId,
-          currentOccupancy: { $gte: totalOccupantsToRemove },
-        },
-        { $inc: { currentOccupancy: -totalOccupantsToRemove } },
-        { new: true, session }
-      );
-
-      if (!roomUpdate) {
-        logger.warn(
-          `[MOVE-OUT] Consistency warning: could not decrement occupancy by ${totalOccupantsToRemove} for room=${tenant.roomId}. ` +
-          `Falling back to safety decrement.`
-        );
-        // If the atomic decrement failed (e.g. occupancy was somehow less than totalOccupantsToRemove),
-        // we at least try to set it to 0 or decrement as much as possible to avoid negative numbers.
-        await Room.findByIdAndUpdate(tenant.roomId, { $set: { currentOccupancy: 0 } }, { session });
-      }
-    });
+      // If the atomic decrement failed (e.g. occupancy was somehow less than totalOccupantsToRemove),
+      // we at least try to set it to 0 or decrement as much as possible to avoid negative numbers.
+      await Room.findByIdAndUpdate(tenant.roomId, { $set: { currentOccupancy: 0 } }, { session });
+    }
+  });
 
     // Populate outside transaction
     await updatedTenant.populate([
@@ -339,9 +361,7 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
     await logActivity(callerId, 'TENANT_VACATED', tenantId, 'Tenant', `Tenant moved out from Room ${tenant.roomId?._id || tenant.roomId}`);
     return updatedTenant;
 
-  } finally {
-    await session.endSession();
-  }
+  return updatedTenant;
 };
 
 const addCoOccupants = async (tenantId, newOccupants, callerId, callerRole) => {
@@ -381,41 +401,36 @@ const addCoOccupants = async (tenantId, newOccupants, callerId, callerRole) => {
     throw err;
   }
 
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      // 1. Increment room occupancy
-      const updatedRoom = await Room.findOneAndUpdate(
-        {
-          _id: tenant.roomId,
-          currentOccupancy: { $lte: room.capacity - totalToAdd }
-        },
-        { $inc: { currentOccupancy: totalToAdd } },
-        { new: true, session }
-      );
+  await withTransactionOrFallback(async (session) => {
+    // 1. Increment room occupancy
+    const updatedRoom = await Room.findOneAndUpdate(
+      {
+        _id: tenant.roomId,
+        currentOccupancy: { $lte: room.capacity - totalToAdd }
+      },
+      { $inc: { currentOccupancy: totalToAdd } },
+      { new: true, session }
+    );
 
-      if (!updatedRoom) {
-        throw new Error('Concurrency error: Room capacity changed.');
-      }
+    if (!updatedRoom) {
+      throw new Error('Concurrency error: Room capacity changed.');
+    }
 
-      // 2. Create co-occupant records
-      const coOccupantDocs = newOccupants.map(co => ({
-        tenantId,
-        ownerId: tenant.ownerId,
-        name: co.name,
-        phone: co.phone || '',
-        idProof: co.idProof || ''
-      }));
+    // 2. Create co-occupant records
+    const coOccupantDocs = newOccupants.map(co => ({
+      tenantId,
+      ownerId: tenant.ownerId,
+      name: co.name,
+      phone: co.phone || '',
+      idProof: co.idProof || ''
+    }));
 
-      await CoOccupant.create(coOccupantDocs, { session, ordered: true });
-    });
+    await CoOccupant.create(coOccupantDocs, { session, ordered: true });
+  });
 
-    logger.info(`[CO-OCCUPANTS ADDED] tenant=${tenantId} count=${totalToAdd} by=${callerId}`);
-    await logActivity(callerId, 'CO_OCCUPANT_ADDED', tenantId, 'Tenant', `Added ${totalToAdd} co-occupant(s) to tenant ${tenantId}`);
-    return await CoOccupant.find({ tenantId }).lean();
-  } finally {
-    await session.endSession();
-  }
+  logger.info(`[CO-OCCUPANTS ADDED] tenant=${tenantId} count=${totalToAdd} by=${callerId}`);
+  await logActivity(callerId, 'CO_OCCUPANT_ADDED', tenantId, 'Tenant', `Added ${totalToAdd} co-occupant(s) to tenant ${tenantId}`);
+  return await CoOccupant.find({ tenantId }).lean();
 };
 
 const deleteCoOccupant = async (tenantId, coOccupantId, callerId, callerRole) => {
@@ -444,39 +459,34 @@ const deleteCoOccupant = async (tenantId, coOccupantId, callerId, callerRole) =>
     throw err;
   }
 
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      const coOccupant = await CoOccupant.findOne({ _id: coOccupantId, tenantId }).session(session);
-      if (!coOccupant) {
-        const err = new Error('Co-occupant not found.');
-        err.statusCode = 404;
-        throw err;
-      }
+  await withTransactionOrFallback(async (session) => {
+    const coOccupant = await CoOccupant.findOne({ _id: coOccupantId, tenantId }).session(session);
+    if (!coOccupant) {
+      const err = new Error('Co-occupant not found.');
+      err.statusCode = 404;
+      throw err;
+    }
 
-      const roomUpdate = await Room.findOneAndUpdate(
-        { _id: tenant.roomId, currentOccupancy: { $gte: 1 } },
-        { $inc: { currentOccupancy: -1 } },
-        { new: true, session }
+    const roomUpdate = await Room.findOneAndUpdate(
+      { _id: tenant.roomId, currentOccupancy: { $gte: 1 } },
+      { $inc: { currentOccupancy: -1 } },
+      { new: true, session }
+    );
+
+    if (!roomUpdate) {
+      logger.warn(
+        `[CO-OCCUPANT DELETE] Failed atomic decrement for room=${tenant.roomId}. ` +
+        'Setting occupancy to 0 to avoid negative counts.'
       );
+      await Room.findByIdAndUpdate(tenant.roomId, { $set: { currentOccupancy: 0 } }, { session });
+    }
 
-      if (!roomUpdate) {
-        logger.warn(
-          `[CO-OCCUPANT DELETE] Failed atomic decrement for room=${tenant.roomId}. ` +
-          'Setting occupancy to 0 to avoid negative counts.'
-        );
-        await Room.findByIdAndUpdate(tenant.roomId, { $set: { currentOccupancy: 0 } }, { session });
-      }
+    await CoOccupant.deleteOne({ _id: coOccupantId, tenantId }).session(session);
+  });
 
-      await CoOccupant.deleteOne({ _id: coOccupantId, tenantId }).session(session);
-    });
-
-    logger.info(`[CO-OCCUPANT DELETED] tenant=${tenantId} coOccupant=${coOccupantId} by=${callerId}`);
-    await logActivity(callerId, 'CO_OCCUPANT_REMOVED', tenantId, 'Tenant', `Removed co-occupant ${coOccupantId} from tenant ${tenantId}`);
-    return true;
-  } finally {
-    await session.endSession();
-  }
+  logger.info(`[CO-OCCUPANT DELETED] tenant=${tenantId} coOccupant=${coOccupantId} by=${callerId}`);
+  await logActivity(callerId, 'CO_OCCUPANT_REMOVED', tenantId, 'Tenant', `Removed co-occupant ${coOccupantId} from tenant ${tenantId}`);
+  return true;
 };
 
 module.exports = { moveIn, moveOut, addCoOccupants, deleteCoOccupant };

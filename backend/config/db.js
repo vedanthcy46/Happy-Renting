@@ -9,7 +9,14 @@ const logger   = require('./logger');
  */
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI , {
+    let uri = process.env.MONGO_URI || 'mongodb://localhost:27017/rental';
+    
+    // Standalone MongoDB instances do not support retryable writes.
+    if (uri.includes('localhost') && !uri.includes('retryWrites')) {
+      uri += uri.includes('?') ? '&retryWrites=false' : '?retryWrites=false';
+    }
+
+    const conn = await mongoose.connect(uri, {
       // These options are the defaults in Mongoose 6+ but listed explicitly for clarity
       serverSelectionTimeoutMS : 5000,   // Fail fast if Atlas unreachable
       socketTimeoutMS          : 45000,  // Close sockets after 45 s of inactivity

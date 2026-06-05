@@ -44,14 +44,27 @@ const generateMonthlyBills = async (ownerId) => {
         const startYear = joinDate.getFullYear();
         const startMonthIndex = joinDate.getMonth(); // 0-11
 
-        // Billing end: current month, or exitDate month if vacated
+        // Post-Paid Billing Rule: Only generate bills for COMPLETED months.
+        // Therefore, the generation boundary stops at the previous month.
         let endYear = today.getFullYear();
-        let endMonthIndex = today.getMonth(); // 0-11
+        let endMonthIndex = today.getMonth() - 1;
+        if (endMonthIndex < 0) {
+          endMonthIndex = 11;
+          endYear -= 1;
+        }
 
-        if (tenant.status === 'vacated' || tenant.exitDate) {
-          const exitDate = new Date(tenant.exitDate || Date.now());
-          endYear = exitDate.getFullYear();
-          endMonthIndex = exitDate.getMonth();
+        // Move-Out Settlement Exception:
+        // If the tenant has officially vacated, generate their final settlement bill
+        // immediately for the month they exited, even if it is the current month.
+        if (tenant.status === 'vacated' && tenant.exitDate) {
+          const exitDate = new Date(tenant.exitDate);
+          const exitYear = exitDate.getFullYear();
+          const exitMonth = exitDate.getMonth();
+          
+          if (exitYear > endYear || (exitYear === endYear && exitMonth > endMonthIndex)) {
+            endYear = exitYear;
+            endMonthIndex = exitMonth;
+          }
         }
 
         // Loop from start month to end month
@@ -66,38 +79,28 @@ const generateMonthlyBills = async (ownerId) => {
 
           const iterMonthStr = `${iterYear}-${String(iterMonth + 1).padStart(2, '0')}`;
 
-          // --- Calendar Due Date Protection ---
-          // The bill should only be generated when today reaches the default due date of the next month.
-          let dueYear = iterYear;
-          let dueMonthIndex = iterMonth + 1; // 0-11 index of next month
-          if (dueMonthIndex > 11) {
-            dueMonthIndex = 0;
-            dueYear += 1;
-          }
-          const defaultDueDay = parseInt(process.env.DEFAULT_RENT_DUE_DAY || '5', 10);
-          
-          let cycleDueDate = new Date(dueYear, dueMonthIndex, defaultDueDay, 12, 0, 0, 0);
-          if (cycleDueDate.getMonth() !== dueMonthIndex) {
-            cycleDueDate = new Date(dueYear, dueMonthIndex + 1, 0, 12, 0, 0, 0);
-          }
-          
-          // If active and due date not reached, skip this and all future months
-          if (tenant.status !== 'vacated' && !tenant.exitDate && today < cycleDueDate) {
-            logger.info(`[BILLING SKIPPED] reason=cycle_due_date_not_reached tenantId=${tenant._id} cycleDueDate=${cycleDueDate.toISOString().slice(0, 10)}`);
-            break; 
-          }
-          // ------------------------------------
+          // We no longer gate by cycleDueDate. The loop naturally stops at the current month (`endMonthIndex`),
+          // allowing bills to be generated as soon as the month begins, completely independently of their due dates.
 
           // Check if MonthlyRentRecord already exists
           const existing = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: iterMonthStr });
           
           if (existing) {
             // Already generated, skip
-            logger.info(`[BILLING SKIPPED] reason=duplicate_existing_record tenantId=${tenant._id} month=${iterMonthStr}`);
+            logger.info(`[BILLING SKIPPED] reason=duplicate tenant=${tenant._id} month=${iterMonthStr}`);
             billingResults.skipped++;
+            
+            // Phase D & E: Re-ensure to trigger any recalculations (like move-out settlement) 
+            // if the tenant data changed after the bill was initially generated.
+            await paymentServiceV2.ensureMonthlyRentRecord(
+              tenant._id,
+              iterMonthStr,
+              tenantMonthlyRent,
+              { allowVacated: true }
+            );
           } else {
             // Generate using payment service
-            await paymentServiceV2.ensureMonthlyRentRecord(
+            const newRecord = await paymentServiceV2.ensureMonthlyRentRecord(
               tenant._id,
               iterMonthStr,
               tenantMonthlyRent,
@@ -106,7 +109,13 @@ const generateMonthlyBills = async (ownerId) => {
                 allowVacated: true
               }
             );
-            logger.info(`[BILLING] Generated bill for tenantId=${tenant._id} month=${iterMonthStr}`);
+            
+            if (newRecord.isProrated) {
+              logger.info(`[BILL GENERATED] tenant=${tenant._id} month=${iterMonthStr} amount=${newRecord.totalRent} prorated=true days=${newRecord.proratedDays}`);
+            } else {
+              logger.info(`[BILL GENERATED] tenant=${tenant._id} month=${iterMonthStr} amount=${newRecord.totalRent} prorated=false`);
+            }
+            
             billingResults.created++;
           }
 

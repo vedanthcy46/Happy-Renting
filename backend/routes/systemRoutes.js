@@ -6,7 +6,6 @@ const { authenticate, authorize } = require('../middleware/auth');
 const NotificationQueue = require('../models/NotificationQueue');
 
 // ── GET /api/system/health ───────────────────────────────────────────────
-// Exposes system observability metrics to superadmins
 router.get('/health', authenticate, authorize('superadmin'), async (req, res, next) => {
   try {
     const queuePending = await NotificationQueue.countDocuments({ status: 'pending' });

@@ -50,6 +50,11 @@ const monthlyRentRecordSchema = new mongoose.Schema(
       type    : Number,
       required: [true, 'Snapshot of rent amount is required'],
     },
+    // The base 100% full month rent (regardless of if this specific bill is prorated)
+    fullRentAmount: {
+      type    : Number,
+      required: [true, 'Full base rent amount is required'],
+    },
     // How much has been paid (sum of all transactions)?
     // This is calculated, but stored for quick access
     totalPaid: {
@@ -74,7 +79,8 @@ const monthlyRentRecordSchema = new mongoose.Schema(
       default : 'pending',
     },
     dueDate: {
-      type: Date,
+      type    : Date,
+      required: [true, 'Due date is strictly required'],
     },
     paidOnDate: {
       type: Date, // When was it fully paid?
@@ -136,6 +142,19 @@ const monthlyRentRecordSchema = new mongoose.Schema(
       type: String,
       enum: ['full', 'prorated_join', 'prorated_moveout', 'adjustment'],
       default: 'full',
+    },
+    isProrated: {
+      type: Boolean,
+      default: false,
+    },
+    proratedDays: {
+      type: Number,
+      min: [0, 'Prorated days cannot be negative'],
+      default: null,
+    },
+    generatedAt: {
+      type: Date,
+      default: Date.now,
     },
     billingModelVersion: {
       type: Number,

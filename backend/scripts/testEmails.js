@@ -32,58 +32,58 @@ const runTests = async () => {
 
     // 1. Welcome Email
     logger.info('Sending: Welcome Email...');
-    await emailService.sendWelcomeEmail(mockUser, mockProperty, mockRoom, mockOwner);
+    await notificationService.sendWelcomeEmail(mockUser, mockProperty, mockRoom, mockOwner);
 
     // 2. Rent Due Reminder
     logger.info('Sending: Rent Due Reminder...');
-    await emailService.sendRentDueReminder(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
+    await notificationService.sendRentDueReminder(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
 
     // 3. Overdue Alert
     logger.info('Sending: Overdue Alert...');
-    await emailService.sendOverdueAlert(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
+    await notificationService.sendOverdueAlert(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
 
     // 4. Payment Submitted (To Owner)
     logger.info('Sending: Payment Proof Notification...');
-    await emailService.sendPaymentProofNotification(mockOwner, mockUser, mockPayment, mockProperty, mockRoom);
+    await notificationService.sendPaymentProofNotification(mockOwner, mockUser, mockPayment, mockProperty, mockRoom);
 
     // 5. Payment Verified
     logger.info('Sending: Payment Verified Notification...');
     mockPayment.status = 'paid';
-    await emailService.sendPaymentStatusNotification(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
+    await notificationService.sendPaymentStatusNotification(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
 
     // 6. Payment Rejected
     logger.info('Sending: Payment Rejected Notification...');
     mockPayment.status = 'rejected';
-    await emailService.sendPaymentStatusNotification(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
+    await notificationService.sendPaymentStatusNotification(mockUser, mockPayment, mockProperty, mockRoom, mockOwner);
 
     // 7. Complaint Raised
     logger.info('Sending: Complaint Notification...');
-    await emailService.sendComplaintNotification(mockOwner, mockUser, mockComplaint, mockProperty, mockRoom);
+    await notificationService.sendComplaintNotification(mockOwner, mockUser, mockComplaint, mockProperty, mockRoom);
 
     // 8. Password Change Alert
     logger.info('Sending: Password Change Alert...');
-    await emailService.sendPasswordChangeNotification(mockUser);
+    await notificationService.sendPasswordChangeNotification(mockUser);
 
     // 9. Owner Request - Under Review
     const mockRequest = { name: 'New Owner Candidate', email: testRecipient, phone: '+91 90000 00000', propertyName: 'Green Park Heights' };
     logger.info('Sending: Owner Request Under Review...');
-    await emailService.sendRequestUnderReview(mockRequest);
+    await notificationService.sendRequestUnderReview(mockRequest);
 
     // 10. Owner Request - Approved
     logger.info('Sending: Owner Request Approved...');
-    await emailService.sendRequestApproved(mockRequest, 'temp-pass-123');
+    await notificationService.sendRequestApproved(mockRequest, 'temp-pass-123');
 
     // 11. Admin Alert - New Request
     logger.info('Sending: Admin New Request Alert...');
-    await emailService.sendAdminNewRequestAlert(mockRequest);
+    await notificationService.sendAdminNewRequestAlert(mockRequest);
 
     // 12. Email Verification
     logger.info('Sending: Email Verification...');
-    await emailService.sendVerificationEmail(mockUser, 'test-token-456');
+    await notificationService.sendVerificationEmail(mockUser, 'test-token-456');
 
     // 13. Tenant Onboarding (Credentials)
     logger.info('Sending: Tenant Onboarding (Welcome)...');
-    await emailService.sendTenantWelcome(mockUser, 'TempPass123!', mockProperty, mockRoom, 'Super Admin', 'test-token-789');
+    await notificationService.sendTenantWelcome(mockUser, 'TempPass123!', mockProperty, mockRoom, 'Super Admin', 'test-token-789');
 
     logger.info('✅ All test emails triggered successfully. Please check your inbox!');
     process.exit(0);
