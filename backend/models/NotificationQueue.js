@@ -41,6 +41,14 @@ const notificationQueueSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+    },
+    nextRetryAt: {
+      type: Date,
+      default: Date.now,
+    },
+    deadLetter: {
+      type: Boolean,
+      default: false,
     }
   },
   {
@@ -49,6 +57,6 @@ const notificationQueueSchema = new mongoose.Schema(
 );
 
 // Indexes for fast queue polling
-notificationQueueSchema.index({ status: 1, createdAt: 1 });
+notificationQueueSchema.index({ status: 1, nextRetryAt: 1, deadLetter: 1 });
 
 module.exports = mongoose.model('NotificationQueue', notificationQueueSchema);

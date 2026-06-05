@@ -66,6 +66,13 @@ const login = async (req, res, next) => {
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
 
+    // Send Login Alert if enabled
+    if (!user.notificationPreferences || user.notificationPreferences.loginAlerts) {
+      const ip = req.ip || req.connection.remoteAddress;
+      const device = req.headers['user-agent'];
+      await emailService.sendLoginAlertEmail(user, ip, device).catch(() => null);
+    }
+
     const token = signToken(user._id, user.role);
 
     logger.info(`User logged in: ${user._id} role=${user.role}`);
@@ -287,8 +294,61 @@ const resendVerification = async (req, res, next) => {
   }
 };
 
+// ── POST /api/auth/forgot-password ───────────────────────────────────────
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Return 200 to prevent email enumeration
+      return res.status(200).json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    const resetToken = require('crypto').randomBytes(32).toString('hex');
+    user.passwordResetToken = require('crypto').createHash('sha256').update(resetToken).digest('hex');
+    user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+
+    await user.save({ validateBeforeSave: false });
+
+    await emailService.sendPasswordResetEmail(user, resetToken);
+
+    res.status(200).json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/auth/reset-password ────────────────────────────────────────
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+    const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Token is invalid or has expired.' });
+    }
+
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    await emailService.sendPasswordChangeNotification(user);
+
+    res.status(200).json({ success: true, message: 'Password has been reset successfully.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = { 
   login, register, getMe, changePassword, 
   verifyEmail, resendVerification,
+  forgotPassword, resetPassword,
   loginValidation, registerValidation 
 };

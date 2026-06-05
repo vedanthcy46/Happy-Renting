@@ -16,23 +16,29 @@ const WEBSITE_URL = (process.env.CLIENT_URL || 'https://happyrenting.netlify.app
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ── Immediate Resilient Email Sending ─────────────────────────────
-const sendEmail = async (to, subject, html, retryCount = 0) => {
+const sendEmail = async (to, subject, html, attachments = [], retryCount = 0) => {
   try {
     if (!to) {
       logger.warn(`[EMAIL SKIP] No recipient address provided for subject: ${subject}`);
       return;
     }
 
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'support@happyrenting.co.in';
-    const replyToAddress = process.env.ADMIN_EMAIL || 'vedanthh46@gmail.com';
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'notifications@happyrenting.co.in';
+    const replyToAddress = process.env.ADMIN_EMAIL || 'support@happyrenting.co.in';
 
-    const { data, error } = await resend.emails.send({
+    const payload = {
       from: `Happy Renting <${fromAddress}>`,
       to: [to],
       reply_to: replyToAddress,
       subject,
       html,
-    });
+    };
+
+    if (attachments && attachments.length > 0) {
+      payload.attachments = attachments;
+    }
+
+    const { data, error } = await resend.emails.send(payload);
 
     if (error) {
       // Handle rate limits (429) transparently
@@ -41,9 +47,9 @@ const sendEmail = async (to, subject, html, retryCount = 0) => {
         retryCount < 3
       ) {
         const backoffDelay = (retryCount + 1) * 1000 + Math.random() * 500;
-        logger.warn(`[EMAIL RATE LIMIT] Resend rate limit hit for ${to}. Retrying in ${Math.round(backoffDelay)}ms... (Attempt ${retryCount + 1}/3)`);
+        logger.warn(`[EMAIL RATE LIMIT] Resend rate limit hit for ${to}. Retrying in ${Math.round(backoffDelay)}ms...`);
         await sleep(backoffDelay);
-        return sendEmail(to, subject, html, retryCount + 1);
+        return sendEmail(to, subject, html, attachments, retryCount + 1);
       }
 
       logger.error(`[EMAIL ERROR] Resend failed for ${to}. Error: ${JSON.stringify(error)}`);
@@ -56,7 +62,7 @@ const sendEmail = async (to, subject, html, retryCount = 0) => {
       const backoffDelay = (retryCount + 1) * 1000 + Math.random() * 500;
       logger.warn(`[EMAIL ERROR RETRY] Network error for ${to}: ${err.message}. Retrying in ${Math.round(backoffDelay)}ms...`);
       await sleep(backoffDelay);
-      return sendEmail(to, subject, html, retryCount + 1);
+      return sendEmail(to, subject, html, attachments, retryCount + 1);
     }
     logger.error(`[EMAIL ERROR] failed to send to=${to}: ${err.message}`);
   }
@@ -489,6 +495,167 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
   await sendEmail(tenantUser.email, subject, html);
 };
 
+// ── Missing V2 Audit Templates ───────────────────────────────────────────────
+
+const sendPasswordResetEmail = async (user, token) => {
+  const subject = 'Password Reset Request';
+  const resetUrl = `${WEBSITE_URL}/reset-password?token=${token}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">Reset Your Password</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>We received a request to reset your password. This link is valid for 1 hour.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('Reset Password', resetUrl)}
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(user.email, subject, html);
+};
+
+const sendLoginAlertEmail = async (user, ipAddress, device) => {
+  const subject = 'New Login Alert';
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">New Login Detected</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>We detected a new login to your Happy Renting account.</p>
+      <ul>
+        <li><strong>Time:</strong> ${formatIST(new Date())} IST</li>
+        <li><strong>IP Address:</strong> ${ipAddress || 'Unknown'}</li>
+        <li><strong>Device:</strong> ${device || 'Unknown'}</li>
+      </ul>
+      <p>If this was you, you can safely ignore this email.</p>
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(user.email, subject, html, 'alert');
+};
+
+const Notification = require('../models/Notification');
+
+const sendBillGeneratedEmail = async (user, rentRecord, property, room, tenantUser) => {
+  const isOwner = user.role === 'owner' || user.role === 'superadmin';
+  const subject = isOwner 
+    ? `Rent Bill Generated for Room ${room.roomNumber} - ${rentRecord.month}` 
+    : `Rent Bill Generated - ${rentRecord.month}`;
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">New Rent Bill Generated</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>${isOwner 
+        ? `A rent bill for your tenant <strong>${tenantUser?.name || 'Tenant'}</strong> in Room ${room.roomNumber} for <strong>${rentRecord.month}</strong> has been generated successfully.` 
+        : `Your rent bill for <strong>${rentRecord.month}</strong> has been generated.`}</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Total Rent:</strong> ₹${rentRecord.totalRent.toLocaleString()}</p>
+      <p><strong>Due Date:</strong> ${formatDateOnly(rentRecord.dueDate)}</p>
+      <p><strong>Property:</strong> ${property.name}</p>
+      <p><strong>Room:</strong> ${room.roomNumber}</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${!isOwner ? getButton('View & Pay') : getButton('View Details')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(user.email, subject, html, 'alert');
+  
+  const notifTitle = isOwner ? 'Tenant Bill Generated' : 'Bill Generated';
+  const notifMsg = isOwner 
+    ? `Bill for Room ${room.roomNumber} (${rentRecord.month}) generated.` 
+    : `Your bill for ${rentRecord.month} is generated. Total: ₹${rentRecord.totalRent.toLocaleString()}`;
+
+  await Notification.create({ userId: user._id, title: notifTitle, message: notifMsg, type: 'billing' }).catch(() => null);
+};
+
+const sendDueTodayReminderEmail = async (user, rentRecord, property, room) => {
+  const subject = `URGENT: Rent Due Today - ${rentRecord.month}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #f59e0b;">
+      <h2 style="color: #f59e0b;">Rent Due Today</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>This is a reminder that your rent of <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong> for <strong>${rentRecord.month}</strong> is due today.</p>
+      ${getButton('Pay Now')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(user.email, subject, html, 'reminder');
+  await Notification.create({ userId: user._id, title: 'Rent Due Today', message: `Rent of ₹${rentRecord.remainingAmount.toLocaleString()} is due today.`, type: 'billing' }).catch(() => null);
+};
+
+const sendTransactionReversalEmail = async (user, transaction, rentRecord) => {
+  const subject = `Payment Reversed - ${rentRecord.month}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #ef4444;">
+      <h2 style="color: #ef4444;">Payment Reversed</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>A previous payment of <strong>₹${transaction.amount.toLocaleString()}</strong> for ${rentRecord.month} has been reversed by the administrator.</p>
+      <p>Your remaining balance is now: <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong>.</p>
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(user.email, subject, html);
+  await Notification.create({ userId: user._id, title: 'Payment Reversed', message: `A payment of ₹${transaction.amount.toLocaleString()} was reversed.`, type: 'alert' }).catch(() => null);
+};
+
+const sendMoveOutInitiatedEmail = async (user, exitDate, property, room) => {
+  const subject = `Move-Out Initiated - ${property.name}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">Move-Out Scheduled</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>Your move-out from Room ${room.roomNumber} at ${property.name} has been scheduled for <strong>${formatDateOnly(exitDate)}</strong>.</p>
+      <p>Your final settlement will be calculated up to this date.</p>
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(user.email, subject, html, 'alert');
+};
+
+const sendFinalSettlementEmail = async (user, rentRecord, property, room, tenantUser) => {
+  const isOwner = user.role === 'owner' || user.role === 'superadmin';
+  const subject = isOwner 
+    ? `Final Settlement Generated for Room ${room.roomNumber} - ${property.name}`
+    : `Final Settlement Generated - ${property.name}`;
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">Final Settlement Available</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>${isOwner 
+        ? `The final move-out settlement for your tenant <strong>${tenantUser?.name || 'Tenant'}</strong> in Room ${room.roomNumber} has been generated.` 
+        : `Your final move-out settlement for Room ${room.roomNumber} has been generated.`}</p>
+      <p><strong>Prorated Rent:</strong> ₹${rentRecord.totalRent.toLocaleString()}</p>
+      <p><strong>Advance Balance (Refundable):</strong> ₹${rentRecord.advanceBalance.toLocaleString()}</p>
+      <p><strong>Amount Owed:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>
+      ${!isOwner ? getButton('View Settlement') : getButton('View Details')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(user.email, subject, html, 'alert');
+  
+  const notifTitle = isOwner ? 'Tenant Final Settlement' : 'Final Settlement';
+  const notifMsg = isOwner 
+    ? `Final settlement for Room ${room.roomNumber} generated. Amount Owed: ₹${rentRecord.remainingAmount.toLocaleString()}` 
+    : `Your final settlement is generated. Amount Owed: ₹${rentRecord.remainingAmount.toLocaleString()}`;
+
+  await Notification.create({ userId: user._id, title: notifTitle, message: notifMsg, type: 'billing' }).catch(() => null);
+};
+
+const sendSystemFailureAlert = async (type, errorMsg) => {
+  const adminEmail = process.env.SYSADMIN_EMAIL || process.env.ADMIN_EMAIL;
+  if (!adminEmail) return;
+  const subject = `[URGENT] System Failure: ${type}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #dc2626;">
+      <h2 style="color: #dc2626;">System Failure Detected</h2>
+      <p><strong>Type:</strong> ${type}</p>
+      <p><strong>Time:</strong> ${formatIST(new Date())} IST</p>
+      <pre style="background: #f4f4f4; padding: 10px; border-radius: 5px;">${errorMsg}</pre>
+    </div>
+  `;
+  await sendEmail(adminEmail, subject, html);
+};
+
 module.exports = {
   sendComplaintNotification,
   sendComplaintResolvedNotification,
@@ -500,11 +667,18 @@ module.exports = {
   sendWelcomeEmail,
   sendRequestUnderReview,
   sendRequestApproved,
-  sendRequestRejected,
   sendAdminNewRequestAlert,
   sendTenantWelcome,
   sendVerificationEmail,
   sendPaymentTransactionNotification,
+  sendPasswordResetEmail,
+  sendLoginAlertEmail,
+  sendBillGeneratedEmail,
+  sendDueTodayReminderEmail,
+  sendTransactionReversalEmail,
+  sendMoveOutInitiatedEmail,
+  sendFinalSettlementEmail,
+  sendSystemFailureAlert,
 };
 
 // ── Background Queue Processor ──────────────────────────────────────────────
@@ -512,8 +686,9 @@ const processNotificationQueue = async () => {
   try {
     const pendingNotifications = await NotificationQueue.find({
       status: { $in: ['pending', 'failed'] },
-      retryCount: { $lt: 3 } // Give up after 3 tries
-    }).sort({ createdAt: 1 }).limit(20);
+      nextRetryAt: { $lte: new Date() },
+      deadLetter: false
+    }).sort({ nextRetryAt: 1 }).limit(20);
 
     if (pendingNotifications.length === 0) return;
 
@@ -528,6 +703,22 @@ const processNotificationQueue = async () => {
         notification.retryCount += 1;
         notification.status = 'failed';
         notification.errorLog = err.message;
+        
+        const now = new Date();
+        if (notification.retryCount === 1) notification.nextRetryAt = new Date(now.getTime() + 1 * 60000); // +1 min
+        else if (notification.retryCount === 2) notification.nextRetryAt = new Date(now.getTime() + 5 * 60000); // +5 min
+        else if (notification.retryCount === 3) notification.nextRetryAt = new Date(now.getTime() + 15 * 60000); // +15 min
+        else if (notification.retryCount === 4) notification.nextRetryAt = new Date(now.getTime() + 60 * 60000); // +60 min
+        else {
+          notification.deadLetter = true;
+          // Send alert to SYSADMIN
+          const sysAdminEmail = process.env.SYSADMIN_EMAIL || process.env.ADMIN_EMAIL;
+          if (sysAdminEmail) {
+             const subject = `[URGENT] Dead Letter Queue Alert`;
+             const html = `<p>Failed to deliver email to ${notification.to}.</p><p>Subject: ${notification.subject}</p><p>Error: ${err.message}</p>`;
+             sendEmail(sysAdminEmail, subject, html).catch(() => {});
+          }
+        }
         await notification.save();
       }
     }

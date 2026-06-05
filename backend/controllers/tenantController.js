@@ -5,6 +5,7 @@ const Tenant        = require('../models/Tenant');
 const User          = require('../models/User');
 const logger        = require('../config/logger');
 const tenantService = require('../services/tenantService');
+const emailService  = require('../services/emailService');
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const addTenantValidation = [
@@ -306,6 +307,30 @@ const moveOutTenant = async (req, res, next) => {
       req.user.role,
       req.user._id
     );
+
+    // Fetch full references for email
+    const populatedTenant = await Tenant.findById(tenant._id)
+      .populate('userId')
+      .populate('ownerId')
+      .populate('propertyId')
+      .populate('roomId');
+
+    if (populatedTenant.userId) {
+      await emailService.sendMoveOutInitiatedEmail(
+        populatedTenant.userId, 
+        exitDate, 
+        populatedTenant.propertyId, 
+        populatedTenant.roomId
+      ).catch(() => null);
+    }
+    if (populatedTenant.ownerId) {
+      await emailService.sendMoveOutInitiatedEmail(
+        populatedTenant.ownerId, 
+        exitDate, 
+        populatedTenant.propertyId, 
+        populatedTenant.roomId
+      ).catch(() => null);
+    }
 
     res.status(200).json({
       success: true,

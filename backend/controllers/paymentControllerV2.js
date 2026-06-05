@@ -13,6 +13,7 @@ const billingServiceV2 = require('../services/billingServiceV2');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const Tenant = require('../models/Tenant');
+const emailService = require('../services/emailService');
 const logger = require('../config/logger');
 const { Transform } = require('stream');
 
@@ -255,7 +256,22 @@ const addPaymentTransaction = async (req, res, next) => {
     );
 
     // Fetch updated rent record
-    rentRecord = await MonthlyRentRecord.findById(rentRecordId);
+    rentRecord = await MonthlyRentRecord.findById(rentRecordId)
+      .populate('propertyId')
+      .populate('roomId')
+      .populate('ownerId')
+      .populate('userId');
+
+    // Trigger Payment Proof Email to Owner
+    if (proofImage && req.user.role === 'tenant' && rentRecord.ownerId) {
+      await emailService.sendPaymentProofNotification(
+        rentRecord.ownerId, 
+        rentRecord.userId, 
+        transaction, 
+        rentRecord.propertyId, 
+        rentRecord.roomId
+      ).catch(() => null);
+    }
 
     res.status(201).json({
       success: true,
@@ -287,7 +303,11 @@ const reversePaymentTransaction = async (req, res, next) => {
     );
 
     // Fetch updated rent record
-    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
+    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId).populate('userId');
+
+    if (rentRecord.userId) {
+      await emailService.sendTransactionReversalEmail(rentRecord.userId, transaction, rentRecord).catch(() => null);
+    }
 
     res.status(200).json({
       success: true,

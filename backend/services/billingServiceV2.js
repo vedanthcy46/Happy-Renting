@@ -12,6 +12,7 @@ const MigrationHistory = require('../models/MigrationHistory');
 const paymentServiceV2 = require('./paymentServiceV2');
 const cloudinary = require('../config/cloudinaryConfig');
 const logger = require('../config/logger');
+const emailService = require('./emailService');
 
 /**
  * generateMonthlyBills(ownerId)
@@ -33,7 +34,11 @@ const generateMonthlyBills = async (ownerId) => {
     };
     if (ownerId) activeQuery.ownerId = ownerId;
 
-    const tenancies = await Tenant.find(activeQuery).populate('roomId', 'monthlyRent');
+    const tenancies = await Tenant.find(activeQuery)
+      .populate('roomId')
+      .populate('userId')
+      .populate('ownerId')
+      .populate('propertyId');
 
     for (const tenant of tenancies) {
       try {
@@ -117,6 +122,20 @@ const generateMonthlyBills = async (ownerId) => {
             }
             
             billingResults.created++;
+
+            // Email Triggers
+            // Do not spam historical backfills
+            if (!tenant.isMigratedTenant || tenant.migrationBackfillCompleted) {
+              const isFinalMonth = tenant.status === 'vacated' && tenant.exitDate && new Date(tenant.exitDate).toISOString().slice(0, 7) === iterMonthStr;
+              
+              if (isFinalMonth) {
+                if (tenant.userId) await emailService.sendFinalSettlementEmail(tenant.userId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
+                if (tenant.ownerId) await emailService.sendFinalSettlementEmail(tenant.ownerId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
+              } else {
+                if (tenant.userId) await emailService.sendBillGeneratedEmail(tenant.userId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
+                if (tenant.ownerId) await emailService.sendBillGeneratedEmail(tenant.ownerId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
+              }
+            }
           }
 
           // Increment month
@@ -146,35 +165,89 @@ const generateMonthlyBills = async (ownerId) => {
     return billingResults;
   } catch (err) {
     logger.error(`[BILLING ERROR] generateMonthlyBills: ${err.message}`);
+    emailService.sendSystemFailureAlert('generateMonthlyBills Failed', err.stack).catch(() => null);
     throw err;
   }
 };
 
 /**
- * updateOverduePayments(ownerId?)
- * Marks pending/partial records as overdue if current date passed due date
+ * processBillingRemindersAndOverdue(ownerId?)
+ * Marks records as overdue and strictly implements the 1, 7, 15, 30 day overdue cadence,
+ * alongside Due Today reminders.
  */
 const updateOverduePayments = async (ownerId) => {
   try {
     const today = new Date();
-    
+    today.setHours(0, 0, 0, 0);
+
     const query = {
-      status: 'pending',
-      dueDate: { $lt: today },
+      status: { $in: ['pending', 'partial', 'overdue'] },
     };
     if (ownerId) query.ownerId = ownerId;
 
-    const result = await MonthlyRentRecord.updateMany(query, {
-      $set: { status: 'overdue' }
-    });
+    const records = await MonthlyRentRecord.find(query)
+      .populate('userId')
+      .populate('propertyId')
+      .populate('roomId');
 
-    if (result.modifiedCount > 0) {
-      logger.info(`[BILLING] Marked ${result.modifiedCount} records as overdue${ownerId ? ` for owner=${ownerId}` : ' globally'}`);
+    let overdueMarked = 0;
+
+    for (const record of records) {
+      if (!record.dueDate) continue;
+
+      const dueDate = new Date(record.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      const diffTime = today - dueDate;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      // Mark as overdue if past due date
+      if (diffDays > 0 && (record.status === 'pending' || record.status === 'partial')) {
+        record.status = 'overdue';
+        await record.save();
+        overdueMarked++;
+      }
+
+      // Check if we already sent a reminder today
+      if (record.reminderSentAt) {
+        const lastSent = new Date(record.reminderSentAt);
+        lastSent.setHours(0, 0, 0, 0);
+        if (lastSent.getTime() === today.getTime()) continue;
+      }
+
+      // Check Cadence rules
+      let shouldSend = false;
+      let emailType = '';
+
+      if (diffDays === 0) {
+        shouldSend = true;
+        emailType = 'due_today';
+      } else if (diffDays === 1 || diffDays === 7 || diffDays === 15 || diffDays === 30) {
+        shouldSend = true;
+        emailType = 'overdue';
+      }
+
+      if (shouldSend) {
+        if (emailType === 'due_today' && record.userId) {
+          await emailService.sendDueTodayReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
+        } else if (emailType === 'overdue' && record.userId) {
+          await emailService.sendOverdueAlert(record.userId, record, record.propertyId, record.roomId, null).catch(() => null);
+        }
+        
+        record.reminderSent = true;
+        record.reminderSentAt = new Date();
+        await record.save();
+      }
     }
 
-    return result.modifiedCount;
+    if (overdueMarked > 0) {
+      logger.info(`[BILLING] Marked ${overdueMarked} records as overdue${ownerId ? ` for owner=${ownerId}` : ' globally'}`);
+    }
+
+    return overdueMarked;
   } catch (err) {
     logger.error(`[BILLING ERROR] updateOverduePayments: ${err.message}`);
+    emailService.sendSystemFailureAlert('updateOverduePayments Failed', err.stack).catch(() => null);
     throw err;
   }
 };

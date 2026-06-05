@@ -80,6 +80,25 @@ const userSchema = new mongoose.Schema(
     },
     emailVerificationToken  : { type: String, select: false },
     emailVerificationExpires: { type: Date,   select: false },
+    // ── Preferences ─────────────────────────────────────────────────────────
+    notificationPreferences: {
+      loginAlerts: {
+        type: Boolean,
+        default: true
+      },
+      paymentNotifications: {
+        type: Boolean,
+        default: true
+      },
+      rentReminders: {
+        type: Boolean,
+        default: true
+      },
+      marketingEmails: {
+        type: Boolean,
+        default: false
+      }
+    },
   },
   {
     timestamps: true,
