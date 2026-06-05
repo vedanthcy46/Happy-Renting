@@ -56,25 +56,12 @@ const getRentRecords = async (req, res, next) => {
     // Role-based filtering
     if (req.user.role === 'owner') {
       filters.ownerId = req.user._id;
-
-      // Lazy billing trigger
-      await billingServiceV2.generateMonthlyBills(req.user._id)
-        .catch(e => logger.error(`Auto-billing failed: ${e.message}`));
-      await billingServiceV2.updateOverduePayments(req.user._id)
-        .catch(e => logger.error(`Overdue check failed: ${e.message}`));
     } else if (req.user.role === 'tenant') {
       // Tenant sees only their rent records (including past vacated tenancies)
       const tenancies = await Tenant.find({ userId: req.user._id });
       
       if (tenancies && tenancies.length > 0) {
         filters.tenantId = { $in: tenancies.map(t => t._id) };
-
-        // Lazy billing for tenant's owner
-        const activeTenancy = tenancies.find(t => t.status === 'active') || tenancies[0];
-        if (activeTenancy) {
-          await billingServiceV2.generateMonthlyBills(activeTenancy.ownerId)
-            .catch(e => logger.error(`Auto-billing for tenant failed: ${e.message}`));
-        }
       } else {
         // FAIL-SAFE: If no tenancies found, force an unmatchable filter to prevent data leak
         filters.tenantId = new mongoose.Types.ObjectId(); 
@@ -387,12 +374,6 @@ const getPaymentSummary = async (req, res, next) => {
 
     if (req.user.role === 'owner') {
       filters.ownerId = req.user._id;
-
-      // Lazy billing
-      await billingServiceV2.generateMonthlyBills(req.user._id)
-        .catch(e => logger.error(`Auto-billing failed: ${e.message}`));
-      await billingServiceV2.updateOverduePayments(req.user._id)
-        .catch(e => logger.error(`Overdue check failed: ${e.message}`));
     }
 
     if (req.query.propertyId && /^[a-f\d]{24}$/i.test(req.query.propertyId)) {

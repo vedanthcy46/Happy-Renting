@@ -86,10 +86,15 @@ api.interceptors.response.use(
     }
 
     // 3. FALLBACK ERROR
+    let finalMessage = 'Network error. Please check your connection.';
+    if (isTimeout) {
+      finalMessage = 'The request timed out. The server might be overloaded or processing a large amount of data.';
+    } else if (isUsingBackup && isNetworkError) {
+      finalMessage = 'All servers are currently unreachable. Please try again later.';
+    }
+
     return Promise.reject({
-      message: isUsingBackup 
-        ? 'All servers are currently unreachable. Please try again later.' 
-        : 'Network error. Please check your connection.',
+      message: finalMessage,
       error: error
     });
   }

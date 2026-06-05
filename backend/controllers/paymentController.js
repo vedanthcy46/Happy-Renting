@@ -41,25 +41,11 @@ const getPayments = async (req, res, next) => {
     // 1. ownerId isolation
     if (req.user.role === 'owner') {
       filter.ownerId = req.user._id;
-      
-      // TRIGGER AUTOMATED BILLING (Lazy Cron)
-      // Every time an owner views their payments, we ensure bills are up to date.
-      await billingService.generateMonthlyBills(req.user._id).catch(e => logger.error(`Auto-billing failed: ${e.message}`));
-      await billingService.updateOverduePayments(req.user._id).catch(e => logger.error(`Overdue check failed: ${e.message}`));
     }
     
     // Tenants only see their own
-    if (req.user.role === 'tenant') {
+    else if (req.user.role === 'tenant') {
       filter.userId = req.user._id;
-
-      // TRIGGER AUTOMATED BILLING (for tenant's specific owner)
-      // We find the tenant record to get the ownerId
-      const Tenant = require('../models/Tenant');
-      const tenancy = await Tenant.findOne({ userId: req.user._id, status: 'active' });
-      if (tenancy) {
-        await billingService.generateMonthlyBills(tenancy.ownerId).catch(e => logger.error(`Auto-billing for tenant failed: ${e.message}`));
-        await billingService.updateOverduePayments(tenancy.ownerId).catch(e => logger.error(`Overdue check for tenant failed: ${e.message}`));
-      }
     }
 
     // Optional query filters
@@ -134,10 +120,6 @@ const getPaymentSummary = async (req, res, next) => {
     const matchFilter = {};
     if (req.user.role === 'owner') {
       matchFilter.ownerId = req.user._id;
-
-      // TRIGGER AUTOMATED BILLING (Lazy Cron)
-      await billingService.generateMonthlyBills(req.user._id).catch(e => logger.error(`Auto-billing failed: ${e.message}`));
-      await billingService.updateOverduePayments(req.user._id).catch(e => logger.error(`Overdue check failed: ${e.message}`));
     }
     
     const { propertyId } = req.query;
