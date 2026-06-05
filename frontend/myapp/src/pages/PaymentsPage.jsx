@@ -14,6 +14,20 @@ const PaymentsPage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
+  const currentDate = new Date();
+  const [filterMonth, setFilterMonth] = useState((currentDate.getMonth() + 1).toString());
+  const [filterYear, setFilterYear] = useState(currentDate.getFullYear().toString());
+  const [filterProperty, setFilterProperty] = useState('');
+  const [properties, setProperties] = useState([]);
+
+  // Fetch properties on mount if owner
+  useEffect(() => {
+    if (isOwner) {
+      api.get('/properties').then(res => {
+        setProperties(res.data.properties || []);
+      }).catch(() => {});
+    }
+  }, [isOwner]);
 
   // Add Transaction Modal State
   const [showAddTxn, setShowAddTxn] = useState(false);
@@ -32,15 +46,21 @@ const PaymentsPage = () => {
   const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
-      const params = filterStatus ? `?status=${filterStatus}` : '';
-      const { data } = await api.get(`/v2/payments${params}`);
+      const params = new URLSearchParams();
+      if (filterStatus) params.append('status', filterStatus);
+      if (filterMonth) params.append('month', filterMonth);
+      if (filterYear) params.append('year', filterYear);
+      if (filterProperty) params.append('propertyId', filterProperty);
+
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const { data } = await api.get(`/v2/payments${queryString}`);
       setRentRecords(data.rentRecords || []);
     } catch (err) {
       toast.error(err.message || 'Failed to fetch payments');
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, toast]);
+  }, [filterStatus, filterMonth, filterYear, filterProperty, toast]);
 
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
@@ -182,14 +202,61 @@ const PaymentsPage = () => {
       </div>
 
       {/* Filter */}
-      <div className="flex gap-3 items-center">
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="form-select w-40">
+      <div className="flex gap-3 items-center flex-wrap bg-surface p-3 rounded-lg border border-surface-border">
+        {isOwner && (
+          <select value={filterProperty} onChange={e => setFilterProperty(e.target.value)} className="form-select w-40 text-sm">
+            <option value="">All Properties</option>
+            {properties.map(p => (
+              <option key={p._id} value={p._id}>{p.name}</option>
+            ))}
+          </select>
+        )}
+
+        <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="form-select w-32 text-sm">
+          <option value="">All Years</option>
+          {Array.from({ length: new Date().getFullYear() - 2024 + 1 }, (_, i) => 2024 + i).map(year => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+
+        <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="form-select w-36 text-sm">
+          <option value="">All Months</option>
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="form-select w-40 text-sm">
           <option value="">All Status</option>
           <option value="paid">Paid</option>
           <option value="partial">Partial</option>
           <option value="pending">Pending</option>
           <option value="overdue">Overdue</option>
         </select>
+        
+        {/* Reset Filters button */}
+        {(filterStatus || filterMonth || filterYear || filterProperty) && (
+          <button 
+            onClick={() => {
+              setFilterStatus('');
+              setFilterMonth('');
+              setFilterYear('');
+              setFilterProperty('');
+            }}
+            className="text-xs text-brand-400 hover:text-brand-300 font-bold underline ml-2"
+          >
+            Clear Filters
+          </button>
+        )}
       </div>
 
       {loading ? (

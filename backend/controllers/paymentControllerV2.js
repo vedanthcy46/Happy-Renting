@@ -69,11 +69,21 @@ const getRentRecords = async (req, res, next) => {
     }
 
     // Query filters
-    const { tenantId, propertyId, month, status } = req.query;
+    const { tenantId, propertyId, month, year, status } = req.query;
     if (tenantId && /^[a-f\d]{24}$/i.test(tenantId)) filters.tenantId = tenantId;
     if (propertyId && /^[a-f\d]{24}$/i.test(propertyId)) filters.propertyId = propertyId;
-    if (month && /^\d{4}-\d{2}$/.test(month)) filters.month = month;
     if (status) filters.status = status;
+
+    // Advanced Month/Year Filtering
+    if (month && year) {
+      const formattedMonth = month.padStart(2, '0');
+      filters.month = `${year}-${formattedMonth}`;
+    } else if (year) {
+      filters.month = new RegExp(`^${year}-`);
+    } else if (month) {
+      const formattedMonth = month.padStart(2, '0');
+      filters.month = new RegExp(`-${formattedMonth}$`);
+    }
 
     const rentRecords = await MonthlyRentRecord.find(filters)
       .populate('tenantId', 'status joinDate')

@@ -276,6 +276,10 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
     if (filters.propertyId) {
       query.propertyId = filters.propertyId;
     }
+    
+    if (filters.month) {
+      query.month = filters.month;
+    }
 
     const metrics = await MonthlyRentRecord.aggregate([
       { $match: query },
