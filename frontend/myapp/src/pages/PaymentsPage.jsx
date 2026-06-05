@@ -14,9 +14,10 @@ const PaymentsPage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
-  const currentDate = new Date();
-  const [filterMonth, setFilterMonth] = useState((currentDate.getMonth() + 1).toString());
-  const [filterYear, setFilterYear] = useState(currentDate.getFullYear().toString());
+  const defaultDate = new Date();
+  defaultDate.setMonth(defaultDate.getMonth() - 1);
+  const [filterMonth, setFilterMonth] = useState((defaultDate.getMonth() + 1).toString());
+  const [filterYear, setFilterYear] = useState(defaultDate.getFullYear().toString());
   const [filterProperty, setFilterProperty] = useState('');
   const [properties, setProperties] = useState([]);
 
