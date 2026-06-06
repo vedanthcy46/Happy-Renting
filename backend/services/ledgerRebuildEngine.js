@@ -5,8 +5,6 @@ const Tenant = require('../models/Tenant');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const LedgerAuditLog = require('../models/LedgerAuditLog');
-const LedgerPeriod = require('../models/LedgerPeriod');
-const { loadSnapshot, createSnapshot } = require('./ledgerSnapshotService');
 const logger = require('../config/logger');
 
 /**
@@ -23,31 +21,8 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
 
     const expectedVersion = tenant.ledgerVersion;
 
-    // 2. Load Snapshot for Partial Rebuild Optimization
-    const snapshot = await loadSnapshot(tenantId, affectedMonth);
-    let startMonth = null;
-    let currentBalances = { totalPaid: 0, totalRent: 0, advanceBalance: 0, remainingAmount: 0 };
-    
-    if (snapshot) {
-      startMonth = snapshot.asOfMonth;
-      currentBalances = { ...snapshot.balances };
-      logger.info(`[LEDGER REBUILD] Resuming from snapshot ${startMonth} for tenant=${tenantId}`);
-    } else {
-      logger.info(`[LEDGER REBUILD] Full rebuild for tenant=${tenantId}`);
-    }
-
-    // Check Freeze Period
-    if (startMonth) {
-      const period = await LedgerPeriod.findOne({ tenantId, month: startMonth }).session(session);
-      if (period && period.status === 'closed') {
-        throw new Error(`LedgerSafetyError: Cannot rebuild from closed period ${startMonth}. Adjustments must be posted to current open period.`);
-      }
-    }
-
-    // 3. Fetch all data from startMonth onwards
-    const rentQuery = { tenantId };
-    if (startMonth) rentQuery.month = { $gte: startMonth };
-    const rentRecords = await MonthlyRentRecord.find(rentQuery).sort({ month: 1 }).session(session);
+    // 2. Fetch all data
+    const rentRecords = await MonthlyRentRecord.find({ tenantId }).sort({ month: 1 }).session(session);
 
     // Fetch transactions (manual and system)
     const txQuery = { tenantId, status: 'completed' };
@@ -61,21 +36,12 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
       remainingAmount: tenant.remainingAmount || 0
     };
 
-    // 4. Supersede old system-generated transactions from startMonth onwards
-    // Wait, we need to find existing system_generated ones that we will replace
-    // Actually, we should supersede any advance_applied / settlement_adjustment
-    // starting from startMonth that were system generated.
-    // For simplicity, any system_generated transaction from startMonth is superseded.
+    // 3. Supersede all old system-generated transactions
     const systemTxQuery = { 
       tenantId, 
       entrySource: 'system_generated', 
       status: 'completed' 
     };
-    if (startMonth) {
-      // We need a way to filter by month. But transactions have paymentDate, not month.
-      // We can filter by rentRecordId if we mapped them, or just supersede all and regenerate.
-      // We will supersede them and regenerate new ones.
-    }
     
     // We update them to superseded.
     await PaymentTransaction.updateMany(
@@ -84,7 +50,7 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
       { session }
     );
 
-    // 5. The Core Engine Loop
+    // 4. The Core Engine Loop
     if (!tenant.joinDate) {
       throw new Error('LedgerSafetyError: Tenant missing joinDate. Cannot rebuild ledger safely.');
     }
@@ -92,9 +58,9 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
       throw new Error('LedgerSafetyError: Excessive rent records detected. Potential infinite loop.');
     }
 
-    let currentAdvance = currentBalances.advanceBalance || 0;
-    let totalRentActual = currentBalances.totalRent || 0;
-    let totalPaidActual = currentBalances.totalPaid || 0;
+    let currentAdvance = 0;
+    let totalRentActual = 0;
+    let totalPaidActual = 0;
 
     for (const record of rentRecords) {
       const manualTxForMonth = allValidTx.filter(t => t.entrySource !== 'system_generated' && String(t.rentRecordId) === String(record._id));
@@ -143,7 +109,7 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
     const remainingAmountActual = Math.max(0, totalRentActual - totalPaidActual);
     const advanceBalanceActual = currentAdvance;
 
-    // 6. Integrity Assertions
+    // 5. Integrity Assertions
     if (totalPaidActual < 0 || remainingAmountActual < 0 || advanceBalanceActual < 0) {
       throw new Error('LedgerSafetyError: Balances cannot be negative.');
     }
@@ -175,17 +141,13 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
       throw new Error('OptimisticConcurrencyError: Tenant ledger version mismatch. Stale write prevented.');
     }
 
-    // 7. Create Snapshot & Audit Log
+    // 6. Create Audit Log
     const newBalances = {
       totalPaid: totalPaidActual,
       totalRent: totalRentActual,
       advanceBalance: advanceBalanceActual,
       remainingAmount: remainingAmountActual
     };
-
-    // We create snapshot for the current date (latest rent record month)
-    const latestMonth = rentRecords.length > 0 ? rentRecords[rentRecords.length - 1].month : new Date().toISOString().slice(0, 7);
-    await createSnapshot(tenantId, latestMonth, newBalances, session);
 
     const auditLog = await LedgerAuditLog.create([{
       tenantId,

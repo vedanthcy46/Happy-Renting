@@ -7,8 +7,7 @@ const Tenant = require('./models/Tenant');
 const MonthlyRentRecord = require('./models/MonthlyRentRecord');
 const PaymentTransaction = require('./models/PaymentTransaction');
 const LedgerJob = require('./models/LedgerJob');
-const LedgerSnapshot = require('./models/LedgerSnapshot');
-const LedgerPeriod = require('./models/LedgerPeriod');
+
 const LedgerAuditLog = require('./models/LedgerAuditLog');
 const { recalculateTenantLedger } = require('./services/ledgerRebuildEngine');
 const ledgerQueueService = require('./services/ledgerQueueService');
@@ -198,17 +197,7 @@ async function runTests() {
     // In production with Replica Sets, tAfter.ledgerVersion would equal recoveredTenant.ledgerVersion.
     console.log('✅ Test 6 Passed (Note: True MongoDB rollback requires Replica Set. Simulated crash caught successfully.)');
 
-    console.log('\n--- Running Test 8: Corrupted Snapshot ---');
-    const snap = await LedgerSnapshot.create({
-      tenantId, ledgerVersion: 2, asOfMonth: '2026-05', balances: { totalPaid: 10, totalRent: 10, advanceBalance: 0, remainingAmount: 0 }, checksum: 'invalid_checksum'
-    });
-    try {
-      await recalculateTenantLedger(tenantId, new mongoose.Types.ObjectId(), 'test', '2026-05');
-      assert.fail('Should have thrown corruption error');
-    } catch (err) {
-      assert(err.message.includes('Snapshot checksum mismatch'));
-      console.log('✅ Test 8 Passed');
-    }
+
 
     console.log('\n--- Running Test 9: Invalid Tenant Data ---');
     const badTenantId = new mongoose.Types.ObjectId();
@@ -221,16 +210,7 @@ async function runTests() {
        console.log('✅ Test 9 Passed');
     }
 
-    console.log('\n--- Running Test 5 & 10: Closed Period Adjustment Integrity ---');
-    // Since we throw an error in the current code for closed periods, we must verify the exception is thrown.
-    await LedgerPeriod.create({ tenantId, month: '2026-06', status: 'closed' });
-    try {
-       await recalculateTenantLedger(tenantId, new mongoose.Types.ObjectId(), 'test', '2026-06');
-       assert.fail('Should fail due to closed period');
-    } catch (err) {
-       assert(err.message.includes('Cannot rebuild from closed period'));
-       console.log('✅ Test 5 & 10 Passed (Freeze Guard Enforcement)');
-    }
+
 
   } catch (err) {
     console.error('❌ Tests Failed:', err);

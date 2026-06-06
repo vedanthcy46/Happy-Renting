@@ -4,7 +4,6 @@ const LedgerJob = require('../models/LedgerJob');
 const Tenant = require('../models/Tenant');
 const logger = require('../config/logger');
 const { recalculateTenantLedger } = require('./ledgerRebuildEngine');
-const { publishEvent } = require('./eventBusService');
 
 /**
  * Enqueue a new ledger rebuild job with debouncing.
@@ -132,12 +131,6 @@ const processQueue = async () => {
     job.completedAt = new Date();
     await job.save();
     logger.info(`[LEDGER WORKER] Successfully completed job=${job._id} in ${Date.now() - startTime}ms`);
-
-    // 5. Publish Event (Decoupled Notification)
-    publishEvent('ledger_rebuild_completed', {
-      tenantId: job.tenantId,
-      jobId: job._id
-    });
 
   } catch (error) {
     logger.error(`[LEDGER WORKER] Job=${job._id} failed: ${error.message}`);
