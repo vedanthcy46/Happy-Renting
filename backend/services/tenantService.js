@@ -165,7 +165,7 @@ const moveIn = async (params, performedBy) => {
         currentOccupancy: { $lte: room.capacity - totalOccupantsToAdd },
       },
       { $inc: { currentOccupancy: totalOccupantsToAdd } },
-      { new: true, session }
+      { returnDocument: 'after', session }
     );
 
     if (!updatedRoom) {
@@ -319,7 +319,7 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
           ...(notes ? { notes } : {}),
         },
       },
-      { new: true, session }
+      { returnDocument: 'after', session }
     );
 
     if (!updatedTenant) {
@@ -339,7 +339,7 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
         currentOccupancy: { $gte: totalOccupantsToRemove },
       },
       { $inc: { currentOccupancy: -totalOccupantsToRemove } },
-      { new: true, session }
+      { returnDocument: 'after', session }
     );
 
     if (!roomUpdate) {
@@ -422,7 +422,7 @@ const addCoOccupants = async (tenantId, newOccupants, callerId, callerRole) => {
         currentOccupancy: { $lte: room.capacity - totalToAdd }
       },
       { $inc: { currentOccupancy: totalToAdd } },
-      { new: true, session }
+      { returnDocument: 'after', session }
     );
 
     if (!updatedRoom) {
@@ -483,7 +483,7 @@ const deleteCoOccupant = async (tenantId, coOccupantId, callerId, callerRole) =>
     const roomUpdate = await Room.findOneAndUpdate(
       { _id: tenant.roomId, currentOccupancy: { $gte: 1 } },
       { $inc: { currentOccupancy: -1 } },
-      { new: true, session }
+      { returnDocument: 'after', session }
     );
 
     if (!roomUpdate) {

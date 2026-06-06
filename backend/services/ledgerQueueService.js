@@ -67,7 +67,7 @@ const processNextJob = async () => {
     { 
       sort: { priority: 1, createdAt: 1 }, // Note: assuming enum values 'high', 'normal', 'low'. Wait, string sort 'high' < 'low' < 'normal'. This is wrong!
       // Better way: use priority values or handle via $in query.
-      new: true
+      returnDocument: 'after'
     }
   );
 
@@ -88,7 +88,7 @@ const fetchHighestPriorityJob = async () => {
         lastHeartbeatAt: new Date(),
         $inc: { attempts: 1 }
       },
-      { sort: { createdAt: 1 }, new: true }
+      { sort: { createdAt: 1 }, returnDocument: 'after' }
     );
     if (job) return job;
   }

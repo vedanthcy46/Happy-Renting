@@ -34,7 +34,7 @@ const SystemHealth = require('./models/SystemHealth');
         await SystemHealth.findOneAndUpdate(
           { key: 'worker' },
           { lastHeartbeatAt: new Date(), status: 'healthy' },
-          { upsert: true, new: true }
+          { upsert: true, returnDocument: 'after' }
         );
       } catch (err) {
         logger.error(`[WORKER HEARTBEAT] Failed to update: ${err.message}`);

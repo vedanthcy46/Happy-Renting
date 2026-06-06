@@ -168,7 +168,7 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
           advanceBalance: advanceBalanceActual
         }
       },
-      { session, new: true }
+      { session, returnDocument: 'after' }
     );
 
     if (!updatedTenant) {

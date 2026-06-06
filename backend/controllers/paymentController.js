@@ -172,7 +172,7 @@ const processPayment = async (req, res, next) => {
     const updated = await Payment.findOneAndUpdate(
       { _id: id, status: { $nin: ['paid', 'processing'] } },
       { $set: { status: 'processing' } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updated) {
