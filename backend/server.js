@@ -58,11 +58,34 @@ const billingServiceV2 = require('./services/billingServiceV2');
     const missingFields = await MonthlyRentRecord.countDocuments({
       $or: [
         { fullRentAmount: { $exists: false } },
-        { rentAmountAtGeneration: { $exists: false } }
+        { rentAmountAtGeneration: { $exists: false } },
+        { migrationVersion: { $exists: false } },
+        { migrationVersion: 0 }
       ]
     });
+    
     if (missingFields > 0) {
-      logger.warn(`[DATA INTEGRITY] Found ${missingFields} legacy rent records missing required fields`);
+      logger.warn(`[DATA INTEGRITY] Found ${missingFields} legacy rent records requiring backfill. Running automatic backfill...`);
+      
+      const cursor = MonthlyRentRecord.find({
+        $or: [
+          { fullRentAmount: { $exists: false } },
+          { rentAmountAtGeneration: { $exists: false } },
+          { migrationVersion: { $exists: false } },
+          { migrationVersion: 0 }
+        ]
+      }).cursor();
+      
+      let modified = 0;
+      for await (const record of cursor) {
+        const updateDoc = { $set: { migrationVersion: 1 } };
+        if (record.fullRentAmount == null) updateDoc.$set.fullRentAmount = record.totalRent;
+        if (record.rentAmountAtGeneration == null) updateDoc.$set.rentAmountAtGeneration = record.totalRent;
+        
+        const result = await MonthlyRentRecord.updateOne({ _id: record._id }, updateDoc);
+        if (result.modifiedCount > 0) modified++;
+      }
+      logger.info(`[DATA INTEGRITY] Automatic backfill complete. Modified ${modified} records.`);
     }
   } catch (err) {
     logger.error(`[DATA INTEGRITY] Failed to validate legacy rent records: ${err.message}`);
