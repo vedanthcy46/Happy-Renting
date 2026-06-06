@@ -160,6 +160,10 @@ const monthlyRentRecordSchema = new mongoose.Schema(
       type: Number,
       default: 2,
     },
+    migrationVersion: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

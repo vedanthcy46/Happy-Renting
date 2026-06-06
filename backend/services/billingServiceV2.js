@@ -216,9 +216,30 @@ const updateOverduePayments = async (ownerId) => {
 
       // Mark as overdue if past due date
       if (diffDays > 0 && (record.status === 'pending' || record.status === 'partial')) {
-        record.status = 'overdue';
-        await record.save();
-        overdueMarked++;
+        try {
+          const result = await MonthlyRentRecord.updateOne(
+            {
+              _id: record._id,
+              status: { $in: ['pending', 'partial'] }
+            },
+            {
+              $set: {
+                status: 'overdue',
+                overdueMarkedAt: new Date()
+              }
+            }
+          );
+          
+          if (result.modifiedCount > 0) {
+            record.status = 'overdue'; // Update local object for subsequent email logic
+            overdueMarked++;
+            logger.info(`[OVERDUE UPDATE] record=${record._id} modified=${result.modifiedCount}`);
+          }
+        } catch (updateErr) {
+          logger.error(`[BILLING ERROR] Failed to mark record ${record._id} overdue for tenant ${record.tenantId} month ${record.month}: ${updateErr.message}`);
+          // Continue to next record, do not crash the loop
+          continue;
+        }
       }
 
       // Check if we already sent a reminder today
@@ -246,10 +267,21 @@ const updateOverduePayments = async (ownerId) => {
         } else if (emailType === 'overdue' && record.userId) {
           await emailService.sendOverdueAlert(record.userId, record, record.propertyId, record.roomId, null).catch(() => null);
         }
-        
-        record.reminderSent = true;
-        record.reminderSentAt = new Date();
-        await record.save();
+        try {
+          await MonthlyRentRecord.updateOne(
+            { _id: record._id },
+            { 
+              $set: { 
+                reminderSent: true, 
+                reminderSentAt: new Date() 
+              } 
+            }
+          );
+          record.reminderSent = true;
+          record.reminderSentAt = new Date();
+        } catch (updateErr) {
+          logger.error(`[BILLING ERROR] Failed to save reminder status for record ${record._id}: ${updateErr.message}`);
+        }
       }
     }
 

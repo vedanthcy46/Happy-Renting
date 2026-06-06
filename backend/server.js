@@ -51,6 +51,23 @@ const billingServiceV2 = require('./services/billingServiceV2');
 (async () => {
   await connectDB();
   await billingServiceV2.migrateExistingTenants();
+  
+  // Startup validation for data integrity
+  try {
+    const MonthlyRentRecord = require('./models/MonthlyRentRecord');
+    const missingFields = await MonthlyRentRecord.countDocuments({
+      $or: [
+        { fullRentAmount: { $exists: false } },
+        { rentAmountAtGeneration: { $exists: false } }
+      ]
+    });
+    if (missingFields > 0) {
+      logger.warn(`[DATA INTEGRITY] Found ${missingFields} legacy rent records missing required fields`);
+    }
+  } catch (err) {
+    logger.error(`[DATA INTEGRITY] Failed to validate legacy rent records: ${err.message}`);
+  }
+
   startCronJobs();
   initKeepAlive();
 })();
@@ -143,7 +160,12 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
 
 // Catch unhandled rejections — log and exit so PM2/Docker restarts
 process.on('unhandledRejection', (reason) => {
-  logger.error(`Unhandled Rejection: ${reason}`);
+  logger.error(`[UNHANDLED REJECTION] ${reason}`);
+  server.close(() => process.exit(1));
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error(`[UNCAUGHT EXCEPTION] ${err.message}`, err);
   server.close(() => process.exit(1));
 });
 

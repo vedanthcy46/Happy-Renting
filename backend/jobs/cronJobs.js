@@ -61,14 +61,26 @@ const startCronJobs = () => {
       // ───────────────────────────────────────────────────────────────────────
       // V2 SYSTEM (Ledger-based)
       // ───────────────────────────────────────────────────────────────────────
-      logger.info('[CRON-V2] Generating V2 Monthly Rent Records...');
-      await billingServiceV2.generateMonthlyBills(); // Globally for all owners
+      try {
+        logger.info('[CRON-V2] Generating V2 Monthly Rent Records...');
+        await billingServiceV2.generateMonthlyBills(); // Globally for all owners
+      } catch (err) {
+        logger.error(`[CRON ERROR] generateMonthlyBills failed: ${err.message}`);
+      }
 
-      logger.info('[CRON-V2] Updating V2 Overdue Statuses...');
-      await billingServiceV2.updateOverduePayments(); // Globally
+      try {
+        logger.info('[CRON-V2] Updating V2 Overdue Statuses...');
+        await billingServiceV2.updateOverduePayments(); // Globally
+      } catch (err) {
+        logger.error(`[CRON ERROR] updateOverduePayments failed: ${err.message}`);
+      }
 
-      logger.info('[CRON-V2] Purging Privacy Data for vacated tenants...');
-      await billingServiceV2.purgePrivacyData();
+      try {
+        logger.info('[CRON-V2] Purging Privacy Data for vacated tenants...');
+        await billingServiceV2.purgePrivacyData();
+      } catch (err) {
+        logger.error(`[CRON ERROR] purgePrivacyData failed: ${err.message}`);
+      }
 
       logger.info(`[CRON] Daily check completed successfully.`);
     } catch (err) {
