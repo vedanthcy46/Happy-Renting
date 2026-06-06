@@ -26,7 +26,6 @@ const mongoSanitize = require('express-mongo-sanitize');
 const hpp           = require('hpp');
 
 const connectDB          = require('./config/db');
-const { startCronJobs }  = require('./jobs/cronJobs');
 const logger             = require('./config/logger');
 const { apiLimiter }     = require('./middleware/rateLimiter');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
@@ -47,6 +46,7 @@ const { initKeepAlive } = require('./services/keepAliveService');
 
 // ── Connect to DB ──────────────────────────────────────────────────────────
 const billingServiceV2 = require('./services/billingServiceV2');
+const ledgerQueueService = require('./services/ledgerQueueService');
 
 (async () => {
   await connectDB();
@@ -91,7 +91,6 @@ const billingServiceV2 = require('./services/billingServiceV2');
     logger.error(`[DATA INTEGRITY] Failed to validate legacy rent records: ${err.message}`);
   }
 
-  startCronJobs();
   initKeepAlive();
 })();
 

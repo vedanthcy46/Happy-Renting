@@ -105,6 +105,22 @@ const tenantSchema = new mongoose.Schema(
       type   : Boolean,
       default: false,
     },
+    ledgerLocked: {
+      type: Boolean,
+      default: false,
+    },
+    ledgerLockedAt: {
+      type: Date,
+      default: null,
+    },
+    ledgerVersion: {
+      type: Number,
+      default: 1,
+    },
+    totalPaid: { type: Number, default: 0 },
+    totalRent: { type: Number, default: 0 },
+    advanceBalance: { type: Number, default: 0 },
+    remainingAmount: { type: Number, default: 0 },
   },
   {
     timestamps: true,
@@ -123,8 +139,7 @@ const tenantSchema = new mongoose.Schema(
 tenantSchema.virtual('coOccupants', {
   ref: 'CoOccupant',
   localField: '_id',
-  foreignField: 'tenantId',
-  match: { status: 'active' }
+  foreignField: 'tenantId'
 });
 
 // ── Business rule: a user can only be an active tenant once ────────────────

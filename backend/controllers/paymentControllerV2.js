@@ -300,10 +300,10 @@ const reversePaymentTransaction = async (req, res, next) => {
     );
 
     // Fetch updated rent record
-    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId).populate('userId');
+    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId).populate('userId').populate('ownerId');
 
     if (rentRecord.userId) {
-      await emailService.sendTransactionReversalEmail(rentRecord.userId, transaction, rentRecord).catch(() => null);
+      await emailService.sendTransactionReversalEmail(rentRecord.userId, transaction, rentRecord, rentRecord.ownerId).catch(() => null);
     }
 
     res.status(200).json({

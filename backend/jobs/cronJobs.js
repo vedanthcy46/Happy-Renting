@@ -4,6 +4,8 @@ const cron         = require('node-cron');
 const Payment      = require('../models/Payment');
 const emailService = require('../services/emailService');
 const logger       = require('../config/logger');
+const NotificationQueue = require('../models/NotificationQueue');
+const LedgerJob = require('../models/LedgerJob');
 
 /**
  * cronJobs.js
@@ -13,6 +15,7 @@ const logger       = require('../config/logger');
 
 const billingServiceV2 = require('../services/billingServiceV2');
 const backupService = require('../services/backupService');
+const ledgerQueueService = require('../services/ledgerQueueService');
 
 const startCronJobs = () => {
   // Run every day at 01:00 AM IST (Asia/Kolkata)
@@ -103,11 +106,77 @@ const startCronJobs = () => {
   });
   logger.info('[CRON] Notification queue processor initialized (Every 5 mins).');
 
+  // Ledger Job Watchdog (Every 5 minutes)
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      await ledgerQueueService.runWatchdog();
+    } catch (err) {
+      logger.error(`[CRON LEDGER WATCHDOG ERROR] ${err.message}`);
+    }
+  });
+  logger.info('[CRON] Ledger Watchdog initialized (Every 5 mins).');
+
   // Secure Database Backup (Every Sunday at 3:00 AM)
   cron.schedule('0 3 * * 0', () => {
     logger.info('[CRON] Starting weekly encrypted database backup...');
     backupService.runEncryptedBackup();
   });
+
+  // Queue Backlog Monitor (Runs every hour)
+  cron.schedule('0 * * * *', async () => {
+    try {
+      logger.info('[CRON] Running Queue Backlog Monitor...');
+      const pendingCount = await LedgerJob.countDocuments({ status: 'pending' });
+      const oldestPending = await LedgerJob.findOne({ status: 'pending' }).sort({ createdAt: 1 }).select('createdAt');
+      
+      let oldestAgeMinutes = 0;
+      if (oldestPending) {
+        oldestAgeMinutes = (Date.now() - oldestPending.createdAt.getTime()) / 60000;
+      }
+
+      if (pendingCount > 100 || oldestAgeMinutes > 15) {
+        logger.warn(`[QUEUE BACKLOG ALERT] Pending: ${pendingCount}, Oldest Age: ${Math.round(oldestAgeMinutes)} mins`);
+        await emailService.sendSystemFailureAlert(
+          'Ledger Queue Backlog Alert',
+          `The ledger queue is experiencing a backlog.\nPending Jobs: ${pendingCount}\nOldest Job Age: ${Math.round(oldestAgeMinutes)} minutes.`
+        );
+      }
+    } catch (err) {
+      logger.error(`[CRON ERROR] Queue Backlog Monitor failed: ${err.message}`);
+    }
+  });
+
+  // Daily Digest for Owners (Every day at 8:00 AM)
+  cron.schedule('0 8 * * *', async () => {
+    logger.info('[CRON] Generating Daily Digest for Owners...');
+    try {
+      const User = require('../models/User');
+      const Tenant = require('../models/Tenant');
+      const MonthlyRentRecord = require('../models/MonthlyRentRecord');
+      
+      const owners = await User.find({ role: { $in: ['owner', 'superadmin'] }, isActive: true });
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (const owner of owners) {
+        if (owner.notificationPreferences?.dailyDigestEmails === false) continue;
+
+        const metrics = await billingServiceV2.getSummaryMetrics(owner._id);
+        const moveOutRequests = await Tenant.countDocuments({ ownerId: owner._id, exitDate: { $gte: today } });
+
+        const summary = {
+          overdueTenants: metrics[0]?.overdueCount || 0,
+          pendingPayments: metrics[0]?.pendingCount || 0,
+          collectionsToday: metrics[0]?.totalCollected || 0,
+          moveOutRequests
+        };
+
+        await emailService.sendDailyDigestEmail(owner, summary).catch(() => null);
+      }
+    } catch (err) {
+      logger.error(`[CRON ERROR] Daily digest failed: ${err.message}`);
+    }
+  }, { timezone: 'Asia/Kolkata' });
 };
 
 module.exports = { startCronJobs };

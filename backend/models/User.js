@@ -73,7 +73,7 @@ const userSchema = new mongoose.Schema(
       secureUrl: { type: String },
       publicId : { type: String },
     },
-    // ── Email Verification ──────────────────────────────────────────────────
+
     emailVerified: {
       type   : Boolean,
       default: false,
@@ -82,22 +82,14 @@ const userSchema = new mongoose.Schema(
     emailVerificationExpires: { type: Date,   select: false },
     // ── Preferences ─────────────────────────────────────────────────────────
     notificationPreferences: {
-      loginAlerts: {
-        type: Boolean,
-        default: true
-      },
-      paymentNotifications: {
-        type: Boolean,
-        default: true
-      },
-      rentReminders: {
-        type: Boolean,
-        default: true
-      },
-      marketingEmails: {
-        type: Boolean,
-        default: false
-      }
+      loginAlerts: { type: Boolean, default: true },
+      paymentReceivedEmails: { type: Boolean, default: true },
+      overdueEmails: { type: Boolean, default: true },
+      proofUploadEmails: { type: Boolean, default: true },
+      settlementEmails: { type: Boolean, default: true },
+      systemEmails: { type: Boolean, default: true },
+      dailyDigestEmails: { type: Boolean, default: true },
+      marketingEmails: { type: Boolean, default: false },
     },
   },
   {

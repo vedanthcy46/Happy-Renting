@@ -134,7 +134,7 @@ const paymentTransactionSchema = new mongoose.Schema(
     // For future: allows marking a transaction as reversed or adjusted
     status: {
       type    : String,
-      enum    : ['completed', 'reversed', 'failed', 'verifying'],
+      enum    : ['completed', 'reversed', 'failed', 'verifying', 'superseded', 'voided'],
       default : 'completed',
     },
     // If reversed or failed, why?
@@ -170,9 +170,9 @@ paymentTransactionSchema.pre('save', function () {
       }
     });
 
-    // Allow transitioning status between completed, reversed, verifying, and failed
+    // Allow transitioning status between completed, reversed, verifying, failed, superseded, and voided
     if (this.isModified('status')) {
-      if (!['completed', 'reversed', 'verifying', 'failed'].includes(this.status)) {
+      if (!['completed', 'reversed', 'verifying', 'failed', 'superseded', 'voided'].includes(this.status)) {
         throw new Error(`Invalid status transition to '${this.status}'`);
       }
     }

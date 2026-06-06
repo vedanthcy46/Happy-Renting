@@ -175,7 +175,7 @@ const addPaymentTransaction = async (params, caller) => {
   const {
     rentRecordId,
     tenantId,
-    amount,
+    amount: rawAmount,
     paymentMethod,
     transactionId,
     paymentDate = new Date(),
@@ -189,9 +189,11 @@ const addPaymentTransaction = async (params, caller) => {
     entrySource,
   } = params;
 
+  const amount = Number(rawAmount);
+
   // Validation
-  if (!amount || amount <= 0) {
-    const err = new Error('Amount must be greater than 0');
+  if (isNaN(amount) || amount <= 0) {
+    const err = new Error('Amount must be a valid number greater than 0');
     err.statusCode = 400;
     throw err;
   }
@@ -534,14 +536,23 @@ const reverseTransaction = async (transactionId, reason, caller) => {
   await transaction.save();
 
   // Update rent record to adjust totalPaid
-  const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
-  if (rentRecord) {
-    if (isReversing) {
-      rentRecord.totalPaid = Math.max(0, rentRecord.totalPaid - transaction.amount);
-    } else {
-      rentRecord.totalPaid += transaction.amount;
+  if (process.env.LEDGER_V3_ENABLED === 'true') {
+    const { enqueueRebuild } = require('./ledgerQueueService');
+    await enqueueRebuild({
+      tenantId: transaction.tenantId,
+      triggerSource: isReversing ? 'transaction_reversed' : 'transaction_created',
+      priority: 'high'
+    });
+  } else {
+    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
+    if (rentRecord) {
+      if (isReversing) {
+        rentRecord.totalPaid = Math.max(0, rentRecord.totalPaid - transaction.amount);
+      } else {
+        rentRecord.totalPaid += transaction.amount;
+      }
+      await rentRecord.save();
     }
-    await rentRecord.save();
   }
 
   logger.info(`[TRANSACTION] Status toggled for txnId=${transactionId} to=${nextStatus} amount=₹${transaction.amount}`);
@@ -567,6 +578,16 @@ const reverseTransaction = async (transactionId, reason, caller) => {
 // ─────────────────────────────────────────────────────────────────────────
 
 const applyAdvanceBalance = async (tenantId) => {
+  if (process.env.LEDGER_V3_ENABLED === 'true') {
+    const { enqueueRebuild } = require('./ledgerQueueService');
+    await enqueueRebuild({
+      tenantId,
+      triggerSource: 'transaction_created',
+      priority: 'normal'
+    });
+    return;
+  }
+
   const records = await MonthlyRentRecord.find({ tenantId }).sort({ month: 1 });
   if (records.length <= 1) return;
 
@@ -574,8 +595,10 @@ const applyAdvanceBalance = async (tenantId) => {
     const rec = records[i];
     if (rec.advanceBalance <= 0) continue;
 
-    // Find subsequent records with remaining balances
-    for (let j = i + 1; j < records.length; j++) {
+    // Find ANY records with remaining balances (oldest first)
+    for (let j = 0; j < records.length; j++) {
+      if (i === j) continue; // Don't apply to itself
+
       const nextRec = records[j];
       const remaining = nextRec.totalRent - nextRec.totalPaid;
       if (remaining <= 0) continue;

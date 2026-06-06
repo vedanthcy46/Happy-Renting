@@ -142,11 +142,11 @@ const generateMonthlyBills = async (ownerId) => {
               const isFinalMonth = tenant.status === 'vacated' && tenant.exitDate && new Date(tenant.exitDate).toISOString().slice(0, 7) === iterMonthStr;
               
               if (isFinalMonth) {
-                if (tenant.userId) await emailService.sendFinalSettlementEmail(tenant.userId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
-                if (tenant.ownerId) await emailService.sendFinalSettlementEmail(tenant.ownerId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
+                if (tenant.userId) await emailService.sendFinalSettlementEmail({ user: tenant.userId, role: 'tenant', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
+                if (tenant.ownerId) await emailService.sendFinalSettlementEmail({ user: tenant.ownerId, role: 'owner', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
               } else {
-                if (tenant.userId) await emailService.sendBillGeneratedEmail(tenant.userId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
-                if (tenant.ownerId) await emailService.sendBillGeneratedEmail(tenant.ownerId, newRecord, tenant.propertyId, tenant.roomId, tenant.userId).catch(()=>null);
+                if (tenant.userId) await emailService.sendBillGeneratedEmail({ user: tenant.userId, role: 'tenant', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
+                if (tenant.ownerId) await emailService.sendBillGeneratedEmail({ user: tenant.ownerId, role: 'owner', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
               }
             }
           }
@@ -163,6 +163,13 @@ const generateMonthlyBills = async (ownerId) => {
         if (tenant.isMigratedTenant && !tenant.migrationBackfillCompleted) {
           tenant.migrationBackfillCompleted = true;
           await tenant.save();
+        }
+
+        // IMPORTANT: Auto-apply any advance balances to newly generated bills!
+        try {
+          await paymentServiceV2.applyAdvanceBalance(tenant._id);
+        } catch (advanceErr) {
+          logger.error(`[BILLING ERROR] Failed to apply advance balance for tenant ${tenant._id}: ${advanceErr.message}`);
         }
 
       } catch (tenantErr) {

@@ -172,6 +172,10 @@ const sendComplaintNotification = async (owner, tenant, complaint, property, roo
 
 // ── 2. Payment Proof Uploaded (To Owner) ─────────────────────────────────────
 const sendPaymentProofNotification = async (owner, tenant, payment, property, room) => {
+  if (owner.notificationPreferences?.proofUploadEmails === false) {
+    return;
+  }
+
   const subject = `Payment Proof Uploaded - ${tenant.name}`;
   const displayMonth = payment.month || (payment.rentRecordId && payment.rentRecordId.month) || 'Current Month';
   const displayMethod = (payment.method || payment.paymentMethod || 'other').toUpperCase();
@@ -222,6 +226,22 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
+
+  if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
+    const ownerSubject = isPaid ? `Payment Verified: ${tenantUser.name} - ${displayMonth}` : `Payment Issue: ${tenantUser.name} - ${displayMonth}`;
+    const ownerHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+        <h2 style="color: ${isPaid ? '#16a34a' : '#dc2626'};">${isPaid ? 'Payment Confirmed' : 'Payment Issue'}</h2>
+        <p>Hello <strong>${owner.name}</strong>,</p>
+        <p>The rent payment from <strong>${tenantUser.name}</strong> for <strong>${displayMonth}</strong> has been ${displayStatus}.</p>
+        <p><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</p>
+        <p><strong>Room:</strong> ${room.roomNumber}</p>
+        ${failureReason ? `<p style="color: #dc2626;"><strong>Reason:</strong> ${failureReason}</p>` : ''}
+        ${getFooter()}
+      </div>
+    `;
+    await sendEmail(owner.email, ownerSubject, ownerHtml);
+  }
 };
 
 // ── 4. Rent Due Reminder (To Tenant) ─────────────────────────────────────────
@@ -245,7 +265,7 @@ const sendRentDueReminder = async (tenantUser, payment, property, room, owner) =
   await queueEmail(tenantUser.email, subject, html, 'reminder');
 };
 
-// ── 5. Overdue Alert (To Tenant) ─────────────────────────────────────────────
+// ── 5. Overdue Alert (To Tenant + Owner) ─────────────────────────────────────────────
 const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
   const subject = `URGENT: Rent Payment Overdue - ${payment.month}`;
   const html = `
@@ -263,6 +283,21 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
     </div>
   `;
   await queueEmail(tenantUser.email, subject, html, 'alert');
+
+  if (owner && owner.notificationPreferences?.overdueEmails !== false) {
+    const ownerSubject = `Tenant Overdue: ${tenantUser.name} - Room ${room.roomNumber}`;
+    const ownerHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #dc2626;">
+        <h2 style="color: #dc2626;">Tenant Rent Overdue</h2>
+        <p>Hello <strong>${owner.name}</strong>,</p>
+        <p>Your tenant <strong>${tenantUser.name}</strong> in Room <strong>${room.roomNumber}</strong> is now OVERDUE for <strong>${payment.month}</strong>.</p>
+        <p><strong>Amount Due:</strong> ₹${payment.amount.toLocaleString()}</p>
+        <p><strong>Property:</strong> ${property.name}</p>
+        ${getFooter()}
+      </div>
+    `;
+    await queueEmail(owner.email, ownerSubject, ownerHtml, 'alert');
+  }
 };
 
 // ── 6. Password Change Notification ──────────────────────────────────────────
@@ -493,6 +528,22 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
     </div>
   `;
   await sendEmail(tenantUser.email, subject, html);
+
+  if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
+    const ownerSubject = `Payment Received: ${tenantUser.name} - Room ${room.roomNumber}`;
+    const ownerHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+        <h2 style="color: #2563eb;">Payment Received</h2>
+        <p>Hello <strong>${owner.name}</strong>,</p>
+        <p>Tenant <strong>${tenantUser.name}</strong> in Room <strong>${room.roomNumber}</strong> has made a payment of <strong>₹${transaction.amount.toLocaleString()}</strong>.</p>
+        <p><strong>Method:</strong> ${transaction.paymentMethod.toUpperCase()}</p>
+        <p><strong>Date:</strong> ${formatDateOnly(transaction.paymentDate)}</p>
+        <p><strong>Remaining Balance:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>
+        ${getFooter()}
+      </div>
+    `;
+    await sendEmail(owner.email, ownerSubject, ownerHtml);
+  }
 };
 
 // ── Missing V2 Audit Templates ───────────────────────────────────────────────
@@ -514,6 +565,10 @@ const sendPasswordResetEmail = async (user, token) => {
 };
 
 const sendLoginAlertEmail = async (user, ipAddress, device) => {
+  if (user.notificationPreferences?.loginAlerts === false) {
+    return;
+  }
+
   const subject = 'New Login Alert';
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
@@ -534,8 +589,8 @@ const sendLoginAlertEmail = async (user, ipAddress, device) => {
 
 const Notification = require('../models/Notification');
 
-const sendBillGeneratedEmail = async (user, rentRecord, property, room, tenantUser) => {
-  const isOwner = user.role === 'owner' || user.role === 'superadmin';
+const sendBillGeneratedEmail = async ({ user, role, rentRecord, property, room, tenantUser }) => {
+  const isOwner = role === 'owner' || role === 'superadmin' || user.role === 'owner' || user.role === 'superadmin';
   const subject = isOwner 
     ? `Rent Bill Generated for Room ${room.roomNumber} - ${rentRecord.month}` 
     : `Rent Bill Generated - ${rentRecord.month}`;
@@ -582,7 +637,7 @@ const sendDueTodayReminderEmail = async (user, rentRecord, property, room) => {
   await Notification.create({ userId: user._id, title: 'Rent Due Today', message: `Rent of ₹${rentRecord.remainingAmount.toLocaleString()} is due today.`, type: 'billing' }).catch(() => null);
 };
 
-const sendTransactionReversalEmail = async (user, transaction, rentRecord) => {
+const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner) => {
   const subject = `Payment Reversed - ${rentRecord.month}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #ef4444;">
@@ -595,38 +650,80 @@ const sendTransactionReversalEmail = async (user, transaction, rentRecord) => {
   `;
   await sendEmail(user.email, subject, html);
   await Notification.create({ userId: user._id, title: 'Payment Reversed', message: `A payment of ₹${transaction.amount.toLocaleString()} was reversed.`, type: 'alert' }).catch(() => null);
+
+  if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
+    const ownerSubject = `Payment Reversed: ${user.name} - ${rentRecord.month}`;
+    const ownerHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #ef4444;">
+        <h2 style="color: #ef4444;">Tenant Payment Reversed</h2>
+        <p>Hello <strong>${owner.name}</strong>,</p>
+        <p>A previous payment of <strong>₹${transaction.amount.toLocaleString()}</strong> from <strong>${user.name}</strong> for ${rentRecord.month} has been reversed by the administrator.</p>
+        <p>Tenant remaining balance is now: <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong>.</p>
+        ${getFooter()}
+      </div>
+    `;
+    await sendEmail(owner.email, ownerSubject, ownerHtml);
+  }
 };
 
 const sendMoveOutInitiatedEmail = async (user, exitDate, property, room) => {
-  const subject = `Move-Out Initiated - ${property.name}`;
+  const isOwner = user.role === 'owner' || user.role === 'superadmin';
+
+  if (isOwner && user.notificationPreferences?.systemEmails === false) {
+    return;
+  }
+
+  const subject = isOwner ? `Action Required: Move-Out Requested - ${property.name}` : `Move-Out Confirmed - ${property.name}`;
+  const title = isOwner ? 'Tenant Move-Out Scheduled' : 'Move-Out Scheduled';
+  
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
-      <h2 style="color: #2563eb;">Move-Out Scheduled</h2>
+      <h2 style="color: #2563eb;">${title}</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
-      <p>Your move-out from Room ${room.roomNumber} at ${property.name} has been scheduled for <strong>${formatDateOnly(exitDate)}</strong>.</p>
-      <p>Your final settlement will be calculated up to this date.</p>
+      <p>${isOwner 
+        ? `A tenant in Room ${room.roomNumber} at ${property.name} has scheduled a move-out for <strong>${formatDateOnly(exitDate)}</strong>. Please review the final settlement once generated.` 
+        : `Your move-out from Room ${room.roomNumber} at ${property.name} has been scheduled for <strong>${formatDateOnly(exitDate)}</strong>.`
+      }</p>
+      ${!isOwner ? `<p>Your final settlement will be calculated up to this date.</p>` : ''}
       ${getFooter()}
     </div>
   `;
   await queueEmail(user.email, subject, html, 'alert');
 };
 
-const sendFinalSettlementEmail = async (user, rentRecord, property, room, tenantUser) => {
-  const isOwner = user.role === 'owner' || user.role === 'superadmin';
-  const subject = isOwner 
-    ? `Final Settlement Generated for Room ${room.roomNumber} - ${property.name}`
-    : `Final Settlement Generated - ${property.name}`;
+const sendFinalSettlementEmail = async ({ user, role, rentRecord, property, room, tenantUser }) => {
+  const isOwner = role === 'owner' || role === 'superadmin' || user.role === 'owner' || user.role === 'superadmin';
+
+  if (isOwner && user.notificationPreferences?.settlementEmails === false) {
+    return;
+  }
+
+  let statusText = '';
+  let subjectBase = '';
+  if (rentRecord.remainingAmount > 0) {
+    subjectBase = 'Final Settlement Payment Required';
+    statusText = 'A final payment is required to close the account.';
+  } else if (rentRecord.remainingAmount < 0) {
+    subjectBase = 'Final Settlement Refund Available';
+    statusText = 'A refund is due for the remaining advance balance.';
+  } else {
+    subjectBase = 'Move-Out Successfully Closed';
+    statusText = 'The account is fully settled with zero balance.';
+  }
+
+  const subject = isOwner ? `${subjectBase} - Room ${room.roomNumber} - ${property.name}` : `${subjectBase} - ${property.name}`;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
-      <h2 style="color: #2563eb;">Final Settlement Available</h2>
+      <h2 style="color: #2563eb;">${subjectBase}</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
       <p>${isOwner 
         ? `The final move-out settlement for your tenant <strong>${tenantUser?.name || 'Tenant'}</strong> in Room ${room.roomNumber} has been generated.` 
         : `Your final move-out settlement for Room ${room.roomNumber} has been generated.`}</p>
+      <p style="padding: 10px; background: #f8fafc; border-left: 4px solid #2563eb;"><strong>${statusText}</strong></p>
       <p><strong>Prorated Rent:</strong> ₹${rentRecord.totalRent.toLocaleString()}</p>
       <p><strong>Advance Balance (Refundable):</strong> ₹${rentRecord.advanceBalance.toLocaleString()}</p>
-      <p><strong>Amount Owed:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>
+      <p><strong>Net Balance:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>
       ${!isOwner ? getButton('View Settlement') : getButton('View Details')}
       ${getFooter()}
     </div>
@@ -635,8 +732,8 @@ const sendFinalSettlementEmail = async (user, rentRecord, property, room, tenant
   
   const notifTitle = isOwner ? 'Tenant Final Settlement' : 'Final Settlement';
   const notifMsg = isOwner 
-    ? `Final settlement for Room ${room.roomNumber} generated. Amount Owed: ₹${rentRecord.remainingAmount.toLocaleString()}` 
-    : `Your final settlement is generated. Amount Owed: ₹${rentRecord.remainingAmount.toLocaleString()}`;
+    ? `Final settlement for Room ${room.roomNumber} generated. Balance: ₹${rentRecord.remainingAmount.toLocaleString()}` 
+    : `Your final settlement is generated. Balance: ₹${rentRecord.remainingAmount.toLocaleString()}`;
 
   await Notification.create({ userId: user._id, title: notifTitle, message: notifMsg, type: 'billing' }).catch(() => null);
 };
@@ -654,6 +751,30 @@ const sendSystemFailureAlert = async (type, errorMsg) => {
     </div>
   `;
   await sendEmail(adminEmail, subject, html);
+};
+
+const sendDailyDigestEmail = async (owner, summary) => {
+  if (owner.notificationPreferences?.dailyDigestEmails === false) return;
+
+  const subject = `Daily Owner Summary - Happy Renting`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #2563eb;">Daily Owner Summary</h2>
+      <p>Hello <strong>${owner.name}</strong>,</p>
+      <p>Here is your daily operational summary across your properties:</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <ul style="line-height: 1.8; font-size: 16px;">
+        <li><strong>Overdue Tenants:</strong> <span style="color: #dc2626; font-weight: bold;">${summary.overdueTenants}</span></li>
+        <li><strong>Pending Payments:</strong> <span style="color: #f59e0b; font-weight: bold;">${summary.pendingPayments}</span></li>
+        <li><strong>Collections Today:</strong> <span style="color: #16a34a; font-weight: bold;">₹${summary.collectionsToday.toLocaleString()}</span></li>
+        <li><strong>Active Move-out Requests:</strong> <strong>${summary.moveOutRequests}</strong></li>
+      </ul>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('Open Dashboard')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(owner.email, subject, html, 'alert');
 };
 
 module.exports = {
@@ -679,6 +800,7 @@ module.exports = {
   sendMoveOutInitiatedEmail,
   sendFinalSettlementEmail,
   sendSystemFailureAlert,
+  sendDailyDigestEmail,
 };
 
 // ── Background Queue Processor ──────────────────────────────────────────────

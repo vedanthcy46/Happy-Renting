@@ -225,8 +225,8 @@ const updateTenant = async (req, res, next) => {
         await room.save();
       }
       
-      // Cleanup co-occupants
-      await CoOccupant.deleteMany({ tenantId: tenant._id });
+      // Mark co-occupants as inactive instead of deleting
+      await CoOccupant.updateMany({ tenantId: tenant._id }, { $set: { status: 'inactive' } });
       
       // Auto-set exitDate
       if (!tenant.exitDate) {

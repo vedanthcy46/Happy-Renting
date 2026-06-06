@@ -327,7 +327,14 @@ const PaymentsPage = () => {
                     <td className={`font-mono text-sm ${record.remainingAmount > 0 ? 'text-brand-400' : 'text-slate-500'}`}>
                       ₹{record.remainingAmount?.toLocaleString()}
                     </td>
-                    <td><StatusBadge status={record.status} /></td>
+                    <td>
+                      <StatusBadge status={record.status} />
+                      {record.advanceBalance > 0 && (
+                        <div className="mt-1 flex text-[9px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 rounded px-1.5 py-0.5 max-w-max">
+                          +₹{record.advanceBalance.toLocaleString()} Floating
+                        </div>
+                      )}
+                    </td>
                     
                     <td className="text-right">
                       <div className="flex flex-col items-end gap-2">

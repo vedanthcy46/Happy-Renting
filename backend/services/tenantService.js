@@ -236,17 +236,28 @@ const moveIn = async (params, performedBy) => {
 
       if (owner && property) {
         // tempPassword should be passed in params or retrieved
-        await emailService.sendTenantWelcome(
-          tenant.userId,
-          params.tempPassword || '********',
-          property,
-          tenant.roomId,
-          owner.name,
-          user.emailVerificationToken
-        );
+        try {
+          await emailService.sendWelcomeEmail(user._id, {
+            tenantName: user.name,
+            loginUrl: `${process.env.FRONTEND_URL}/login`,
+            tempPassword: params.tempPassword || '********',
+          });
+        } catch (emailErr) {
+          logger.error(`[TENANT CREATE] Failed to send welcome email: ${emailErr.message}`);
+        }
+
+        // Automatically generate historical bills in the background so they appear instantly
+        try {
+          const billingServiceV2 = require('./billingServiceV2');
+          billingServiceV2.generateMonthlyBills(ownerId).catch(err => {
+            logger.error(`[TENANT CREATE] Background billing trigger failed: ${err.message}`);
+          });
+        } catch (billErr) {
+          logger.error(`[TENANT CREATE] Could not initiate background billing: ${billErr.message}`);
+        }
       }
-    } catch (emailErr) {
-      logger.error(`Failed to send welcome email: ${emailErr.message}`);
+    } catch (err) {
+      logger.error(`[MOVE-IN] Post-processing error: ${err.message}`);
     }
 
     return result;
@@ -317,8 +328,8 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
       throw err;
     }
 
-    // 2) Remove all co-occupants
-    await CoOccupant.deleteMany({ tenantId }, { session });
+    // 2) Mark all co-occupants as inactive
+    await CoOccupant.updateMany({ tenantId }, { $set: { status: 'inactive' } }, { session });
 
     // 3) Decrement room occupancy by totalOccupantsToRemove
     const roomUpdate = await Room.findOneAndUpdate(
@@ -351,7 +362,9 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
     // ── Instant Final Month Prorated Billing Settlement ──
     try {
       const billingServiceV2 = require('./billingServiceV2');
-      await billingServiceV2.generateMonthlyBills(updatedTenant.ownerId);
+      billingServiceV2.generateMonthlyBills(updatedTenant.ownerId).catch(err => {
+          logger.error(`[MOVE-OUT] Auto-billing failed for tenant=${tenantId}: ${err.message}`);
+      });
       logger.info(`[MOVE-OUT] Auto-generated final proration and billing records for tenant=${tenantId}`);
     } catch (billErr) {
       logger.error(`[MOVE-OUT] Auto-billing failed for tenant=${tenantId}: ${billErr.message}`);

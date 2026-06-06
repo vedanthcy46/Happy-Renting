@@ -14,19 +14,20 @@ const activityLogSchema = new mongoose.Schema(
       enum: [
         'PROPERTY_CREATED', 'PROPERTY_UPDATED', 'PROPERTY_DELETED',
         'ROOM_CREATED', 'ROOM_UPDATED', 'ROOM_DELETED',
-        'TENANT_ADDED', 'TENANT_VACATED', 'CO_OCCUPANT_ADDED',
+        'TENANT_ADDED', 'TENANT_VACATED', 'CO_OCCUPANT_ADDED', 'CO_OCCUPANT_REMOVED',
         'PAYMENT_RECORDED', 'PAYMENT_VERIFIED', 'PAYMENT_REJECTED',
+        'PAYMENT_TRANSACTION_ADDED', 'PAYMENT_TRANSACTION_REVERSED',
         'COMPLAINT_UPDATED'
       ],
       required: true,
     },
     targetId: {
-      type: mongoose.Schema.Types.ObjectId, // Could be Property, Room, Tenant, Payment, Complaint
+      type: mongoose.Schema.Types.ObjectId, // Could be Property, Room, Tenant, Payment, Complaint, PaymentTransaction, MonthlyRentRecord
       required: true,
     },
     targetModel: {
       type: String,
-      enum: ['Property', 'Room', 'Tenant', 'Payment', 'Complaint'],
+      enum: ['Property', 'Room', 'Tenant', 'Payment', 'Complaint', 'PaymentTransaction', 'MonthlyRentRecord'],
       required: true,
     },
     details: {
