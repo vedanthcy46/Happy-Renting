@@ -6,6 +6,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const NotificationQueue = require('../models/NotificationQueue');
 const LedgerJob = require('../models/LedgerJob');
 const SystemHealth = require('../models/SystemHealth');
+const { runDailyJobs } = require('../jobs/cronJobs');
 
 // ── GET /api/system/health ───────────────────────────────────────────────
 router.get('/health', authenticate, authorize('superadmin'), async (req, res, next) => {
@@ -98,6 +99,21 @@ router.get('/queue-metrics', authenticate, authorize('superadmin'), async (req, 
         avgDurationMs: avgDuration,
         lastSuccessfulJob: lastSuccessful ? lastSuccessful.completedAt : null,
       }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/system/trigger-daily-cron ────────────────────────────────────
+router.post('/trigger-daily-cron', authenticate, authorize('superadmin'), async (req, res, next) => {
+  try {
+    // Run asynchronously to avoid blocking the API response
+    runDailyJobs().catch(err => console.error('[TRIGGER CRON] Failed:', err));
+    
+    res.status(200).json({
+      success: true,
+      message: 'Daily rent status check and bill generation triggered successfully in the background.'
     });
   } catch (err) {
     next(err);

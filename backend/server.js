@@ -42,11 +42,12 @@ const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const healthRoutes    = require('./routes/healthRoutes');
 const systemRoutes    = require('./routes/systemRoutes');
+const { startCronJobs } = require('./jobs/cronJobs');
+const ledgerQueueService = require('./services/ledgerQueueService');
 const { initKeepAlive } = require('./services/keepAliveService');
 
 // ── Connect to DB ──────────────────────────────────────────────────────────
 const billingServiceV2 = require('./services/billingServiceV2');
-const ledgerQueueService = require('./services/ledgerQueueService');
 
 (async () => {
   await connectDB();
@@ -162,10 +163,17 @@ app.use('/api/owner-requests', ownerRequestRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-// ── Start server ───────────────────────────────────────────────────────────
-const PORT = Number(process.env.PORT) || 5000;
+// ── Start the Server ─────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   logger.info(`HappyRent API running on port ${PORT} [${process.env.NODE_ENV}]`);
+  
+  // Free Tier / Unified Mode
+  // If the user is on Render Free, they cannot run a separate worker process.
+  // We initialize the background tasks directly within the API process here.
+  logger.info('[SERVER] Starting embedded background worker (Free Tier compatibility mode)');
+  startCronJobs();
+  ledgerQueueService.startQueueWorker();
 });
 
 // ── Graceful shutdown ──────────────────────────────────────────────────────
