@@ -208,7 +208,8 @@ const updateOverduePayments = async (ownerId) => {
     const records = await MonthlyRentRecord.find(query)
       .populate('userId')
       .populate('propertyId')
-      .populate('roomId');
+      .populate('roomId')
+      .populate('ownerId');
 
     let overdueMarked = 0;
 
@@ -272,7 +273,7 @@ const updateOverduePayments = async (ownerId) => {
         if (emailType === 'due_today' && record.userId) {
           await emailService.sendDueTodayReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
         } else if (emailType === 'overdue' && record.userId) {
-          await emailService.sendOverdueAlert(record.userId, record, record.propertyId, record.roomId, null).catch(() => null);
+          await emailService.sendOverdueAlert(record.userId, record, record.propertyId, record.roomId, record.ownerId).catch(() => null);
         }
         try {
           await MonthlyRentRecord.updateOne(
