@@ -18,8 +18,8 @@ const backupService = require('../services/backupService');
 const ledgerQueueService = require('../services/ledgerQueueService');
 
 const startCronJobs = () => {
-  // Run every day at 01:00 AM IST (Asia/Kolkata)
-  cron.schedule('0 1 * * *', async () => {
+  // Run every day at 10:10 AM IST (Asia/Kolkata)
+  cron.schedule('10 10 * * *', async () => {
     logger.info('[CRON] Starting daily rent status check (IST timezone)...');
     
     try {
