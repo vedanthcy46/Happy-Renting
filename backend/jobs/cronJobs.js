@@ -23,11 +23,6 @@ const runDailyJobs = async () => {
   try {
     const today    = new Date();
     today.setHours(0, 0, 0, 0);
-const startCronJobs = () => {
-  // Run every day at 10:10 AM IST (Asia/Kolkata)
-  cron.schedule('10 10 * * *', async () => {
-    logger.info('[CRON] Starting daily rent status check (IST timezone)...');
-    
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
@@ -97,8 +92,6 @@ const startCronJobs = () => {
   // Run every day at 01:00 AM IST (Asia/Kolkata)
   cron.schedule('0 1 * * *', async () => {
     await runDailyJobs();
-    
-
   }, {
     scheduled: true,
     timezone: 'Asia/Kolkata' // Timezone safety for Indian real estate
