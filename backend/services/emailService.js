@@ -194,7 +194,7 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
       ${getFooter()}
     </div>
   `;
-  await sendEmail(owner.email, subject, html);
+  await queueEmail(owner.email, subject, html, 'alert');
 };
 
 // ── 3. Payment Verified (To Tenant) ──────────────────────────────────────────
@@ -225,7 +225,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'alert');
 
   if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
     const ownerSubject = isPaid ? `Payment Verified: ${tenantUser.name} - ${displayMonth}` : `Payment Issue: ${tenantUser.name} - ${displayMonth}`;
@@ -240,7 +240,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
         ${getFooter()}
       </div>
     `;
-    await sendEmail(owner.email, ownerSubject, ownerHtml);
+    await queueEmail(owner.email, ownerSubject, ownerHtml, 'alert');
   }
 };
 
@@ -527,7 +527,7 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'receipt');
 
   if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
     const ownerSubject = `Payment Received: ${tenantUser.name} - Room ${room.roomNumber}`;
@@ -542,7 +542,7 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
         ${getFooter()}
       </div>
     `;
-    await sendEmail(owner.email, ownerSubject, ownerHtml);
+    await queueEmail(owner.email, ownerSubject, ownerHtml, 'receipt');
   }
 };
 
@@ -648,7 +648,7 @@ const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner
       ${getFooter()}
     </div>
   `;
-  await sendEmail(user.email, subject, html);
+  await queueEmail(user.email, subject, html, 'alert');
   await Notification.create({ userId: user._id, title: 'Payment Reversed', message: `A payment of ₹${transaction.amount.toLocaleString()} was reversed.`, type: 'alert' }).catch(() => null);
 
   if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
@@ -662,7 +662,7 @@ const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner
         ${getFooter()}
       </div>
     `;
-    await sendEmail(owner.email, ownerSubject, ownerHtml);
+    await queueEmail(owner.email, ownerSubject, ownerHtml, 'alert');
   }
 };
 
