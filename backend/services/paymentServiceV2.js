@@ -301,12 +301,7 @@ const addPaymentTransaction = async (params, caller) => {
   // Update rent record totals only if transaction is completed immediately
   if (resolvedStatus === 'completed') {
     rentRecord.totalPaid += amount;
-    if (rentRecord.totalPaid > rentRecord.totalRent) {
-      rentRecord.advanceBalance = rentRecord.totalPaid - rentRecord.totalRent;
-    } else {
-      rentRecord.advanceBalance = 0;
-    }
-    await rentRecord.save(); // Pre-save hook will recalculate status & remaining
+    await rentRecord.save(); // Pre-save hook will recalculate status, remaining, and advanceBalance
 
     // Automatically apply advance balance to subsequent bills
     await applyAdvanceBalance(tenantId).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
@@ -627,7 +622,8 @@ const applyAdvanceBalance = async (tenantId) => {
       nextRec.totalPaid += applyAmount;
       await nextRec.save();
 
-      rec.advanceBalance -= applyAmount;
+      // Deduct from source to maintain global income consistency and prevent double-counting
+      rec.totalPaid -= applyAmount;
       await rec.save();
 
       if (rec.advanceBalance <= 0) break;
@@ -687,11 +683,6 @@ const verifyTransaction = async (transactionId, caller) => {
   const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
   if (rentRecord) {
     rentRecord.totalPaid += transaction.amount;
-    if (rentRecord.totalPaid > rentRecord.totalRent) {
-      rentRecord.advanceBalance = rentRecord.totalPaid - rentRecord.totalRent;
-    } else {
-      rentRecord.advanceBalance = 0;
-    }
     await rentRecord.save();
 
     // Automatically apply advance balance to subsequent bills
