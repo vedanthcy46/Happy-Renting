@@ -323,7 +323,8 @@ const updateOverduePayments = async (ownerId) => {
  */
 const getSummaryMetrics = async (ownerId, filters = {}) => {
   try {
-    const query = { ownerId };
+    const query = {};
+    if (ownerId) query.ownerId = ownerId;
 
     if (filters.propertyId) {
       query.propertyId = filters.propertyId;

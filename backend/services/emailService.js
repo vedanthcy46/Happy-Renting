@@ -756,12 +756,18 @@ const sendSystemFailureAlert = async (type, errorMsg) => {
 const sendDailyDigestEmail = async (owner, summary) => {
   if (owner.notificationPreferences?.dailyDigestEmails === false) return;
 
-  const subject = `Daily Owner Summary - Happy Renting`;
+  const isSuperAdmin = owner.role === 'superadmin';
+  const subject = isSuperAdmin ? `Global Platform Summary - Happy Renting` : `Daily Owner Summary - Happy Renting`;
+  const title = isSuperAdmin ? `Global Platform Summary` : `Daily Owner Summary`;
+  const intro = isSuperAdmin 
+    ? `Here is the daily operational summary across the entire platform:` 
+    : `Here is your daily operational summary across your properties:`;
+
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
-      <h2 style="color: #2563eb;">Daily Owner Summary</h2>
+      <h2 style="color: #2563eb;">${title}</h2>
       <p>Hello <strong>${owner.name}</strong>,</p>
-      <p>Here is your daily operational summary across your properties:</p>
+      <p>${intro}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <ul style="line-height: 1.8; font-size: 16px;">
         <li><strong>Overdue Tenants:</strong> <span style="color: #dc2626; font-weight: bold;">${summary.overdueTenants}</span></li>
