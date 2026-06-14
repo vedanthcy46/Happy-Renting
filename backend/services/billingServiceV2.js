@@ -66,11 +66,7 @@ const generateMonthlyBills = async (ownerId) => {
         }
 
         let endYear = today.getFullYear();
-        let endMonthIndex = today.getMonth() - 1;
-        if (endMonthIndex < 0) {
-          endMonthIndex = 11;
-          endYear -= 1;
-        }
+        let endMonthIndex = today.getMonth(); // Process up to the current month inclusive
 
         // Move-Out Settlement Exception:
         // If the tenant has officially vacated, generate their final settlement bill
@@ -193,7 +189,7 @@ const generateMonthlyBills = async (ownerId) => {
 /**
  * processBillingRemindersAndOverdue(ownerId?)
  * Marks records as overdue and implements the 1, 7, 15, 21, 30 day overdue cadence,
- * alongside Due Today reminders.
+ * alongside Due Tomorrow (-1) and Due Today (0) reminders.
  */
 const updateOverduePayments = async (ownerId) => {
   try {
@@ -273,7 +269,10 @@ const updateOverduePayments = async (ownerId) => {
       let shouldSend = false;
       let emailType = '';
 
-      if (diffDays === 0) {
+      if (diffDays === -1) {
+        shouldSend = true;
+        emailType = 'due_tomorrow';
+      } else if (diffDays === 0) {
         shouldSend = true;
         emailType = 'due_today';
       } else if (diffDays > 0) {
@@ -299,7 +298,9 @@ const updateOverduePayments = async (ownerId) => {
       }
 
       if (shouldSend) {
-        if (emailType === 'due_today' && record.userId) {
+        if (emailType === 'due_tomorrow' && record.userId) {
+          await emailService.sendDueSoonReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
+        } else if (emailType === 'due_today' && record.userId) {
           await emailService.sendDueTodayReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
         } else if (emailType === 'overdue' && record.userId) {
           await emailService.sendOverdueAlert(record.userId, record, record.propertyId, record.roomId, record.ownerId).catch(() => null);

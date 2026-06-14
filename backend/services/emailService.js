@@ -637,6 +637,23 @@ const sendDueTodayReminderEmail = async (user, rentRecord, property, room) => {
   await Notification.create({ userId: user._id, title: 'Rent Due Today', message: `Rent of ₹${rentRecord.remainingAmount.toLocaleString()} is due today.`, type: 'billing' }).catch(() => null);
 };
 
+const sendDueSoonReminderEmail = async (user, rentRecord, property, room) => {
+  const subject = `Reminder: Rent Due Tomorrow - ${rentRecord.month}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #3b82f6;">
+      <h2 style="color: #3b82f6;">Rent Due Tomorrow</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>This is a friendly reminder that your rent for <strong>${rentRecord.month}</strong> is due tomorrow.</p>
+      <p>Amount Due: <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong></p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('Pay Now')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(user.email, subject, html, 'reminder');
+  await Notification.create({ userId: user._id, title: 'Rent Due Tomorrow', message: `Rent of ₹${rentRecord.remainingAmount.toLocaleString()} is due tomorrow.`, type: 'billing' }).catch(() => null);
+};
+
 const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner) => {
   const subject = `Payment Reversed - ${rentRecord.month}`;
   const html = `
@@ -802,6 +819,7 @@ module.exports = {
   sendLoginAlertEmail,
   sendBillGeneratedEmail,
   sendDueTodayReminderEmail,
+  sendDueSoonReminderEmail,
   sendTransactionReversalEmail,
   sendMoveOutInitiatedEmail,
   sendFinalSettlementEmail,
