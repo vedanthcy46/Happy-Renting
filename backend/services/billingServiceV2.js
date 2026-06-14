@@ -192,7 +192,7 @@ const generateMonthlyBills = async (ownerId) => {
 
 /**
  * processBillingRemindersAndOverdue(ownerId?)
- * Marks records as overdue and strictly implements the 1, 7, 15, 30 day overdue cadence,
+ * Marks records as overdue and implements the 1, 7, 15, 21, 30 day overdue cadence,
  * alongside Due Today reminders.
  */
 const updateOverduePayments = async (ownerId) => {
@@ -269,16 +269,33 @@ const updateOverduePayments = async (ownerId) => {
         if (lastSent.getTime() === today.getTime()) continue;
       }
 
-      // Check Cadence rules
+      // Check Cadence rules (Robust milestone-based logic)
       let shouldSend = false;
       let emailType = '';
 
       if (diffDays === 0) {
         shouldSend = true;
         emailType = 'due_today';
-      } else if (diffDays === 1 || diffDays === 7 || diffDays === 15 || diffDays === 30) {
-        shouldSend = true;
-        emailType = 'overdue';
+      } else if (diffDays > 0) {
+        // Milestones: 1, 7, 15, 21, 30 days
+        const milestones = [1, 7, 15, 21, 30];
+        const currentMilestone = [...milestones].reverse().find(m => diffDays >= m);
+
+        if (currentMilestone) {
+          if (!record.reminderSentAt) {
+            shouldSend = true;
+            emailType = 'overdue';
+          } else {
+            const lastSent = new Date(record.reminderSentAt);
+            lastSent.setHours(0, 0, 0, 0);
+            const lastDiffDays = Math.floor((lastSent.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (lastDiffDays < currentMilestone) {
+              shouldSend = true;
+              emailType = 'overdue';
+            }
+          }
+        }
       }
 
       if (shouldSend) {
