@@ -222,13 +222,13 @@ const updateOverduePayments = async (ownerId) => {
       const diffTime = today - dueDate;
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-      // Mark as overdue if past due date
-      if (diffDays > 0 && (record.status === 'pending' || record.status === 'partial')) {
+      // Mark as overdue if past due date (Only for pending. Partial stays partial)
+      if (diffDays > 0 && record.status === 'pending') {
         try {
           const result = await MonthlyRentRecord.updateOne(
             {
               _id: record._id,
-              status: { $in: ['pending', 'partial'] }
+              status: 'pending'
             },
             {
               $set: {
@@ -247,6 +247,18 @@ const updateOverduePayments = async (ownerId) => {
           logger.error(`[BILLING ERROR] Failed to mark record ${record._id} overdue for tenant ${record.tenantId} month ${record.month}: ${updateErr.message}`);
           // Continue to next record, do not crash the loop
           continue;
+        }
+      } else if (diffDays > 0 && record.status === 'overdue' && record.totalPaid > 0) {
+        // SELF-HEALING: Revert records that were incorrectly marked overdue by older cron versions
+        try {
+          await MonthlyRentRecord.updateOne(
+            { _id: record._id },
+            { $set: { status: 'partial' } }
+          );
+          record.status = 'partial';
+          logger.info(`[OVERDUE HEALED] record=${record._id} reverted to partial`);
+        } catch (healErr) {
+          logger.error(`[BILLING HEAL ERROR] ${healErr.message}`);
         }
       }
 
@@ -311,7 +323,8 @@ const updateOverduePayments = async (ownerId) => {
  */
 const getSummaryMetrics = async (ownerId, filters = {}) => {
   try {
-    const query = { ownerId };
+    const query = {};
+    if (ownerId) query.ownerId = ownerId;
 
     if (filters.propertyId) {
       query.propertyId = filters.propertyId;

@@ -23,11 +23,6 @@ const runDailyJobs = async () => {
   try {
     const today    = new Date();
     today.setHours(0, 0, 0, 0);
-const startCronJobs = () => {
-  // Run every day at 10:10 AM IST (Asia/Kolkata)
-  cron.schedule('10 10 * * *', async () => {
-    logger.info('[CRON] Starting daily rent status check (IST timezone)...');
-    
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
@@ -97,8 +92,6 @@ const startCronJobs = () => {
   // Run every day at 01:00 AM IST (Asia/Kolkata)
   cron.schedule('0 1 * * *', async () => {
     await runDailyJobs();
-    
-
   }, {
     scheduled: true,
     timezone: 'Asia/Kolkata' // Timezone safety for Indian real estate
@@ -171,13 +164,20 @@ const startCronJobs = () => {
       for (const owner of owners) {
         if (owner.notificationPreferences?.dailyDigestEmails === false) continue;
 
-        const metrics = await billingServiceV2.getSummaryMetrics(owner._id);
-        const moveOutRequests = await Tenant.countDocuments({ ownerId: owner._id, exitDate: { $gte: today } });
+        const isSuperAdmin = owner.role === 'superadmin';
+        const metricsOwnerId = isSuperAdmin ? null : owner._id;
+
+        const metrics = await billingServiceV2.getSummaryMetrics(metricsOwnerId);
+        
+        const moveOutQuery = { exitDate: { $gte: today } };
+        if (!isSuperAdmin) moveOutQuery.ownerId = owner._id;
+        
+        const moveOutRequests = await Tenant.countDocuments(moveOutQuery);
 
         const summary = {
-          overdueTenants: metrics[0]?.overdueCount || 0,
-          pendingPayments: metrics[0]?.pendingCount || 0,
-          collectionsToday: metrics[0]?.totalCollected || 0,
+          overdueTenants: metrics.overdueCount || 0,
+          pendingPayments: metrics.pendingCount || 0,
+          collectionsToday: metrics.totalCollected || 0,
           moveOutRequests
         };
 

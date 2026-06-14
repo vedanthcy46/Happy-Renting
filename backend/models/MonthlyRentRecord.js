@@ -206,6 +206,13 @@ monthlyRentRecordSchema.pre('save', function() {
   // Ensure remaining is correct
   this.remainingAmount = Math.max(0, this.totalRent - this.totalPaid);
   
+  // Auto-calculate advanceBalance based on totalPaid vs totalRent
+  if (this.totalPaid > this.totalRent) {
+    this.advanceBalance = this.totalPaid - this.totalRent;
+  } else {
+    this.advanceBalance = 0;
+  }
+  
   // Auto-calculate status based on amounts
   if (this.totalPaid > this.totalRent) {
     this.status = 'overpaid';

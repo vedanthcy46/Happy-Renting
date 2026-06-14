@@ -194,7 +194,7 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
       ${getFooter()}
     </div>
   `;
-  await sendEmail(owner.email, subject, html);
+  await queueEmail(owner.email, subject, html, 'alert');
 };
 
 // ── 3. Payment Verified (To Tenant) ──────────────────────────────────────────
@@ -225,7 +225,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'alert');
 
   if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
     const ownerSubject = isPaid ? `Payment Verified: ${tenantUser.name} - ${displayMonth}` : `Payment Issue: ${tenantUser.name} - ${displayMonth}`;
@@ -240,7 +240,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
         ${getFooter()}
       </div>
     `;
-    await sendEmail(owner.email, ownerSubject, ownerHtml);
+    await queueEmail(owner.email, ownerSubject, ownerHtml, 'alert');
   }
 };
 
@@ -527,7 +527,7 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
       ${getFooter()}
     </div>
   `;
-  await sendEmail(tenantUser.email, subject, html);
+  await queueEmail(tenantUser.email, subject, html, 'receipt');
 
   if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
     const ownerSubject = `Payment Received: ${tenantUser.name} - Room ${room.roomNumber}`;
@@ -542,7 +542,7 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
         ${getFooter()}
       </div>
     `;
-    await sendEmail(owner.email, ownerSubject, ownerHtml);
+    await queueEmail(owner.email, ownerSubject, ownerHtml, 'receipt');
   }
 };
 
@@ -648,7 +648,7 @@ const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner
       ${getFooter()}
     </div>
   `;
-  await sendEmail(user.email, subject, html);
+  await queueEmail(user.email, subject, html, 'alert');
   await Notification.create({ userId: user._id, title: 'Payment Reversed', message: `A payment of ₹${transaction.amount.toLocaleString()} was reversed.`, type: 'alert' }).catch(() => null);
 
   if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
@@ -662,7 +662,7 @@ const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner
         ${getFooter()}
       </div>
     `;
-    await sendEmail(owner.email, ownerSubject, ownerHtml);
+    await queueEmail(owner.email, ownerSubject, ownerHtml, 'alert');
   }
 };
 
@@ -756,12 +756,18 @@ const sendSystemFailureAlert = async (type, errorMsg) => {
 const sendDailyDigestEmail = async (owner, summary) => {
   if (owner.notificationPreferences?.dailyDigestEmails === false) return;
 
-  const subject = `Daily Owner Summary - Happy Renting`;
+  const isSuperAdmin = owner.role === 'superadmin';
+  const subject = isSuperAdmin ? `Global Platform Summary - Happy Renting` : `Daily Owner Summary - Happy Renting`;
+  const title = isSuperAdmin ? `Global Platform Summary` : `Daily Owner Summary`;
+  const intro = isSuperAdmin 
+    ? `Here is the daily operational summary across the entire platform:` 
+    : `Here is your daily operational summary across your properties:`;
+
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
-      <h2 style="color: #2563eb;">Daily Owner Summary</h2>
+      <h2 style="color: #2563eb;">${title}</h2>
       <p>Hello <strong>${owner.name}</strong>,</p>
-      <p>Here is your daily operational summary across your properties:</p>
+      <p>${intro}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <ul style="line-height: 1.8; font-size: 16px;">
         <li><strong>Overdue Tenants:</strong> <span style="color: #dc2626; font-weight: bold;">${summary.overdueTenants}</span></li>
