@@ -95,10 +95,10 @@ async function run() {
       const record = await MonthlyRentRecord.findById(recordId);
       if (!record) continue;
 
-      // Calculate total paid from all remaining valid transactions
+      // Calculate total paid from all remaining valid transactions (only completed ones count towards totalPaid)
       const validTxns = await PaymentTransaction.find({ 
         rentRecordId: recordId, 
-        status: { $in: ['completed', 'verifying'] } 
+        status: 'completed' 
       });
       
       const newTotalPaid = validTxns.reduce((sum, txn) => sum + txn.amount, 0);
