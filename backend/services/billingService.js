@@ -18,7 +18,15 @@ const logger   = require('../config/logger');
 const generateMonthlyBills = async (ownerId) => {
   try {
     const today = new Date();
-    const currentMonthStr = today.toISOString().slice(0, 7); // "YYYY-MM"
+    // Postpaid: Bill for June is generated in July. 
+    // So in July (index 6), we generate for June (index 5).
+    let targetYear = today.getFullYear();
+    let targetMonthIndex = today.getMonth() - 1;
+    if (targetMonthIndex < 0) {
+      targetMonthIndex = 11;
+      targetYear--;
+    }
+    const currentMonthStr = `${targetYear}-${String(targetMonthIndex + 1).padStart(2, '0')}`;
     
     // 1. Fetch all active tenants for this owner
     const activeTenancies = await Tenant.find({ 

@@ -589,6 +589,33 @@ const sendLoginAlertEmail = async (user, ipAddress, device) => {
 
 const Notification = require('../models/Notification');
 
+const sendOwnerBillingSummaryEmail = async (owner, count, month) => {
+  if (owner.notificationPreferences?.billingSummaryEmails === false) return;
+
+  const subject = `Billing Cycle Completed - ${month}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+      <h2 style="color: #2563eb;">Monthly Billing Generated</h2>
+      <p>Hello <strong>${owner.name}</strong>,</p>
+      <p>The automated billing cycle for <strong>${month}</strong> has been completed.</p>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+        <p style="margin: 0; font-size: 16px;">Total Bills Generated: <strong>${count}</strong></p>
+      </div>
+      <p>Individual notifications have been sent to your tenants. You can review all records in your dashboard.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('View Billing Records')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(owner.email, subject, html, 'alert');
+  await Notification.create({ 
+    userId: owner._id, 
+    title: 'Billing Cycle Completed', 
+    message: `Successfully generated ${count} bills for ${month}.`, 
+    type: 'billing' 
+  }).catch(() => null);
+};
+
 const sendBillGeneratedEmail = async ({ user, role, rentRecord, property, room, tenantUser }) => {
   const isOwner = role === 'owner' || role === 'superadmin' || user.role === 'owner' || user.role === 'superadmin';
   const subject = isOwner 
@@ -823,6 +850,7 @@ module.exports = {
   sendTransactionReversalEmail,
   sendMoveOutInitiatedEmail,
   sendFinalSettlementEmail,
+  sendOwnerBillingSummaryEmail,
   sendSystemFailureAlert,
   sendDailyDigestEmail,
 };

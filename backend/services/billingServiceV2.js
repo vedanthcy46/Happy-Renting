@@ -50,6 +50,8 @@ const generateMonthlyBills = async (ownerId) => {
       existingMap.set(`${r.tenantId}_${r.month}`, r.status);
     }
 
+    const ownerSummaryMap = new Map(); // Track billing counts for consolidated owner notification
+
     for (const tenant of tenancies) {
       try {
         const tenantMonthlyRent = tenant.roomId?.monthlyRent || 0;
@@ -66,7 +68,13 @@ const generateMonthlyBills = async (ownerId) => {
         }
 
         let endYear = today.getFullYear();
-        let endMonthIndex = today.getMonth(); // Process up to the current month inclusive
+        let endMonthIndex = today.getMonth() - 1; // Default: Postpaid billing (generate previous month's bill in current month)
+        
+        // Handle year wrap-around for January
+        if (endMonthIndex < 0) {
+          endMonthIndex = 11;
+          endYear--;
+        }
 
         // Move-Out Settlement Exception:
         // If the tenant has officially vacated, generate their final settlement bill
@@ -77,6 +85,7 @@ const generateMonthlyBills = async (ownerId) => {
           const exitMonth = exitDate.getMonth();
           
           if (!isNaN(exitYear) && !isNaN(exitMonth)) {
+            // Force the loop to include the exit month if it's ahead of the default endMonthIndex
             if (exitYear > endYear || (exitYear === endYear && exitMonth > endMonthIndex)) {
               endYear = exitYear;
               endMonthIndex = exitMonth;
@@ -139,10 +148,15 @@ const generateMonthlyBills = async (ownerId) => {
               
               if (isFinalMonth) {
                 if (tenant.userId) await emailService.sendFinalSettlementEmail({ user: tenant.userId, role: 'tenant', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
-                if (tenant.ownerId) await emailService.sendFinalSettlementEmail({ user: tenant.ownerId, role: 'owner', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
               } else {
                 if (tenant.userId) await emailService.sendBillGeneratedEmail({ user: tenant.userId, role: 'tenant', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
-                if (tenant.ownerId) await emailService.sendBillGeneratedEmail({ user: tenant.ownerId, role: 'owner', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
+              }
+
+              if (tenant.ownerId) {
+                const ownerIdKey = String(tenant.ownerId._id || tenant.ownerId);
+                const currentData = ownerSummaryMap.get(ownerIdKey) || { owner: tenant.ownerId, count: 0 };
+                currentData.count++;
+                ownerSummaryMap.set(ownerIdKey, currentData);
               }
             }
           }
@@ -171,6 +185,20 @@ const generateMonthlyBills = async (ownerId) => {
       } catch (tenantErr) {
         logger.error(`[BILLING ERROR] Failed for tenant ${tenant._id}: ${tenantErr.message}`);
         billingResults.errors++;
+      }
+    }
+
+    // Send consolidated owner summary emails
+    const targetMonthIndex = today.getMonth() - 1;
+    const targetYear = targetMonthIndex < 0 ? today.getFullYear() - 1 : today.getFullYear();
+    const normMonth = targetMonthIndex < 0 ? 11 : targetMonthIndex;
+    const targetMonthLabel = `${targetYear}-${String(normMonth + 1).padStart(2, '0')}`;
+
+    for (const [ownerId, data] of ownerSummaryMap.entries()) {
+      if (data.count > 0) {
+        await emailService.sendOwnerBillingSummaryEmail(data.owner, data.count, targetMonthLabel).catch((err) => {
+          logger.error(`[BILLING SUMMARY ERROR] Failed to send email to owner ${ownerId}: ${err.message}`);
+        });
       }
     }
 
@@ -275,21 +303,33 @@ const updateOverduePayments = async (ownerId) => {
       } else if (diffDays === 0) {
         shouldSend = true;
         emailType = 'due_today';
-      } else if (diffDays > 0) {
+      } else if (diffDays > 0 && (record.status === 'overdue' || record.status === 'partial')) {
         // Milestones: 1, 7, 15, 21, 30 days
         const milestones = [1, 7, 15, 21, 30];
-        const currentMilestone = [...milestones].reverse().find(m => diffDays >= m);
+        
+        // Find the highest milestone currently reached
+        const currentHighestMilestone = [...milestones].reverse().find(m => diffDays >= m);
 
-        if (currentMilestone) {
+        if (currentHighestMilestone) {
           if (!record.reminderSentAt) {
+            // Never sent an overdue reminder yet
             shouldSend = true;
             emailType = 'overdue';
           } else {
+            // We have sent a reminder before. 
+            // We need to check if the last one was for an EARLIER milestone.
             const lastSent = new Date(record.reminderSentAt);
             lastSent.setHours(0, 0, 0, 0);
-            const lastDiffDays = Math.floor((lastSent.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+            
+            // Calculate how many days past due it was when we last sent it
+            const lastDiffTime = lastSent.getTime() - dueDate.getTime();
+            const lastDiffDays = Math.floor(lastDiffTime / (1000 * 60 * 60 * 24));
+            
+            // What was the highest milestone reached at the time of the last reminder?
+            const lastMilestoneReached = [...milestones].reverse().find(m => lastDiffDays >= m);
 
-            if (lastDiffDays < currentMilestone) {
+            // If the current milestone is strictly greater than the last one reached, we send a new one
+            if (!lastMilestoneReached || currentHighestMilestone > lastMilestoneReached) {
               shouldSend = true;
               emailType = 'overdue';
             }
