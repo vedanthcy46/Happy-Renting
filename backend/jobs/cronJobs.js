@@ -6,6 +6,7 @@ const emailService = require('../services/emailService');
 const logger       = require('../config/logger');
 const NotificationQueue = require('../models/NotificationQueue');
 const LedgerJob = require('../models/LedgerJob');
+const SystemHealth = require('../models/SystemHealth');
 
 /**
  * cronJobs.js
@@ -98,6 +99,19 @@ const startCronJobs = () => {
   });
 
   logger.info('[CRON] Scheduled jobs initialized (Timezone: Asia/Kolkata).');
+
+  // Heartbeat Loop (every 30 seconds)
+  setInterval(async () => {
+    try {
+      await SystemHealth.findOneAndUpdate(
+        { key: 'worker' },
+        { lastHeartbeatAt: new Date(), status: 'healthy' },
+        { upsert: true, returnDocument: 'after' }
+      );
+    } catch (err) {
+      logger.error(`[WORKER HEARTBEAT] Failed to update: ${err.message}`);
+    }
+  }, 30000);
 
   // Background Notification Queue (Every 5 minutes)
   cron.schedule('*/5 * * * *', async () => {
