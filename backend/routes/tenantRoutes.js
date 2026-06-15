@@ -22,4 +22,7 @@ router.post ('/:id/co-occupants',authorize('superadmin', 'owner', 'tenant'),  ad
 router.patch('/:id/co-occupants/:coId', authorize('superadmin', 'owner', 'tenant'), updateCoOccupant);
 router.delete('/:id/co-occupants/:coId', authorize('superadmin', 'owner', 'tenant'), deleteCoOccupant);
 
+const { markRefundSettled } = require('../controllers/tenantController');
+router.patch('/:id/mark-refund-settled', authorize('superadmin', 'owner'), markRefundSettled);
+
 module.exports = router;

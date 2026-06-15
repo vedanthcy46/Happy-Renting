@@ -15,6 +15,12 @@ const MyRoomPage = () => {
   const [editRoommateId, setEditRoommateId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Feature B – Transaction deep-link state
+  const [showTxnModal, setShowTxnModal] = useState(false);
+  const [selectedPayRecord, setSelectedPayRecord] = useState(null);
+  const [txnList, setTxnList] = useState([]);
+  const [loadingTxn, setLoadingTxn] = useState(false);
+
   const fetchMyRoom = useCallback(async () => {
     try {
       setLoading(true);
@@ -72,6 +78,22 @@ const MyRoomPage = () => {
     setEditRoommateId(co._id);
     setRoommateData({ name: co.name || '', phone: co.phone || '', idProof: co.idProof || '' });
     setShowAddRoommate(true);
+  };
+
+  // Feature B – load individual transactions for a rent record
+  const handleViewTransactions = async (record) => {
+    setSelectedPayRecord(record);
+    setTxnList([]);
+    setShowTxnModal(true);
+    setLoadingTxn(true);
+    try {
+      const res = await api.get(`/v2/payments/${record._id}`);
+      setTxnList(res.data.transactions || []);
+    } catch (err) {
+      toast.error(err.message || 'Failed to load transactions.');
+    } finally {
+      setLoadingTxn(false);
+    }
   };
 
   useEffect(() => { fetchMyRoom(); }, [fetchMyRoom]);
@@ -343,10 +365,22 @@ const MyRoomPage = () => {
                   {pay.status === 'paid' && (
                     <div className="mt-4 pt-3 border-t border-surface-border">
                       <Link to={`/tenant/pay/${pay._id}`} className="text-brand-400 hover:text-brand-300 text-xs font-bold underline text-center block">
-                        View Ledger & Receipts
+                        View Ledger &amp; Receipts
                       </Link>
                     </div>
                   )}
+                  {/* View Transactions deep-link button */}
+                  <div className="mt-3">
+                    <button
+                      onClick={() => handleViewTransactions(pay)}
+                      className="w-full text-xs py-1.5 px-3 rounded-lg border border-slate-600 text-slate-300 hover:border-brand-500/50 hover:text-brand-400 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      View Transactions
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -366,6 +400,64 @@ const MyRoomPage = () => {
           {tenancy.notes || "No special notes or rules have been added for this room yet. Please ensure timely payment of rent before the 5th of every month."}
         </p>
       </div>
+
+      {/* Feature B – Transactions Modal */}
+      <Modal
+        isOpen={showTxnModal}
+        onClose={() => { setShowTxnModal(false); setSelectedPayRecord(null); setTxnList([]); }}
+        title={`Transactions for ${selectedPayRecord?.month || ''}`}
+        size="md"
+      >
+        {loadingTxn ? (
+          <div className="flex justify-center py-10">
+            <LoadingSpinner size="md" />
+          </div>
+        ) : txnList.length === 0 ? (
+          <div className="py-8 text-center">
+            <div className="text-4xl mb-3">📭</div>
+            <p className="text-slate-400 text-sm italic">No individual transactions recorded yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {txnList.map((txn, i) => (
+              <div key={txn._id || i} className="p-4 rounded-xl border border-surface-border bg-surface-card space-y-2">
+                {/* Row 1: amount + status badge */}
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold text-base">₹{(txn.amount || 0).toLocaleString()}</span>
+                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border
+                    ${
+                      txn.status === 'completed'
+                        ? 'bg-success/10 text-success border-success/20'
+                        : txn.status === 'verifying'
+                        ? 'bg-warning/10 text-warning border-warning/20'
+                        : txn.status === 'reversed'
+                        ? 'bg-danger/10 text-danger border-danger/20'
+                        : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                    }`}>
+                    {txn.status || 'unknown'}
+                  </span>
+                </div>
+                {/* Row 2: method + date */}
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="capitalize flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    {txn.paymentMethod || 'N/A'}
+                  </span>
+                  <span className="font-mono">
+                    {txn.date ? new Date(txn.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                  </span>
+                </div>
+                {/* Row 3: note (if present) */}
+                {txn.note && (
+                  <p className="text-xs text-slate-500 italic border-t border-surface-border pt-2">{txn.note}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
 
       <Modal isOpen={showAddRoommate} onClose={() => { setShowAddRoommate(false); setEditRoommateId(null); setRoommateData({ name: '', phone: '', idProof: '' }); }} title={editRoommateId ? "Edit Roommate" : "Add Roommate / Member"} size="md">
         <form onSubmit={handleAddRoommate} className="space-y-4">

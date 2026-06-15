@@ -261,6 +261,7 @@ const TenantsPage = () => {
                 {tab === 'active' && <th>Due Day</th>}
                 <th>Status</th>
                 {tab === 'active' && <th className="text-right">Actions</th>}
+                {tab === 'vacated' && <th className="text-right">Refund</th>}
               </tr>
             </thead>
             <tbody>
@@ -330,10 +331,39 @@ const TenantsPage = () => {
                         <button onClick={() => openMoveOut(t)} className="btn btn-danger btn-sm text-[10px] uppercase font-bold tracking-wider">Vacate</button>
                       </td>
                     )}
+                    {tab === 'vacated' && (
+                      <td className="text-right">
+                        {(t.advanceRefundAmount > 0 || t.advancePaid > 0) ? (
+                          t.refundSettled ? (
+                            <span className="inline-flex flex-col items-end">
+                              <span className="text-[10px] font-bold text-success uppercase">✓ Settled</span>
+                              <span className="text-[9px] text-slate-500 font-mono">{new Date(t.refundSettledAt).toLocaleDateString()}</span>
+                            </span>
+                          ) : (
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[10px] font-bold text-warning uppercase">💰 Refund Due</span>
+                              <button onClick={() => {
+                                const note = window.prompt("Enter an optional note for marking this refund as settled:");
+                                if (note !== null) {
+                                  api.patch(`/tenants/${t._id}/mark-refund-settled`, { note }).then(() => {
+                                    toast.success('Refund marked as settled!');
+                                    fetchTenants();
+                                  }).catch(e => toast.error('Failed to settle refund: ' + e.message));
+                                }
+                              }} className="btn-secondary py-0.5 px-2 text-[9px] uppercase font-bold border-warning/30 text-warning hover:bg-warning/10">
+                                Mark Settled
+                              </button>
+                            </div>
+                          )
+                        ) : (
+                          <span className="text-[10px] text-slate-500 font-mono">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                   {expanded[t._id] && (
                     <tr className="bg-surface/30 animate-fade-in border-l-2 border-brand-500">
-                      <td colSpan={tab === 'active' ? 8 : 7} className="p-4">
+                      <td colSpan={8} className="p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {/* Primary Details */}
                           <div className="space-y-3">

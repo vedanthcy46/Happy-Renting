@@ -166,4 +166,43 @@ router.patch('/notifications/read-all', authenticate, async (req, res, next) => 
   }
 });
 
+// GET /api/system/audit-logs
+const LedgerAuditLog = require('../models/LedgerAuditLog');
+router.get('/audit-logs', authenticate, authorize('superadmin', 'owner'), async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const query = {};
+    // Future expansion: filter by tenantId if provided
+
+    const logs = await LedgerAuditLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: 'tenantId',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'name email'
+        }
+      })
+      .lean();
+
+    const total = await LedgerAuditLog.countDocuments(query);
+
+    res.json({
+      success: true,
+      logs,
+      total,
+      page,
+      pages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

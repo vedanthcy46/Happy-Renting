@@ -426,6 +426,33 @@ const deleteCoOccupant = async (req, res, next) => {
   }
 };
 
+// ── PATCH /api/tenants/:id/mark-refund-settled ────────────────────────────────
+const markRefundSettled = async (req, res, next) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    }
+
+    // Authorization
+    if (req.user.role === 'owner' && String(tenant.ownerId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    tenant.refundSettled = true;
+    tenant.refundSettledAt = new Date();
+    tenant.refundNote = req.body.note || '';
+    
+    await tenant.save();
+
+    await logActivity(req.user._id, 'REFUND_SETTLED', tenant._id, 'Tenant', `Marked refund settled for tenant ${tenant._id}`, req.ip);
+    
+    res.status(200).json({ success: true, message: 'Refund marked as settled.', tenant });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getTenants,
   getTenant,
@@ -438,4 +465,5 @@ module.exports = {
   getMyTenancy,
   addTenantValidation,
   moveOutValidation,
+  markRefundSettled,
 };

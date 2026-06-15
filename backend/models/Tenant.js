@@ -59,6 +59,22 @@ const tenantSchema = new mongoose.Schema(
       enum    : ['active', 'vacated'],
       default : 'active',
     },
+    refundSettled: {
+      type: Boolean,
+      default: false
+    },
+    refundSettledAt: {
+      type: Date,
+      default: null
+    },
+    refundNote: {
+      type: String,
+      default: ''
+    },
+    advanceRefundAmount: {
+      type: Number,
+      default: 0
+    },
     rentDueDay: {
       type   : Number,
       min    : [1, 'Rent due day must be at least 1'],

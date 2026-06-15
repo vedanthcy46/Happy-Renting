@@ -22,6 +22,7 @@ import TenantPaymentPage from './pages/TenantPaymentPage';
 import LandingPage       from './pages/LandingPage';
 import OwnerRequestPage  from './pages/OwnerRequestPage';
 import AdminOwnerRequests from './pages/AdminOwnerRequests';
+import AuditLogPage       from './pages/AuditLogPage';
 
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage    from './pages/NotFoundPage';
@@ -80,6 +81,7 @@ const App = () => (
             {/* Super Admin only */}
             <Route path="users" element={<ProtectedRoute roles={['superadmin']}><UsersPage /></ProtectedRoute>} />
             <Route path="requests" element={<ProtectedRoute roles={['superadmin']}><AdminOwnerRequests /></ProtectedRoute>} />
+            <Route path="audit-logs" element={<ProtectedRoute roles={['superadmin']}><AuditLogPage /></ProtectedRoute>} />
 
             {/* Catch-all → 404 */}
             <Route path="*" element={<NotFoundPage />} />

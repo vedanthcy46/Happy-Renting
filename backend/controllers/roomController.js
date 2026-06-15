@@ -5,6 +5,7 @@ const mongoose        = require('mongoose');
 const Room            = require('../models/Room');
 const Tenant          = require('../models/Tenant');
 const Property        = require('../models/Property');
+const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const logger          = require('../config/logger');
 const logActivity     = require('../utils/activityLogger');
 
@@ -162,6 +163,7 @@ const updateRoom = async (req, res, next) => {
       });
     }
 
+    const oldMonthlyRent = room.monthlyRent;
     if (roomNumber  !== undefined) room.roomNumber  = roomNumber;
     if (capacity    !== undefined) room.capacity    = capacity;
     if (floor       !== undefined) room.floor       = floor;
@@ -171,6 +173,38 @@ const updateRoom = async (req, res, next) => {
 
     // NOTE: currentOccupancy is NEVER updated here — only via tenantService transactions
     await room.save();
+    
+    // Feature A: Rent propagation logic
+    if (monthlyRent !== undefined && Number(monthlyRent) !== Number(oldMonthlyRent)) {
+      try {
+        const activeTenants = await Tenant.find({ roomId: room._id, status: 'active' });
+        const now = new Date();
+        const currentMonthString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        for (const tenant of activeTenants) {
+          const unpaidRecord = await MonthlyRentRecord.findOne({
+            tenantId: tenant._id,
+            month: currentMonthString,
+            status: { $nin: ['paid', 'overpaid'] }
+          });
+          
+          if (unpaidRecord) {
+            // Check if it's prorated
+            if (oldMonthlyRent && oldMonthlyRent > 0) {
+               const ratio = unpaidRecord.totalRent / oldMonthlyRent;
+               unpaidRecord.totalRent = Math.round(Number(monthlyRent) * ratio);
+            } else {
+               unpaidRecord.totalRent = Number(monthlyRent);
+            }
+            await unpaidRecord.save();
+            logger.info(`Propagated new rent ${monthlyRent} to tenant ${tenant._id} for month ${currentMonthString}`);
+          }
+        }
+      } catch (propErr) {
+        logger.error(`Rent propagation failed for room ${room._id}: ${propErr.message}`);
+      }
+    }
+
     await logActivity(req.user._id, 'ROOM_UPDATED', room._id, 'Room', `Updated Room ${room.roomNumber}`, req.ip);
     res.status(200).json({ success: true, message: 'Room updated.', room });
   } catch (err) {
