@@ -53,7 +53,7 @@ const sendEmail = async (to, subject, html, attachments = [], retryCount = 0) =>
       }
 
       logger.error(`[EMAIL ERROR] Resend failed for ${to}. Error: ${JSON.stringify(error)}`);
-      return;
+      throw new Error(`Resend failed: ${error.message || JSON.stringify(error)}`);
     }
 
     logger.info(`[EMAIL SENT] to=${to} subject="${subject}" id=${data.id}`);
@@ -65,6 +65,7 @@ const sendEmail = async (to, subject, html, attachments = [], retryCount = 0) =>
       return sendEmail(to, subject, html, attachments, retryCount + 1);
     }
     logger.error(`[EMAIL ERROR] failed to send to=${to}: ${err.message}`);
+    throw err;
   }
 };
 
@@ -858,11 +859,20 @@ module.exports = {
 // ── Background Queue Processor ──────────────────────────────────────────────
 const processNotificationQueue = async () => {
   try {
-    const pendingNotifications = await NotificationQueue.find({
-      status: { $in: ['pending', 'failed'] },
-      nextRetryAt: { $lte: new Date() },
-      deadLetter: false
-    }).sort({ nextRetryAt: 1 }).limit(20);
+    const pendingNotifications = [];
+    for (let i = 0; i < 20; i++) {
+      const doc = await NotificationQueue.findOneAndUpdate(
+        {
+          status: { $in: ['pending', 'failed'] },
+          nextRetryAt: { $lte: new Date() },
+          deadLetter: false
+        },
+        { $set: { status: 'processing' } },
+        { sort: { nextRetryAt: 1 }, new: true }
+      );
+      if (!doc) break;
+      pendingNotifications.push(doc);
+    }
 
     if (pendingNotifications.length === 0) return;
 
