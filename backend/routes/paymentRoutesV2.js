@@ -124,4 +124,11 @@ router.get(
   exportTransactionsCSV
 );
 
+// Manually trigger billing generation and overdue status sync
+router.post(
+  '/sync',
+  authorize('superadmin', 'owner'),
+  triggerBillingSync
+);
+
 module.exports = router;

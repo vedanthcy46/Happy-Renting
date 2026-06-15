@@ -161,6 +161,13 @@ const createRentRecord = async (req, res, next) => {
       { notes: req.body.notes }
     );
 
+    // Trigger overdue logic immediately for this owner so milestone emails are sent without waiting for cron
+    try {
+      await billingServiceV2.updateOverduePayments(req.user._id);
+    } catch (overdueErr) {
+      logger.error(`[MANUAL BILLING] Failed to update overdue statuses: ${overdueErr.message}`);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Rent record created successfully',
@@ -516,6 +523,32 @@ const exportTransactionsCSV = async (req, res, next) => {
   }
 };
 
+const triggerBillingSync = async (req, res, next) => {
+  try {
+    const ownerId = req.user.role === 'superadmin' ? null : req.user._id;
+
+    logger.info(`[BILLING SYNC] Manual sync triggered by user=${req.user._id}`);
+
+    // 1. Generate any missing bills
+    const billingResults = await billingServiceV2.generateMonthlyBills(ownerId);
+
+    // 2. Update overdue statuses and send milestone emails
+    const overdueMarked = await billingServiceV2.updateOverduePayments(ownerId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Billing sync completed successfully',
+      details: {
+        billsCreated: billingResults.created,
+        billsSkipped: billingResults.skipped,
+        overdueMarked
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   // Validations
   rentRecordValidation,
@@ -532,4 +565,5 @@ module.exports = {
   getPaymentSummary,
   getTransactionHistory,
   exportTransactionsCSV,
+  triggerBillingSync,
 };
