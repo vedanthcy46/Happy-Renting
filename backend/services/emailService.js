@@ -868,7 +868,7 @@ const processNotificationQueue = async () => {
           deadLetter: false
         },
         { $set: { status: 'processing' } },
-        { sort: { nextRetryAt: 1 }, new: true }
+        { sort: { nextRetryAt: 1 }, returnDocument: 'after' }
       );
       if (!doc) break;
       pendingNotifications.push(doc);
