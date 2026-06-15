@@ -246,6 +246,8 @@ const updateOverduePayments = async (ownerId) => {
       const diffTime = today - dueDate;
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
+      logger.info(`[OVERDUE DEBUG] Tenant=${record.userId?.name} Month=${record.month} Status=${record.status} diffDays=${diffDays} reminderSentAt=${record.reminderSentAt || 'Never'}`);
+
       // Mark as overdue if past due date (Only for pending. Partial stays partial)
       if (diffDays > 0 && record.status === 'pending') {
         try {
@@ -308,12 +310,14 @@ const updateOverduePayments = async (ownerId) => {
         
         // Find the highest milestone currently reached
         const currentHighestMilestone = [...milestones].reverse().find(m => diffDays >= m);
+        logger.info(`[OVERDUE DEBUG] MilestoneReached=${currentHighestMilestone || 'None'}`);
 
         if (currentHighestMilestone) {
           if (!record.reminderSentAt) {
             // Never sent an overdue reminder yet
             shouldSend = true;
             emailType = 'overdue';
+            logger.info(`[OVERDUE DEBUG] Decided: SEND (Never sent before)`);
           } else {
             // We have sent a reminder before. 
             // We need to check if the last one was for an EARLIER milestone.
@@ -326,13 +330,19 @@ const updateOverduePayments = async (ownerId) => {
             
             // What was the highest milestone reached at the time of the last reminder?
             const lastMilestoneReached = [...milestones].reverse().find(m => lastDiffDays >= m);
+            logger.info(`[OVERDUE DEBUG] LastMilestoneWas=${lastMilestoneReached || 'None'}`);
 
             // If the current milestone is strictly greater than the last one reached, we send a new one
             if (!lastMilestoneReached || currentHighestMilestone > lastMilestoneReached) {
               shouldSend = true;
               emailType = 'overdue';
+              logger.info(`[OVERDUE DEBUG] Decided: SEND (New milestone)`);
+            } else {
+              logger.info(`[OVERDUE DEBUG] Decided: SKIP (Milestone already notified)`);
             }
           }
+        } else {
+          logger.info(`[OVERDUE DEBUG] Decided: SKIP (No milestone reached yet)`);
         }
       }
 
