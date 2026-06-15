@@ -19,6 +19,7 @@ const {
   getPaymentSummary,
   getTransactionHistory,
   exportTransactionsCSV,
+  triggerBillingSync,
   rentRecordValidation,
   transactionValidation,
 } = require('../controllers/paymentControllerV2');
