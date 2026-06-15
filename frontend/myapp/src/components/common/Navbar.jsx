@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-// import { useTheme } from '../../context/ThemeContext';
 import api from '../../api/axios';
 
 const navLinks = [
@@ -31,7 +30,7 @@ const Icon = ({ name }) => {
     close: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />,
     chat: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />,
     user: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />,
-    cog: <><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></>,
+    bell: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />,
   };
   return (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,10 +39,171 @@ const Icon = ({ name }) => {
   );
 };
 
+// Notification type styling
+const typeConfig = {
+  billing:     { bg: 'bg-blue-500/10',   dot: 'bg-blue-400',   emoji: '📄' },
+  alert:       { bg: 'bg-yellow-500/10', dot: 'bg-yellow-400', emoji: '⚠️' },
+  lifecycle:   { bg: 'bg-green-500/10',  dot: 'bg-green-400',  emoji: '🏠' },
+  maintenance: { bg: 'bg-orange-500/10', dot: 'bg-orange-400', emoji: '🔧' },
+  system:      { bg: 'bg-slate-500/10',  dot: 'bg-slate-400',  emoji: '⚙️' },
+};
+
+// ── NotificationBell component ────────────────────────────────────────────
+const NotificationBell = () => {
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const panelRef = useRef(null);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const { data } = await api.get('/system/notifications');
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch {
+      // silent — avoid noise in Navbar
+    }
+  }, []);
+
+  // Poll every 60 s for new notifications
+  useEffect(() => {
+    fetchNotifications();
+    const id = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(id);
+  }, [fetchNotifications]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleOpen = () => {
+    setOpen(o => !o);
+    if (!open) {
+      setLoading(true);
+      fetchNotifications().finally(() => setLoading(false));
+    }
+  };
+
+  const markRead = async (id) => {
+    try {
+      await api.patch(`/system/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+      setUnreadCount(c => Math.max(0, c - 1));
+    } catch {}
+  };
+
+  const markAllRead = async () => {
+    try {
+      await api.patch('/system/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch {}
+  };
+
+  const timeAgo = (date) => {
+    const secs = Math.floor((Date.now() - new Date(date)) / 1000);
+    if (secs < 60) return 'just now';
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+    return `${Math.floor(secs / 86400)}d ago`;
+  };
+
+  return (
+    <div className="relative" ref={panelRef}>
+      {/* Bell Button */}
+      <button
+        id="notification-bell-btn"
+        onClick={handleOpen}
+        className="relative btn-ghost p-2 rounded-lg hover:bg-surface-hover transition-colors"
+        title="Notifications"
+        aria-label="Open notifications"
+      >
+        <Icon name="bell" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand-500 flex items-center justify-center text-[9px] font-bold text-white animate-pulse">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {/* Dropdown Panel */}
+      {open && (
+        <div
+          id="notification-panel"
+          className="absolute right-0 top-12 w-80 sm:w-96 bg-surface-card border border-surface-border rounded-2xl shadow-2xl z-50 overflow-hidden"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-surface-border">
+            <span className="text-sm font-bold text-white flex items-center gap-2">
+              🔔 Notifications
+              {unreadCount > 0 && (
+                <span className="text-[10px] bg-brand-500 text-white rounded-full px-1.5 py-0.5 font-bold">{unreadCount}</span>
+              )}
+            </span>
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-[10px] font-bold text-brand-400 hover:text-brand-300 underline"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          {/* List */}
+          <div className="overflow-y-auto" style={{ maxHeight: '400px' }}>
+            {loading ? (
+              <div className="py-10 text-center text-slate-500 text-sm">Loading…</div>
+            ) : notifications.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="text-4xl mb-3">🔕</div>
+                <p className="text-slate-500 text-sm">No notifications yet</p>
+              </div>
+            ) : (
+              notifications.map(n => {
+                const cfg = typeConfig[n.type] || typeConfig.system;
+                return (
+                  <button
+                    key={n._id}
+                    onClick={() => { if (!n.read) markRead(n._id); }}
+                    className={`w-full text-left flex gap-3 px-4 py-3 border-b border-surface-border/50 transition-colors
+                      ${n.read ? 'opacity-55 hover:opacity-75' : 'bg-brand-500/5 hover:bg-brand-500/10'}`}
+                  >
+                    <span className={`mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 ${cfg.bg}`}>
+                      {cfg.emoji}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={`text-xs font-bold truncate ${n.read ? 'text-slate-400' : 'text-white'}`}>
+                          {n.title}
+                        </p>
+                        <span className="text-[9px] text-slate-500 shrink-0 mt-0.5">{timeAgo(n.createdAt)}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
+                    </div>
+                    {!n.read && (
+                      <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 const Navbar = () => {
   const { user, role, logout } = useAuth();
-  // const { isDark, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -115,7 +275,7 @@ const Navbar = () => {
           </div>
 
           {/* Right section */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* User info */}
             <div className="hidden sm:flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
@@ -127,8 +287,8 @@ const Navbar = () => {
               </div>
             </div>
 
-            {/* Theme Toggle */}
-
+            {/* 🔔 Notification Bell */}
+            <NotificationBell />
 
             {/* Logout */}
             <button
