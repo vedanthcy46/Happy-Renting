@@ -401,6 +401,7 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
       query.month = filters.month;
     }
 
+    // ── All-time aggregate from MonthlyRentRecords ──
     const metrics = await MonthlyRentRecord.aggregate([
       { $match: query },
       {
@@ -443,7 +444,24 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
       }
     ]);
 
-    return metrics.length > 0 ? metrics[0] : {
+    // ── Today's collections from PaymentTransactions ──
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const txQuery = { status: 'completed', paymentDate: { $gte: todayStart, $lte: todayEnd } };
+    if (ownerId) txQuery.ownerId = ownerId;
+    if (filters.propertyId) txQuery.propertyId = filters.propertyId;
+
+    const PaymentTransaction = require('../models/PaymentTransaction');
+    const todayResult = await PaymentTransaction.aggregate([
+      { $match: txQuery },
+      { $group: { _id: null, collectionsToday: { $sum: '$amount' } } }
+    ]);
+    const collectionsToday = todayResult.length > 0 ? todayResult[0].collectionsToday : 0;
+
+    const base = metrics.length > 0 ? metrics[0] : {
       totalDue: 0,
       totalCollected: 0,
       totalOutstanding: 0,
@@ -454,11 +472,14 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
       pendingCount: 0,
       overdueCount: 0,
     };
+
+    return { ...base, collectionsToday };
   } catch (err) {
     logger.error(`[BILLING ERROR] getSummaryMetrics: ${err.message}`);
     throw err;
   }
 };
+
 
 /**
  * Automatically scrub sensitive PII (idProof) from Cloudinary and MongoDB

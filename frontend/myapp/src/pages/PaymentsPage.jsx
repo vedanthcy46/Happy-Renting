@@ -44,6 +44,23 @@ const PaymentsPage = () => {
   const [historyTransactions, setHistoryTransactions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Pending approvals (verifying transactions needing owner action)
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
+
+  const fetchPendingApprovals = useCallback(async () => {
+    if (!isOwner) return;
+    setLoadingApprovals(true);
+    try {
+      const { data } = await api.get('/v2/payments/history/transactions');
+      const verifying = (data.transactions || []).filter(t => t.status === 'verifying');
+      setPendingApprovals(verifying);
+    } catch {}
+    finally { setLoadingApprovals(false); }
+  }, [isOwner]);
+
+  useEffect(() => { fetchPendingApprovals(); }, [fetchPendingApprovals]);
+
   const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
@@ -149,17 +166,19 @@ const PaymentsPage = () => {
     }
   };
 
-  const handleVerifyTransaction = async (transactionId) => {
+  const handleVerifyTransaction = async (transactionId, fromBanner = false) => {
     if (!window.confirm("Are you sure you want to verify and approve this payment? This will credit the payment amount to the tenant's invoice.")) return;
     
     setSubmitting(true);
     try {
       await api.post(`/v2/payments/transactions/${transactionId}/verify`);
       toast.success('Payment approved and credited successfully');
-      // Refresh history
-      const { data } = await api.get(`/v2/payments/${selectedRecordHistory._id}`);
-      setHistoryTransactions(data.transactions || []);
-      fetchPayments(); // Refresh list to update totals
+      if (!fromBanner && selectedRecordHistory) {
+        const { data } = await api.get(`/v2/payments/${selectedRecordHistory._id}`);
+        setHistoryTransactions(data.transactions || []);
+      }
+      fetchPayments();
+      fetchPendingApprovals();
     } catch (err) {
       toast.error(err.message || 'Failed to verify transaction');
     } finally {
@@ -167,7 +186,7 @@ const PaymentsPage = () => {
     }
   };
 
-  const handleRejectTransaction = async (transactionId) => {
+  const handleRejectTransaction = async (transactionId, fromBanner = false) => {
     const reason = window.prompt("Please enter a reason for rejecting this payment proof (optional):");
     if (reason === null) return; // cancelled
     
@@ -175,10 +194,12 @@ const PaymentsPage = () => {
     try {
       await api.post(`/v2/payments/transactions/${transactionId}/reject`, { reason: reason || 'Rejected by owner / Invalid proof' });
       toast.success('Payment proof rejected successfully');
-      // Refresh history
-      const { data } = await api.get(`/v2/payments/${selectedRecordHistory._id}`);
-      setHistoryTransactions(data.transactions || []);
-      fetchPayments(); // Refresh list to update totals
+      if (!fromBanner && selectedRecordHistory) {
+        const { data } = await api.get(`/v2/payments/${selectedRecordHistory._id}`);
+        setHistoryTransactions(data.transactions || []);
+      }
+      fetchPayments();
+      fetchPendingApprovals();
     } catch (err) {
       toast.error(err.message || 'Failed to reject transaction');
     } finally {
@@ -201,6 +222,51 @@ const PaymentsPage = () => {
           </p>
         </div>
       </div>
+
+      {/* ─── Pending Approvals Banner (Owner only) ─── */}
+      {isOwner && pendingApprovals.length > 0 && (
+        <div className="card border border-yellow-500/40 bg-yellow-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-yellow-400 text-lg">⏳</span>
+            <h2 className="text-sm font-bold text-yellow-300 uppercase tracking-wide">
+              {pendingApprovals.length} Payment Proof{pendingApprovals.length > 1 ? 's' : ''} Awaiting Your Approval
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {pendingApprovals.map(txn => (
+              <div key={txn._id} className="flex items-center justify-between bg-surface rounded-lg px-4 py-3 border border-surface-border">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="font-bold text-white text-sm">₹{txn.amount.toLocaleString()}</span>
+                  <span className="text-xs text-slate-400">{txn.rentRecordId?.month}</span>
+                  <span className="text-xs uppercase font-bold text-brand-400 bg-brand-400/10 px-2 py-0.5 rounded">{txn.transactionType || txn.paymentMethod}</span>
+                  {txn.proofImage?.secureUrl && (
+                    <a href={txn.proofImage.secureUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:text-blue-300 underline font-bold">
+                      View Proof 🖼️
+                    </a>
+                  )}
+                </div>
+                <div className="flex gap-2 ml-4 shrink-0">
+                  <button
+                    onClick={() => handleVerifyTransaction(txn._id, true)}
+                    disabled={submitting}
+                    className="btn btn-sm text-[11px] bg-green-600 hover:bg-green-500 text-white font-bold px-3 py-1 rounded"
+                  >
+                    ✓ Approve
+                  </button>
+                  <button
+                    onClick={() => handleRejectTransaction(txn._id, true)}
+                    disabled={submitting}
+                    className="btn btn-sm text-[11px] bg-red-700 hover:bg-red-600 text-white font-bold px-3 py-1 rounded"
+                  >
+                    ✕ Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filter */}
       <div className="flex gap-3 items-center flex-wrap bg-surface p-3 rounded-lg border border-surface-border">

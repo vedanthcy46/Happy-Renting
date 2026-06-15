@@ -389,16 +389,15 @@ const getPaymentSummary = async (req, res, next) => {
   try {
     const filters = {};
 
-    if (req.user.role === 'owner') {
-      filters.ownerId = req.user._id;
-    }
+    // Superadmin sees all records globally; owner sees only their own
+    const metricOwnerId = req.user.role === 'superadmin' ? null : req.user._id;
 
     if (req.query.propertyId && /^[a-f\d]{24}$/i.test(req.query.propertyId)) {
       filters.propertyId = new mongoose.Types.ObjectId(req.query.propertyId);
     }
 
     const metrics = await billingServiceV2.getSummaryMetrics(
-      req.user._id,
+      metricOwnerId,
       filters
     );
 
@@ -422,7 +421,12 @@ const getTransactionHistory = async (req, res, next) => {
     if (req.user.role === 'owner') {
       filters.ownerId = req.user._id;
     } else if (req.user.role === 'tenant') {
-      filters.tenantId = (await Tenant.findOne({ userId: req.user._id })?._id) || null;
+      const tenancy = await Tenant.findOne({ userId: req.user._id });
+      if (!tenancy) {
+        // No tenancy found — return empty results safely
+        return res.status(200).json({ success: true, count: 0, transactions: [] });
+      }
+      filters.tenantId = tenancy._id;
     }
 
     const { tenantId, rentRecordId, month } = req.query;

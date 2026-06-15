@@ -28,7 +28,7 @@ const DashboardPage = () => {
   const [mapping, setMapping] = useState([]);
   const [logs, setLogs] = useState([]);
   const [vacantRooms, setVacantRooms] = useState([]);
-  const [finance, setFinance] = useState({ income: 0, pending: 0, overdue: 0 });
+  const [finance, setFinance] = useState({ income: 0, today: 0, pending: 0, overdue: 0 });
   const [loading, setLoading] = useState(true);
   const [currentPayment, setCurrentPayment] = useState(null);
 
@@ -85,6 +85,7 @@ const DashboardPage = () => {
 
         setFinance({
           income: metrics.totalCollected || 0,
+          today: metrics.collectionsToday || 0,
           pending: metrics.totalPending || 0,
           overdue: metrics.totalOverdue || 0,
         });
@@ -341,10 +342,16 @@ const DashboardPage = () => {
       {/* Financial Summary */}
       <div className="card p-6 border border-brand-500/20 bg-gradient-to-r from-surface-card to-brand-500/5">
         <h2 className="text-lg font-bold text-white mb-6">Rent Summary Dashboard</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-surface-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 divide-y md:divide-y-0 md:divide-x divide-surface-border">
           <div className="px-4 pb-4 md:pb-0">
-            <p className="text-xs uppercase font-bold text-slate-500 mb-2">Collected Income</p>
+            <p className="text-xs uppercase font-bold text-slate-500 mb-2">Total Collected</p>
             <p className="text-2xl sm:text-3xl font-bold text-success">₹{finance.income.toLocaleString()}</p>
+            <p className="text-xs text-slate-500 mt-1">All time</p>
+          </div>
+          <div className="px-4 pb-4 md:pb-0">
+            <p className="text-xs uppercase font-bold text-slate-500 mb-2">Collected Today</p>
+            <p className="text-2xl sm:text-3xl font-bold text-brand-400">₹{finance.today.toLocaleString()}</p>
+            <p className="text-xs text-slate-500 mt-1">Today only</p>
           </div>
           <div className="px-4 py-4 md:py-0">
             <p className="text-xs uppercase font-bold text-slate-500 mb-2">Pending Dues</p>
