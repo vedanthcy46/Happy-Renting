@@ -236,7 +236,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="fixed overflow-auto top-0 left-0 right-0 z-40 h-16 bg-surface-card/80 backdrop-blur-md border-b border-surface-border">
+      <nav className="fixed top-0 left-0 right-0 z-40 h-16 bg-surface-card/80 backdrop-blur-md border-b border-surface-border">
         {showVerificationBanner && (
           <div className="absolute top-16 left-0 right-0 bg-yellow-500/10 border-b border-yellow-500/20 text-yellow-500 text-xs text-center py-2 px-4">
             Your email is not verified. Please check your inbox or{' '}
