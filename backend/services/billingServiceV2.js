@@ -262,14 +262,13 @@ const updateOverduePayments = async (ownerId) => {
             }
           );
           
-          if (result.modifiedCount > 0) {
+          if (result.modifiedCount > 0 || result.upsertedCount > 0) {
             record.status = 'overdue'; // Update local object for subsequent email logic
             overdueMarked++;
-            logger.info(`[OVERDUE UPDATE] record=${record._id} modified=${result.modifiedCount}`);
+            logger.info(`[OVERDUE UPDATE] record=${record._id} status set to overdue`);
           }
         } catch (updateErr) {
-          logger.error(`[BILLING ERROR] Failed to mark record ${record._id} overdue for tenant ${record.tenantId} month ${record.month}: ${updateErr.message}`);
-          // Continue to next record, do not crash the loop
+          logger.error(`[BILLING ERROR] Failed to mark record ${record._id} overdue: ${updateErr.message}`);
           continue;
         }
       } else if (diffDays > 0 && record.status === 'overdue' && record.totalPaid > 0) {
@@ -303,7 +302,7 @@ const updateOverduePayments = async (ownerId) => {
       } else if (diffDays === 0) {
         shouldSend = true;
         emailType = 'due_today';
-      } else if (diffDays > 0 && (record.status === 'overdue' || record.status === 'partial')) {
+      } else if (diffDays > 0 && (record.status === 'overdue' || record.status === 'partial' || record.status === 'pending')) {
         // Milestones: 1, 7, 15, 21, 30 days
         const milestones = [1, 7, 15, 21, 30];
         
