@@ -255,7 +255,7 @@ const RoomsPage = () => {
               <input type="number" min="0" className={`form-input ${formErrors.monthlyRent ? 'border-danger' : ''}`}
                 value={form.monthlyRent} onChange={e => setForm(f => ({ ...f, monthlyRent: e.target.value }))} placeholder="0" />
               {formErrors.monthlyRent && <p className="form-error">{formErrors.monthlyRent}</p>}
-              {isEdit && (
+              {editingRoom && (
                 <p className="text-[10px] text-amber-500 mt-1 leading-tight font-medium">
                   ⚠️ Changing rent will also update the current month's unpaid bills for active tenants in this room.
                 </p>

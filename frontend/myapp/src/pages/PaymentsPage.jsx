@@ -46,17 +46,15 @@ const PaymentsPage = () => {
 
   // Pending approvals (verifying transactions needing owner action)
   const [pendingApprovals, setPendingApprovals] = useState([]);
-  const [loadingApprovals, setLoadingApprovals] = useState(false);
+  // removed unused loadingApprovals
 
   const fetchPendingApprovals = useCallback(async () => {
     if (!isOwner) return;
-    setLoadingApprovals(true);
     try {
       const { data } = await api.get('/v2/payments/history/transactions');
       const verifying = (data.transactions || []).filter(t => t.status === 'verifying');
       setPendingApprovals(verifying);
     } catch {}
-    finally { setLoadingApprovals(false); }
   }, [isOwner]);
 
   useEffect(() => { fetchPendingApprovals(); }, [fetchPendingApprovals]);

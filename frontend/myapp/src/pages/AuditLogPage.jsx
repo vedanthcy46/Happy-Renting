@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -13,7 +13,7 @@ const AuditLogPage = () => {
   const fetchLogs = useCallback(async (pageNum) => {
     try {
       setLoading(true);
-      const res = await api.get(/system/audit-logs?page= + pageNum + &limit=20);
+      const res = await api.get(`/system/audit-logs?page=${pageNum}&limit=20`);
       setLogs(res.data.logs || []);
       setTotalPages(res.data.pages || 1);
       setPage(res.data.page || 1);
