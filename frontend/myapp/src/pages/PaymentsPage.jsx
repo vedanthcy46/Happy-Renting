@@ -80,6 +80,12 @@ const PaymentsPage = () => {
 
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
+  const generateIdempotencyKey = useCallback(() => {
+    return 'txn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }, []);
+
+  const [idempotencyKey, setIdempotencyKey] = useState('');
+
   const handleAddTransactionClick = (record) => {
     setSelectedRecordForTxn(record);
     setTxnForm({
@@ -91,6 +97,7 @@ const PaymentsPage = () => {
       transactionId: ''
     });
     setProofFile(null);
+    setIdempotencyKey(generateIdempotencyKey());
     setShowAddTxn(true);
   };
 
@@ -107,6 +114,7 @@ const PaymentsPage = () => {
       formData.append('paymentMethod', txnForm.method);
       formData.append('transactionType', txnForm.transactionType || txnForm.method);
       formData.append('paymentDate', txnForm.paymentDate);
+      formData.append('idempotencyKey', idempotencyKey);
       if (txnForm.note) formData.append('note', txnForm.note);
       if (txnForm.transactionId) formData.append('transactionId', txnForm.transactionId);
       if (proofFile) {
@@ -121,9 +129,15 @@ const PaymentsPage = () => {
       setProofFile(null);
       fetchPayments();
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to record transaction');
+      if (err.response?.status === 409) {
+        toast.error('This transaction was already submitted.');
+        setShowAddTxn(false);
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to record transaction');
+      }
     } finally {
       setSubmitting(false);
+      setIdempotencyKey(generateIdempotencyKey());
     }
   };
 
