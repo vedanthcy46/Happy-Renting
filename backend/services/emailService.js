@@ -253,7 +253,7 @@ const sendRentDueReminder = async (tenantUser, payment, property, room, owner) =
       <p>Hello <strong>${tenantUser.name}</strong>,</p>
       <p>Friendly reminder that your rent for <strong>${payment.month}</strong> is due tomorrow.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Amount Due:</strong> ₹${payment.amount.toLocaleString()}</p>
+      <p><strong>Amount Due:</strong> ₹${(payment.remainingAmount || payment.totalRent).toLocaleString()}</p>
       <p><strong>Due Date:</strong> ${formatDateOnly(payment.dueDate)}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
@@ -274,7 +274,7 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
       <p>Hello <strong>${tenantUser.name}</strong>,</p>
       <p>Your rent for <strong>${payment.month}</strong> is now <strong>OVERDUE</strong>.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</p>
+      <p><strong>Amount:</strong> ₹${(payment.remainingAmount || payment.totalRent).toLocaleString()}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
@@ -291,7 +291,7 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
         <h2 style="color: #dc2626;">Tenant Rent Overdue</h2>
         <p>Hello <strong>${owner.name}</strong>,</p>
         <p>Your tenant <strong>${tenantUser.name}</strong> in Room <strong>${room.roomNumber}</strong> is now OVERDUE for <strong>${payment.month}</strong>.</p>
-        <p><strong>Amount Due:</strong> ₹${payment.amount.toLocaleString()}</p>
+        <p><strong>Amount Due:</strong> ₹${(payment.remainingAmount || payment.totalRent).toLocaleString()}</p>
         <p><strong>Property:</strong> ${property.name}</p>
         ${getFooter()}
       </div>

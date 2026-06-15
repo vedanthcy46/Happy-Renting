@@ -219,7 +219,7 @@ const generateMonthlyBills = async (ownerId) => {
  * Marks records as overdue and implements the 1, 7, 15, 21, 30 day overdue cadence,
  * alongside Due Tomorrow (-1) and Due Today (0) reminders.
  */
-const updateOverduePayments = async (ownerId) => {
+const updateOverduePayments = async (ownerId, forceReminders = false) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -288,7 +288,7 @@ const updateOverduePayments = async (ownerId) => {
       }
 
       // Check if we already sent a reminder today
-      if (record.reminderSentAt) {
+      if (record.reminderSentAt && !forceReminders) {
         const lastSent = new Date(record.reminderSentAt);
         lastSent.setHours(0, 0, 0, 0);
         if (lastSent.getTime() === today.getTime()) continue;

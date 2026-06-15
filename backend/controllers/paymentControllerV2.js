@@ -532,8 +532,8 @@ const triggerBillingSync = async (req, res, next) => {
     // 1. Generate any missing bills
     const billingResults = await billingServiceV2.generateMonthlyBills(ownerId);
 
-    // 2. Update overdue statuses and send milestone emails
-    const overdueMarked = await billingServiceV2.updateOverduePayments(ownerId);
+    // 2. Update overdue statuses and send milestone emails (Force reminders for manual sync)
+    const overdueMarked = await billingServiceV2.updateOverduePayments(ownerId, true);
 
     res.status(200).json({
       success: true,
