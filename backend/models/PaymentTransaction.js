@@ -34,7 +34,13 @@ const paymentTransactionSchema = new mongoose.Schema(
     amount: {
       type    : Number,
       required: [true, 'Amount is required'],
-      min     : [0.01, 'Amount must be greater than 0'],
+      validate: {
+        validator: function(v) {
+          if (this.transactionType === 'advance_deducted') return v <= -0.01;
+          return v >= 0.01;
+        },
+        message: props => `Invalid amount ${props.value} for transaction type`
+      }
     },
     // How was this payment made?
     paymentMethod: {
@@ -53,7 +59,8 @@ const paymentTransactionSchema = new mongoose.Schema(
         'gateway',
         'adjustment',
         'waiver',
-        'advance_applied'
+        'advance_applied',
+        'advance_deducted'
       ],
       default: 'cash',
       required: true

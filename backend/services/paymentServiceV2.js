@@ -601,7 +601,7 @@ const applyAdvanceBalance = async (tenantId) => {
       const applyAmount = Math.min(rec.advanceBalance, remaining);
       if (applyAmount <= 0) continue;
 
-      // Create system-generated advance_applied transaction
+      // Create system-generated advance_applied transaction on the receiving month
       await PaymentTransaction.create({
         rentRecordId: nextRec._id,
         tenantId,
@@ -618,9 +618,27 @@ const applyAdvanceBalance = async (tenantId) => {
         status: 'completed'
       });
 
-      // Update balances
+      // Update receiving balance
       nextRec.totalPaid += applyAmount;
       await nextRec.save();
+
+      // Create system-generated advance_deducted transaction on the source month
+      // This ensures sum(transactions) == totalPaid
+      await PaymentTransaction.create({
+        rentRecordId: rec._id,
+        tenantId,
+        ownerId: rec.ownerId,
+        propertyId: rec.propertyId,
+        amount: -applyAmount, // Negative amount to deduct
+        paymentMethod: 'other',
+        transactionType: 'advance_deducted',
+        note: `Advance transferred to month ${nextRec.month}`,
+        recordedBy: rec.ownerId,
+        createdBy: rec.ownerId,
+        createdByRole: 'system',
+        entrySource: 'auto_adjustment',
+        status: 'completed'
+      });
 
       // Deduct from source to maintain global income consistency and prevent double-counting
       rec.totalPaid -= applyAmount;
