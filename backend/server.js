@@ -38,6 +38,8 @@ const roomRoutes     = require('./routes/roomRoutes');
 const tenantRoutes   = require('./routes/tenantRoutes');
 const paymentRoutes  = require('./routes/paymentRoutes');
 const paymentRoutesV2 = require('./routes/paymentRoutesV2');
+const walletRoutes    = require('./routes/walletRoutes');
+const walletAdminRoutes = require('./routes/walletAdminRoutes');
 const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const healthRoutes    = require('./routes/healthRoutes');
@@ -90,6 +92,15 @@ const billingServiceV2 = require('./services/billingServiceV2');
     }
   } catch (err) {
     logger.error(`[DATA INTEGRITY] Failed to validate legacy rent records: ${err.message}`);
+  }
+
+  // Seed Platform Settings
+  try {
+    const walletService = require('./services/walletService');
+    await walletService.getPlatformSettings();
+    logger.info('[SERVER] Platform settings seeded / validated.');
+  } catch (err) {
+    logger.error(`[SERVER] Failed to seed platform settings: ${err.message}`);
   }
 
   initKeepAlive();
@@ -170,6 +181,8 @@ app.use('/api/rooms',      roomRoutes);
 app.use('/api/tenants',    tenantRoutes);
 app.use('/api/payments',   paymentRoutes);
 app.use('/api/v2/payments',   paymentRoutesV2); // New ledger-based system
+app.use('/api/v2/wallet',     walletRoutes);
+app.use('/api/v2/admin',      walletAdminRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/owner-requests', ownerRequestRoutes);

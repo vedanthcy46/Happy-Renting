@@ -1,0 +1,623 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import { useToast } from '../context/ToastContext';
+import api from '../api/axios';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import StatusBadge from '../components/common/StatusBadge';
+import Modal from '../components/common/Modal';
+
+const AdminWalletPage = () => {
+  const toast = useToast();
+
+  const [wallets, setWallets] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [revenue, setRevenue] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('requests');
+
+  // Platforms settings editor state
+  const [subscriptionEnabled, setSubscriptionEnabled] = useState(false);
+  const [monthlySubscription, setMonthlySubscription] = useState(0);
+  const [commissionEnabled, setCommissionEnabled] = useState(false);
+  const [commissionPercentage, setCommissionPercentage] = useState(0);
+  const [gatewayFeeDeductionEnabled, setGatewayFeeDeductionEnabled] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  // Settlement completion modal state
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [selectedReq, setSelectedReq] = useState(null);
+  const [transferType, setTransferType] = useState('imps');
+  const [refNumber, setRefNumber] = useState('');
+  const [settleNote, setSettleNote] = useState('');
+  const [settling, setSettling] = useState(false);
+
+  // Rejection modal state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
+
+  // Rebuilding wallet state
+  const [rebuildingId, setRebuildingId] = useState(null);
+
+  const fetchAdminData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [walRes, wdRes, revRes] = await Promise.all([
+        api.get('/v2/admin/wallets'),
+        api.get('/v2/admin/withdrawals'),
+        api.get('/v2/admin/platform-revenue')
+      ]);
+
+      setWallets(walRes.data.wallets || []);
+      setWithdrawals(wdRes.data.withdrawals || []);
+      setRevenue(revRes.data.revenue);
+
+      // Load config editing state
+      const s = revRes.data.settings;
+      if (s) {
+        setSubscriptionEnabled(s.subscriptionEnabled);
+        setMonthlySubscription(s.monthlySubscription);
+        setCommissionEnabled(s.commissionEnabled);
+        setCommissionPercentage(s.commissionPercentage);
+        setGatewayFeeDeductionEnabled(s.gatewayFeeDeductionEnabled);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to load administration data');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchAdminData();
+  }, [fetchAdminData]);
+
+  // Handle settings update
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    try {
+      setSavingSettings(true);
+      await api.patch('/v2/admin/settings', {
+        subscriptionEnabled,
+        monthlySubscription: Number(monthlySubscription),
+        commissionEnabled,
+        commissionPercentage: Number(commissionPercentage),
+        gatewayFeeDeductionEnabled
+      });
+      toast.success('Platform settings updated successfully');
+      fetchAdminData(); // Refresh revenue math
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update platform settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Handle Approval
+  const handleApprove = async (id) => {
+    try {
+      await api.patch(`/v2/admin/withdrawals/${id}/approve`);
+      toast.success('Withdrawal request approved');
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Approval failed');
+    }
+  };
+
+  // Handle Reject Modal open/submit
+  const handleRejectOpen = (req) => {
+    setSelectedReq(req);
+    setRejectReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleRejectSubmit = async (e) => {
+    e.preventDefault();
+    if (!rejectReason) {
+      toast.error('Rejection reason is required');
+      return;
+    }
+    try {
+      setRejecting(true);
+      await api.patch(`/v2/admin/withdrawals/${selectedReq._id}/reject`, {
+        rejectionReason: rejectReason
+      });
+      toast.success('Withdrawal request rejected. Funds returned.');
+      setShowRejectModal(false);
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Rejection failed');
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  // Handle Settlement Completion modal open/submit
+  const handleCompleteOpen = (req) => {
+    setSelectedReq(req);
+    setTransferType('imps');
+    setRefNumber('');
+    setSettleNote('');
+    setShowCompleteModal(true);
+  };
+
+  const handleCompleteSubmit = async (e) => {
+    e.preventDefault();
+    if (!refNumber) {
+      toast.error('Reference number is required');
+      return;
+    }
+    try {
+      setSettling(true);
+      await api.patch(`/v2/admin/withdrawals/${selectedReq._id}/complete`, {
+        transferType,
+        referenceNumber: refNumber,
+        note: settleNote
+      });
+      toast.success('Withdrawal request completed successfully');
+      setShowCompleteModal(false);
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Settlement failed');
+    } finally {
+      setSettling(false);
+    }
+  };
+
+  // Handle Wallet Self Healing Rebuild
+  const handleRebuildWallet = async (ownerId) => {
+    try {
+      setRebuildingId(ownerId);
+      await api.post(`/v2/admin/wallets/${ownerId}/rebuild`);
+      toast.success('Wallet rebuilt and self-healed successfully');
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Rebuild failed');
+    } finally {
+      setRebuildingId(null);
+    }
+  };
+
+  if (loading && wallets.length === 0) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header */}
+      <div>
+        <h1 className="page-title">Wallet & Revenue Admin</h1>
+        <p className="text-slate-400 text-sm mt-1">Configure business settings, verify settlements, and monitor platform revenue</p>
+      </div>
+
+      {/* Revenue Statistics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="card p-5 border border-surface-border bg-surface-card">
+          <span className="text-xs uppercase font-bold text-slate-500">Gateway MDR Charges</span>
+          <p className="text-2xl font-extrabold text-red-400 mt-2">
+            ₹{revenue?.totalGatewayCharges?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <span className="text-[10px] text-slate-500 block mt-1">Platform cost (absorbed fees)</span>
+        </div>
+
+        <div className="card p-5 border border-surface-border bg-surface-card">
+          <span className="text-xs uppercase font-bold text-slate-500">Subscription Dues</span>
+          <p className="text-2xl font-extrabold text-success mt-2">
+            ₹{revenue?.totalSubscriptionFees?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <span className="text-[10px] text-slate-500 block mt-1">Charged to landlords</span>
+        </div>
+
+        <div className="card p-5 border border-surface-border bg-surface-card">
+          <span className="text-xs uppercase font-bold text-slate-500">Platform Commissions</span>
+          <p className="text-2xl font-extrabold text-success mt-2">
+            ₹{revenue?.totalCommissions?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <span className="text-[10px] text-slate-500 block mt-1">Charged on rents</span>
+        </div>
+
+        <div className="card p-5 border border-brand-500/20 bg-gradient-to-r from-surface-card to-brand-500/5">
+          <span className="text-xs uppercase font-bold text-brand-400 font-bold">Net Platform Revenue</span>
+          <p className={`text-2xl font-extrabold mt-2 ${revenue?.netRevenue >= 0 ? 'text-success' : 'text-danger'}`}>
+            ₹{revenue?.netRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <span className="text-[10px] text-slate-500 block mt-1">Commissions + Subs - Gateway charges</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-surface-border gap-6">
+        <button
+          onClick={() => setActiveTab('requests')}
+          className={`pb-4 text-sm font-semibold border-b-2 transition-all ${
+            activeTab === 'requests' ? 'border-brand-500 text-white font-bold' : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          ⏱️ Withdrawal Requests
+        </button>
+        <button
+          onClick={() => setActiveTab('wallets')}
+          className={`pb-4 text-sm font-semibold border-b-2 transition-all ${
+            activeTab === 'wallets' ? 'border-brand-500 text-white font-bold' : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          🛡️ Landlord Wallets
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`pb-4 text-sm font-semibold border-b-2 transition-all ${
+            activeTab === 'settings' ? 'border-brand-500 text-white font-bold' : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          ⚙️ Monetization Settings
+        </button>
+      </div>
+
+      {/* TAB CONTENT: WITHDRAWAL REQUESTS */}
+      {activeTab === 'requests' && (
+        <div className="card bg-surface-card border border-surface-border">
+          <div className="px-6 py-5 border-b border-surface-border">
+            <h2 className="text-lg font-bold text-white">Pending & Settled Payouts</h2>
+          </div>
+          <div className="table-wrapper rounded-none border-none overflow-x-auto">
+            {withdrawals.length === 0 ? (
+              <p className="text-center text-slate-500 py-12 italic">No withdrawal requests found.</p>
+            ) : (
+              <table className="data-table min-w-[900px]">
+                <thead>
+                  <tr>
+                    <th>Requested At</th>
+                    <th>Landlord</th>
+                    <th>Amount</th>
+                    <th>Destination Bank</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {withdrawals.map((req) => (
+                    <tr key={req._id} className="hover:bg-surface-hover/30">
+                      <td className="text-slate-400 text-xs font-mono">
+                        {new Date(req.requestedAt).toLocaleString()}
+                      </td>
+                      <td>
+                        <p className="font-semibold text-white">{req.ownerId?.name}</p>
+                        <p className="text-xs text-slate-500">{req.ownerId?.email}</p>
+                      </td>
+                      <td className="font-mono font-bold text-white">₹{req.amount.toLocaleString()}</td>
+                      <td className="text-xs text-slate-300">
+                        <p><strong>A/C:</strong> {req.bankAccountNumber}</p>
+                        <p><strong>IFSC:</strong> {req.ifscCode}</p>
+                        <p><strong>Holder:</strong> {req.accountHolderName}</p>
+                      </td>
+                      <td>
+                        <StatusBadge status={req.status} />
+                        {req.status === 'completed' && req.settlementDetails?.referenceNumber && (
+                          <div className="mt-1.5 text-[9px] text-slate-400 font-mono">
+                            Ref: {req.settlementDetails.referenceNumber}
+                          </div>
+                        )}
+                        {req.status === 'rejected' && req.rejectionReason && (
+                          <div className="mt-1.5 text-[9px] text-red-400 max-w-[150px] truncate" title={req.rejectionReason}>
+                            Reason: {req.rejectionReason}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex gap-2">
+                          {req.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleApprove(req._id)}
+                                className="btn-success btn-sm font-semibold px-3 py-1"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleRejectOpen(req)}
+                                className="btn-danger btn-sm font-semibold px-3 py-1"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {(req.status === 'approved' || req.status === 'pending') && (
+                            <button
+                              onClick={() => handleCompleteOpen(req)}
+                              className="btn-primary btn-sm font-semibold px-3 py-1"
+                            >
+                              Settle (Mark Complete)
+                            </button>
+                          )}
+                          {req.status === 'completed' && (
+                            <span className="text-xs text-slate-500 font-medium italic">Settled</span>
+                          )}
+                          {req.status === 'rejected' && (
+                            <span className="text-xs text-slate-500 font-medium italic">Rejected</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: LANDLORD WALLETS */}
+      {activeTab === 'wallets' && (
+        <div className="card bg-surface-card border border-surface-border">
+          <div className="px-6 py-5 border-b border-surface-border">
+            <h2 className="text-lg font-bold text-white">Owner Wallets Summary</h2>
+          </div>
+          <div className="table-wrapper rounded-none border-none overflow-x-auto">
+            {wallets.length === 0 ? (
+              <p className="text-center text-slate-500 py-12 italic">No wallets found.</p>
+            ) : (
+              <table className="data-table min-w-[800px]">
+                <thead>
+                  <tr>
+                    <th>Landlord</th>
+                    <th>Available Bal</th>
+                    <th>Pending Bal</th>
+                    <th>Total Received</th>
+                    <th>Total Settled</th>
+                    <th>MDR Fees</th>
+                    <th>Subs. Fees</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wallets.map((w) => (
+                    <tr key={w._id} className="hover:bg-surface-hover/30">
+                      <td>
+                        <p className="font-semibold text-white">{w.ownerId?.name || 'Unknown Owner'}</p>
+                        <p className="text-xs text-slate-500">{w.ownerId?.email}</p>
+                      </td>
+                      <td className="font-mono font-bold text-success">₹{w.availableBalance.toLocaleString()}</td>
+                      <td className="font-mono text-warning">₹{w.pendingBalance.toLocaleString()}</td>
+                      <td className="font-mono text-slate-300">₹{w.totalReceived.toLocaleString()}</td>
+                      <td className="font-mono text-slate-300">₹{w.totalWithdrawn.toLocaleString()}</td>
+                      <td className="font-mono text-red-400">₹{w.totalGatewayCharges.toLocaleString()}</td>
+                      <td className="font-mono text-red-400">₹{w.totalSubscriptionFees.toLocaleString()}</td>
+                      <td>
+                        <button
+                          onClick={() => handleRebuildWallet(w.ownerId?._id)}
+                          disabled={rebuildingId === w.ownerId?._id}
+                          className="btn-secondary btn-sm py-1 font-semibold text-xs"
+                          title="Recalculate and rebuild balance cache from transactions log ledger"
+                        >
+                          {rebuildingId === w.ownerId?._id ? 'Rebuilding...' : '🔄 Rebuild'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: PLATFORM SETTINGS */}
+      {activeTab === 'settings' && (
+        <div className="max-w-2xl card p-6 bg-surface-card border border-surface-border">
+          <div className="border-b border-surface-border pb-4 mb-6">
+            <h2 className="text-lg font-bold text-white">Monetization & Commission Control</h2>
+            <p className="text-xs text-slate-400 mt-1">Configure when gateway charges, subscriptions, and commissions are active</p>
+          </div>
+
+          <form onSubmit={handleSaveSettings} className="space-y-6">
+            {/* Gateway Fee Deduction Toggle */}
+            <div className="flex items-center justify-between p-4 rounded-xl border border-surface-border bg-surface-hover/10">
+              <div>
+                <label className="form-label mb-0 text-white font-bold">Deduct Gateway MDR Fees</label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Enable to pass gateway charges (1.95% + 18% GST) directly onto Owners. Disable for Growth Mode.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={gatewayFeeDeductionEnabled}
+                onChange={(e) => setGatewayFeeDeductionEnabled(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-700 bg-surface accent-brand-500 cursor-pointer"
+              />
+            </div>
+
+            {/* Commission Settings */}
+            <div className="p-4 rounded-xl border border-surface-border bg-surface-hover/10 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="form-label mb-0 text-white font-bold">Platform commission fees</label>
+                  <p className="text-xs text-slate-500 mt-1">Charge commission on every successful rent payment.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={commissionEnabled}
+                  onChange={(e) => setCommissionEnabled(e.target.checked)}
+                  className="w-5 h-5 rounded border-slate-700 bg-surface accent-brand-500 cursor-pointer"
+                />
+              </div>
+
+              {commissionEnabled && (
+                <div className="pt-2 animate-fade-in">
+                  <label className="form-label text-xs">Commission Percentage (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={commissionPercentage}
+                    onChange={(e) => setCommissionPercentage(e.target.value)}
+                    className="form-input font-mono max-w-[200px]"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Subscription Settings */}
+            <div className="p-4 rounded-xl border border-surface-border bg-surface-hover/10 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="form-label mb-0 text-white font-bold">Monthly Landlord Subscription Fee</label>
+                  <p className="text-xs text-slate-500 mt-1">Charge recurring monthly fees to active landlords.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={subscriptionEnabled}
+                  onChange={(e) => setSubscriptionEnabled(e.target.checked)}
+                  className="w-5 h-5 rounded border-slate-700 bg-surface accent-brand-500 cursor-pointer"
+                />
+              </div>
+
+              {subscriptionEnabled && (
+                <div className="pt-2 animate-fade-in">
+                  <label className="form-label text-xs">Monthly Subscription Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={monthlySubscription}
+                    onChange={(e) => setMonthlySubscription(e.target.value)}
+                    className="form-input font-mono max-w-[200px]"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Save Buttons */}
+            <div className="pt-4 border-t border-surface-border flex justify-end">
+              <button
+                type="submit"
+                disabled={savingSettings}
+                className="btn-primary px-6"
+              >
+                {savingSettings ? 'Saving...' : '💾 Save Settings'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Manual Settlement Details Completion Modal */}
+      <Modal
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        title="Record Manual Settlement details"
+      >
+        <form onSubmit={handleCompleteSubmit} className="space-y-4">
+          <p className="text-sm text-slate-400">
+            Please enter the manual transfer details. Confirming this will move the funds of{' '}
+            <strong>₹{selectedReq?.amount?.toLocaleString()}</strong> out of the owner's pending balance and mark the request
+            as completed.
+          </p>
+
+          <div>
+            <label className="form-label">Settlement Transfer Type</label>
+            <select
+              value={transferType}
+              onChange={(e) => setTransferType(e.target.value)}
+              className="form-select"
+              required
+            >
+              <option value="imps">IMPS Transfer</option>
+              <option value="neft">NEFT Transfer</option>
+              <option value="rtgs">RTGS Transfer</option>
+              <option value="upi">UPI Transfer</option>
+              <option value="bank_transfer">Direct Bank Transfer</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="form-label">Transaction Reference Number / UTR</label>
+            <input
+              type="text"
+              value={refNumber}
+              onChange={(e) => setRefNumber(e.target.value)}
+              placeholder="e.g. UTR2817264812"
+              className="form-input font-mono"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="form-label">Admin note (Optional)</label>
+            <textarea
+              value={settleNote}
+              onChange={(e) => setSettleNote(e.target.value)}
+              placeholder="e.g. Transferred manually to landlord account"
+              className="form-input text-sm h-20"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-border">
+            <button
+              type="button"
+              onClick={() => setShowCompleteModal(false)}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={settling}
+              className="btn-primary"
+            >
+              {settling ? 'Completing...' : 'Mark Completed'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Rejection Modal */}
+      <Modal
+        isOpen={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        title="Reject Withdrawal Request"
+      >
+        <form onSubmit={handleRejectSubmit} className="space-y-4">
+          <p className="text-sm text-slate-400">
+            This will reject the withdrawal request of <strong>₹{selectedReq?.amount?.toLocaleString()}</strong> and immediately
+            refund the amount back to the owner's available balance.
+          </p>
+
+          <div>
+            <label className="form-label">Rejection Reason</label>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. Account number or IFSC code incorrect"
+              className="form-input text-sm h-24"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-border">
+            <button
+              type="button"
+              onClick={() => setShowRejectModal(false)}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={rejecting}
+              className="btn-danger"
+            >
+              {rejecting ? 'Rejecting...' : 'Reject Request'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+export default AdminWalletPage;

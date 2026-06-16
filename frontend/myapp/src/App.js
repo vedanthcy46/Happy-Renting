@@ -23,6 +23,8 @@ import LandingPage       from './pages/LandingPage';
 import OwnerRequestPage  from './pages/OwnerRequestPage';
 import AdminOwnerRequests from './pages/AdminOwnerRequests';
 import AuditLogPage       from './pages/AuditLogPage';
+import WalletPage         from './pages/WalletPage';
+import AdminWalletPage    from './pages/AdminWalletPage';
 
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage    from './pages/NotFoundPage';
@@ -82,6 +84,10 @@ const App = () => (
             <Route path="users" element={<ProtectedRoute roles={['superadmin']}><UsersPage /></ProtectedRoute>} />
             <Route path="requests" element={<ProtectedRoute roles={['superadmin']}><AdminOwnerRequests /></ProtectedRoute>} />
             <Route path="audit-logs" element={<ProtectedRoute roles={['superadmin']}><AuditLogPage /></ProtectedRoute>} />
+            <Route path="wallet-admin" element={<ProtectedRoute roles={['superadmin']}><AdminWalletPage /></ProtectedRoute>} />
+
+            {/* Owner only */}
+            <Route path="wallet" element={<ProtectedRoute roles={['owner']}><WalletPage /></ProtectedRoute>} />
 
             {/* Catch-all → 404 */}
             <Route path="*" element={<NotFoundPage />} />

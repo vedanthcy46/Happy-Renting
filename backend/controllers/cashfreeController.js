@@ -398,7 +398,7 @@ exports.handleCashfreeWebhook = async (req, res) => {
 
     // ── Update gateway fields on the created transaction ──────────────────
     // paymentServiceV2 creates the transaction; we patch the gateway fields after
-    await PaymentTransaction.findOneAndUpdate(
+    const updatedTx = await PaymentTransaction.findOneAndUpdate(
       { idempotencyKey: cfOrderId },
       {
         $set: {
@@ -408,8 +408,20 @@ exports.handleCashfreeWebhook = async (req, res) => {
           verifiedAt: new Date(),
           webhookPayload: event,
         },
-      }
+      },
+      { new: true }
     );
+
+    // ── Credit Owner Wallet ───────────────────────────────────────────────
+    if (updatedTx) {
+      try {
+        const walletService = require('../services/walletService');
+        await walletService.creditWalletOnPayment(updatedTx._id);
+        logger.info(`[CASHFREE] Credited owner wallet for orderId=${cfOrderId}`);
+      } catch (walletErr) {
+        logger.error(`[CASHFREE] Wallet credit failed for orderId=${cfOrderId}: ${walletErr.message}`, walletErr);
+      }
+    }
 
     // ── Clear pending order from rent record ──────────────────────────────
     await MonthlyRentRecord.findByIdAndUpdate(rentRecord._id, {
