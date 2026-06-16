@@ -162,7 +162,6 @@ const paymentTransactionSchema = new mongoose.Schema(
     cashfreeOrderId: {
       type: String,
       default: null,
-      index: true,
     },
     cashfreePaymentId: {
       type: String,
