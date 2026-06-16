@@ -190,6 +190,7 @@ const addPaymentTransaction = async (params, caller) => {
   } = params;
 
   const amount = Number(rawAmount);
+  logger.info(`[DEBUG addPaymentTransaction] params: ${JSON.stringify(params)} amount: ${amount}`);
 
   // Validation
   if (isNaN(amount) || amount <= 0) {

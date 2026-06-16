@@ -164,6 +164,22 @@ const monthlyRentRecordSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // ─────────────────────────────────────────────────────────────────────
+    // GATEWAY TRACKING (in-flight payment state)
+    // ─────────────────────────────────────────────────────────────────────
+    // Tracks active Cashfree order while tenant is in the payment modal
+    pendingCashfreeOrderId: {
+      type: String,
+      default: null,
+    },
+    pendingCashfreeAmount: {
+      type: Number,
+      default: null,
+    },
+    pendingCashfreeCreatedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

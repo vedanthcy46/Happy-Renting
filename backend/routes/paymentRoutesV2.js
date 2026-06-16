@@ -35,41 +35,15 @@ router.use(authenticate);
 // MONTHLY RENT RECORDS
 // ─────────────────────────────────────────────────────────────────────────
 
-// List all rent records
-router.get(
-  '/',
-  authorize('superadmin', 'owner', 'tenant'),
-  getRentRecords
-);
-
-// Get single rent record with transactions
-router.get(
-  '/:rentRecordId',
-  authorize('superadmin', 'owner', 'tenant'),
-  getRentRecordDetail
-);
-
-// Create rent record (manual or auto-generation)
-router.post(
-  '/',
-  authorize('superadmin', 'owner'),
-  rentRecordValidation,
-  validate,
-  createRentRecord
-);
-
-// Update rent record (notes, flags, etc.)
-router.patch(
-  '/:rentRecordId',
-  authorize('superadmin', 'owner'),
-  updateRentRecord
-);
+router.get('/', authorize('superadmin', 'owner', 'tenant'), getRentRecords);
+router.get('/:rentRecordId', authorize('superadmin', 'owner', 'tenant'), getRentRecordDetail);
+router.post('/', authorize('superadmin', 'owner'), rentRecordValidation, validate, createRentRecord);
+router.patch('/:rentRecordId', authorize('superadmin', 'owner'), updateRentRecord);
 
 // ─────────────────────────────────────────────────────────────────────────
 // PAYMENT TRANSACTIONS
 // ─────────────────────────────────────────────────────────────────────────
 
-// Add payment transaction to a rent record
 router.post(
   '/:rentRecordId/transactions',
   authorize('superadmin', 'owner', 'tenant'),
@@ -78,58 +52,35 @@ router.post(
   validate,
   addPaymentTransaction
 );
-
-// Reverse a payment transaction
-router.post(
-  '/transactions/:transactionId/reverse',
-  authorize('superadmin', 'owner'),
-  reversePaymentTransaction
-);
-
-// Verify a pending payment transaction
-router.post(
-  '/transactions/:transactionId/verify',
-  authorize('superadmin', 'owner'),
-  verifyPaymentTransaction
-);
-
-// Reject a pending payment transaction
-router.post(
-  '/transactions/:transactionId/reject',
-  authorize('superadmin', 'owner'),
-  rejectPaymentTransaction
-);
+router.post('/transactions/:transactionId/reverse', authorize('superadmin', 'owner'), reversePaymentTransaction);
+router.post('/transactions/:transactionId/verify', authorize('superadmin', 'owner'), verifyPaymentTransaction);
+router.post('/transactions/:transactionId/reject', authorize('superadmin', 'owner'), rejectPaymentTransaction);
 
 // ─────────────────────────────────────────────────────────────────────────
 // SUMMARIES & DASHBOARDS
 // ─────────────────────────────────────────────────────────────────────────
 
-// Get payment summary metrics
-router.get(
-  '/summary/metrics',
-  authorize('superadmin', 'owner'),
-  getPaymentSummary
-);
+router.get('/summary/metrics', authorize('superadmin', 'owner'), getPaymentSummary);
+router.get('/history/transactions', authorize('superadmin', 'owner', 'tenant'), getTransactionHistory);
+router.get('/export/csv', authorize('superadmin', 'owner'), exportTransactionsCSV);
+router.post('/sync', authorize('superadmin', 'owner'), triggerBillingSync);
 
-// Get transaction history timeline
-router.get(
-  '/history/transactions',
-  authorize('superadmin', 'owner', 'tenant'),
-  getTransactionHistory
-);
+// ─────────────────────────────────────────────────────────────────────────
+// GATEWAY (Cashfree) ROUTES
+// ─────────────────────────────────────────────────────────────────────────
 
-// Export transactions as CSV stream
-router.get(
-  '/export/csv',
-  authorize('superadmin', 'owner'),
-  exportTransactionsCSV
-);
+const {
+  createCashfreeOrder,
+  getCashfreePaymentStatus,
+} = require('../controllers/cashfreeController');
 
-// Manually trigger billing generation and overdue status sync
-router.post(
-  '/sync',
-  authorize('superadmin', 'owner'),
-  triggerBillingSync
-);
+// 1. Create Cashfree order (tenant initiates payment)
+router.post('/cashfree/create-order/:rentRecordId', authorize('tenant'), createCashfreeOrder);
+
+// 2. Poll payment status (frontend polls after modal closes — read-only, no side effects)
+router.get('/cashfree/status/:orderId', authorize('tenant'), getCashfreePaymentStatus);
+
+// NOTE: Webhook route POST /api/v2/payments/cashfree/webhook is registered
+// in server.js BEFORE express.json() so rawBody is available for HMAC verification.
 
 module.exports = router;

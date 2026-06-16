@@ -150,6 +150,33 @@ const paymentTransactionSchema = new mongoose.Schema(
       trim: true,
       maxlength: [300, 'Status reason cannot exceed 300 characters'],
     },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PAYMENT GATEWAY FIELDS (Cashfree, etc.)
+    // ─────────────────────────────────────────────────────────────────────
+    paymentGateway: {
+      type: String,
+      enum: ['cashfree', 'razorpay', 'manual', null],
+      default: null,
+    },
+    cashfreeOrderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    cashfreePaymentId: {
+      type: String,
+      default: null,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+    webhookPayload: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+      select: false, // Don't expose raw webhook payload in normal queries
+    },
   },
   {
     timestamps: true,
@@ -207,5 +234,14 @@ paymentTransactionSchema.index(
 );
 // Timeline queries
 paymentTransactionSchema.index({ paymentDate: -1 });
+// Prevent duplicate gateway transactions — one completed record per Cashfree order
+paymentTransactionSchema.index(
+  { cashfreeOrderId: 1 },
+  {
+    unique: true,
+    sparse: true, // Ignore docs where cashfreeOrderId is null
+    partialFilterExpression: { cashfreeOrderId: { $type: 'string' } }
+  }
+);
 
 module.exports = mongoose.model('PaymentTransaction', paymentTransactionSchema);

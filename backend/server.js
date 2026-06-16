@@ -120,6 +120,21 @@ app.use(
 );
 
 // ── 3. Body parsing ────────────────────────────────────────────────────────
+// IMPORTANT: The Cashfree webhook needs raw body for HMAC signature verification.
+// Register it BEFORE express.json() strips the raw body.
+const { handleCashfreeWebhook } = require('./controllers/cashfreeController');
+app.post(
+  '/api/v2/payments/cashfree/webhook',
+  express.raw({ type: 'application/json' }),
+  (req, res, next) => {
+    // Preserve the raw body string for signature verification, then parse JSON for handler
+    req.rawBody = req.body.toString('utf8');
+    try { req.body = JSON.parse(req.rawBody); } catch { req.body = {}; }
+    next();
+  },
+  handleCashfreeWebhook
+);
+
 app.use(express.json({ limit: '10kb' }));      // Deny large payloads
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 
