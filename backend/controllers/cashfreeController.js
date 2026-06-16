@@ -157,12 +157,20 @@ exports.createCashfreeOrder = async (req, res, next) => {
       currency: response.data.order_currency,
     });
   } catch (err) {
+    let errorMessage = err.message;
     if (err.response?.data) {
-      logger.error(`[CASHFREE] Create order API error: ${JSON.stringify(err.response.data)}`);
+      const cfError = err.response.data;
+      logger.error(`[CASHFREE] Create order API error: ${JSON.stringify(cfError)}`);
+      // Extract the human readable error message from Cashfree to show on the frontend
+      errorMessage = cfError.message || cfError.code || 'Gateway rejected request';
+      err.statusCode = err.response.status || 400;
     }
-    logger.error(`[CASHFREE] Create order failed: ${err.message}`);
-    err.statusCode = err.statusCode || 500;
-    return next(err);
+    logger.error(`[CASHFREE] Create order failed: ${errorMessage}`);
+    
+    // Explicitly set the error message so the global error handler sends it to the frontend
+    const finalErr = new Error(`Cashfree Error: ${errorMessage}`);
+    finalErr.statusCode = err.statusCode || 500;
+    return next(finalErr);
   }
 };
 
