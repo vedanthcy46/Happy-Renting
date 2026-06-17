@@ -63,7 +63,11 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
     proratedDays = occupiedDays;
     
     const joinMonthStr = joinDate.toISOString().slice(0, 7);
-    if (month === joinMonthStr) {
+    const exitMonthStr = exitDate ? exitDate.toISOString().slice(0, 7) : null;
+    
+    if (exitMonthStr === month) {
+      billingType = 'prorated_moveout';
+    } else if (month === joinMonthStr) {
       billingType = 'prorated_join';
     } else if (exitDate) {
       billingType = 'prorated_moveout';
