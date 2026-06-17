@@ -267,13 +267,14 @@ const AddTenantPage = () => {
                 value={form.userId}
                 onChange={e => {
                   const selectedUserId = e.target.value;
-                  const selectedUser = users.find(u => u._id === selectedUserId);
+                  const selectedUser = users.find(u => String(u._id) === String(selectedUserId));
+                  console.log('[TENANT SELECT] Selected User:', selectedUser);
                   setForm(f => ({
                     ...f,
                     userId: selectedUserId,
-                    phone: selectedUser?.phone || f.phone || ''
+                    phone: selectedUser?.phone || ''
                   }));
-                  setErrors(er => ({ ...er, userId: '' }));
+                  setErrors(er => ({ ...er, userId: '', phone: '' }));
                 }}
               >
                 <option value="">Select user…</option>
