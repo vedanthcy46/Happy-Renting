@@ -6,6 +6,15 @@ export interface RentRecord {
   remainingAmount: number;
   status: 'pending' | 'partial' | 'paid' | 'overdue' | 'overpaid';
   dueDate: string;
+  ownerId?: {
+    name?: string;
+    email?: string;
+    upiId?: string;
+    upiNumber?: string;
+    qrCodeImage?: {
+      secureUrl?: string;
+    };
+  };
 }
 
 export interface PaymentTransaction {

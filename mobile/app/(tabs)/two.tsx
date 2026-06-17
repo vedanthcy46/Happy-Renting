@@ -351,6 +351,21 @@ const handlePayNow = async (record: RentRecord) => {
               ))}
             </View>
 
+            {manualForm.paymentMethod === 'upi' && recordDetail?.rentRecord?.ownerId && (
+              <View style={styles.paymentInfoBox}>
+                <Text style={styles.paymentInfoTitle}>Pay to Owner via UPI</Text>
+                {recordDetail.rentRecord.ownerId.upiId && (
+                  <Text selectable style={styles.paymentInfoText}>UPI ID: {recordDetail.rentRecord.ownerId.upiId}</Text>
+                )}
+                {recordDetail.rentRecord.ownerId.upiNumber && (
+                  <Text selectable style={styles.paymentInfoText}>UPI Phone: {recordDetail.rentRecord.ownerId.upiNumber}</Text>
+                )}
+                {recordDetail.rentRecord.ownerId.qrCodeImage?.secureUrl && (
+                  <Image source={{ uri: recordDetail.rentRecord.ownerId.qrCodeImage.secureUrl }} style={styles.qrCode} resizeMode="contain" />
+                )}
+              </View>
+            )}
+
             <Text style={styles.label}>Transaction ID / Reference (Optional)</Text>
             <TextInput
               style={styles.input}
@@ -649,11 +664,37 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   imagePickerText: {
-    color: '#999',
+    color: '#666',
   },
   previewImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 8,
+  },
+  paymentInfoBox: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  paymentInfoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 5,
+  },
+  paymentInfoText: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginBottom: 2,
+  },
+  qrCode: {
+    width: 200,
+    height: 200,
+    alignSelf: 'center',
+    marginTop: 10,
+    borderRadius: 8,
   },
   closeButton: {
     marginTop: 20,
