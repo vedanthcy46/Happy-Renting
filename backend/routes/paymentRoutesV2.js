@@ -83,8 +83,7 @@ router.post('/sync', authorize('superadmin', 'owner', 'tenant'), triggerBillingS
 const {
   createCashfreeOrder,
   getCashfreePaymentStatus,
-  handleCashfreeWebhook,
-  renderMobileCheckout
+  handleCashfreeWebhook
 } = require('../controllers/cashfreeController');
 
 // 1. Create Cashfree order (tenant initiates payment)
