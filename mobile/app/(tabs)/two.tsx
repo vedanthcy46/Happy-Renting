@@ -324,7 +324,8 @@ const handlePayNow = async (record: RentRecord) => {
       {/* Manual Payment Modal */}
       <Modal visible={showManualModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalContent}>
+          <View style={[styles.modalContent, { padding: 0 }]}>
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
             <Text style={styles.modalTitle}>Submit Manual Payment</Text>
             
             <Text style={styles.label}>Amount Paid</Text>
@@ -406,7 +407,8 @@ const handlePayNow = async (record: RentRecord) => {
                 {mutationManual.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Submit</Text>}
               </TouchableOpacity>
             </View>
-          </ScrollView>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </View>
