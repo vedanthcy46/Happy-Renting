@@ -452,6 +452,7 @@ exports.handleCashfreeWebhook = async (req, res) => {
       logger.info(`[CASHFREE] Duplicate Webhook Ignored — race condition caught at DB level`);
     } else {
       logger.error(`[CASHFREE] Webhook processing error: ${err.message}`, err);
+    }
   }
 };
 
