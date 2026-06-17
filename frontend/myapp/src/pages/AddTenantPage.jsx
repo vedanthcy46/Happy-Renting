@@ -265,7 +265,16 @@ const AddTenantPage = () => {
                 id="user-select"
                 className={`form-select ${errors.userId ? 'border-danger' : ''}`}
                 value={form.userId}
-                onChange={e => { setForm(f => ({ ...f, userId: e.target.value })); setErrors(er => ({ ...er, userId: '' })); }}
+                onChange={e => {
+                  const selectedUserId = e.target.value;
+                  const selectedUser = users.find(u => u._id === selectedUserId);
+                  setForm(f => ({
+                    ...f,
+                    userId: selectedUserId,
+                    phone: selectedUser?.phone || f.phone || ''
+                  }));
+                  setErrors(er => ({ ...er, userId: '' }));
+                }}
               >
                 <option value="">Select user…</option>
                 {users.map(u => <option key={u._id} value={u._id}>{u.name} — {u.email}</option>)}
