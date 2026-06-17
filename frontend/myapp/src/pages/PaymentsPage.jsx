@@ -264,6 +264,12 @@ const PaymentsPage = () => {
                   <span className="font-bold text-white text-sm">₹{txn.amount.toLocaleString()}</span>
                   <span className="text-xs text-slate-400">{txn.rentRecordId?.month}</span>
                   <span className="text-xs uppercase font-bold text-brand-400 bg-brand-400/10 px-2 py-0.5 rounded">{txn.transactionType || txn.paymentMethod}</span>
+                  {txn.tenantId?.userId?.name && (
+                    <span className="text-xs text-slate-300">
+                      by <span className="text-white font-medium">{txn.tenantId.userId.name}</span>
+                      {txn.tenantId.roomId?.roomNumber ? ` (Room ${txn.tenantId.roomId.roomNumber})` : ''}
+                    </span>
+                  )}
                   {txn.proofImage?.secureUrl && (
                     <a href={txn.proofImage.secureUrl} target="_blank" rel="noopener noreferrer"
                       className="text-xs text-blue-400 hover:text-blue-300 underline font-bold">

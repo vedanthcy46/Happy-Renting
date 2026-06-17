@@ -23,7 +23,7 @@ export interface PaymentTransaction {
   amount: number;
   paymentMethod: 'cash' | 'upi' | 'bank_transfer' | 'cheque' | 'other';
   paymentDate: string;
-  status: 'pending' | 'verified' | 'rejected' | 'reversed';
+  status: 'pending' | 'verified' | 'rejected' | 'reversed' | 'verifying' | 'completed';
   referenceId?: string;
 }
 

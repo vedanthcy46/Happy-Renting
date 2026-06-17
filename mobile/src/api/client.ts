@@ -9,7 +9,7 @@ const getBaseUrl = () => {
     // Android emulator uses 10.0.2.2, iOS uses localhost
     // Physical devices use the machine's local IP (debuggerHost)
     const localhost = debuggerHost ? debuggerHost.split(':')[0] : 'localhost';
-    const url = `https://happy-renting.onrender.com/api`;
+    const url = `http://${localhost}:5000/api`;
     console.log('[API] Using Base URL:', url);
     return url;
   }

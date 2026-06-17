@@ -435,6 +435,13 @@ const getTransactionHistory = async (req, res, next) => {
 
     const transactions = await PaymentTransaction.find(filters)
       .populate('recordedBy', 'name')
+      .populate({
+        path: 'tenantId',
+        populate: [
+          { path: 'userId', select: 'name phone email' },
+          { path: 'roomId', select: 'roomNumber' }
+        ]
+      })
       .populate('rentRecordId', 'month totalRent totalPaid status')
       .sort({ paymentDate: -1 })
       .lean();

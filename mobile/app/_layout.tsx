@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '../src/store/useAuthStore';
+import { usePushNotifications } from '../src/hooks/usePushNotifications';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -37,6 +38,9 @@ export default function RootLayout() {
   });
 
   const { initialize, isLoading: isAuthLoading } = useAuthStore();
+
+  // Initialize push notifications
+  usePushNotifications();
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {

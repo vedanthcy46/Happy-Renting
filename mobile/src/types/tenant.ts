@@ -32,6 +32,7 @@ export interface Tenant {
   status: 'active' | 'vacated';
   joinDate: string;
   moveInDate?: string;
+  exitDate?: string;
   rentDueDay: number;
   securityDeposit: number;
   advancePaid: number;

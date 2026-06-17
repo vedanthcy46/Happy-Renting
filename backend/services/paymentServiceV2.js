@@ -17,6 +17,7 @@ const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const Tenant = require('../models/Tenant');
 const emailService = require('./emailService');
+const notificationService = require('./notificationService');
 const logger = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
 const { generateMonthlyBillingPeriod } = require('../utils/billingHelpers');
@@ -108,6 +109,17 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
       });
 
       logger.info(`[RENT RECORD] Created rentRecordId=${rentRecord._id} for tenant=${tenantId} month=${month} type=${billingType} amount=${finalRent}`);
+      
+      // Send Mobile Push Notification
+      if (tenant.userId) {
+        notificationService.sendPushNotification({
+          userId: tenant.userId,
+          title: 'New Rent Bill Generated 📄',
+          body: `Your rent bill for ${month} of ₹${finalRent} has been generated. Due date is ${dueDate.getDate()}th.`,
+          type: 'bill_generated',
+          data: { rentRecordId: rentRecord._id, month }
+        }).catch(err => logger.error(`[Push] Failed to send bill generation push: ${err.message}`));
+      }
     } catch (createErr) {
       if (createErr.code === 11000) {
         logger.warn(`[RENT RECORD] Duplicate creation attempt for tenant=${tenantId} month=${month}, fetching existing`);
@@ -725,15 +737,25 @@ const verifyTransaction = async (transactionId, caller) => {
   // Send status email to tenant
   try {
     if (rentRecord) {
-      const populated = await rentRecord.populate('userId propertyId roomId ownerId');
-      if (populated.userId && populated.userId.email) {
-        await emailService.sendPaymentStatusNotification(
-          populated.userId,
-          transaction,
-          populated.propertyId,
-          populated.roomId,
-          populated.ownerId
-        );
+      if (populated.userId) {
+        if (populated.userId.email) {
+          await emailService.sendPaymentStatusNotification(
+            populated.userId,
+            transaction,
+            populated.propertyId,
+            populated.roomId,
+            populated.ownerId
+          );
+        }
+        
+        // Mobile Push Notification
+        await notificationService.sendPushNotification({
+          userId: populated.userId._id,
+          title: 'Payment Verified ✅',
+          body: `Your manual payment of ₹${transaction.amount} has been verified by the owner.`,
+          type: 'payment_verified',
+          data: { transactionId: transaction._id }
+        }).catch(err => logger.error(`[Push] Failed to send push: ${err.message}`));
       }
     }
   } catch (emailErr) {
@@ -788,14 +810,25 @@ const rejectTransaction = async (transactionId, reason, caller) => {
     const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
     if (rentRecord) {
       const populated = await rentRecord.populate('userId propertyId roomId ownerId');
-      if (populated.userId && populated.userId.email) {
-        await emailService.sendPaymentStatusNotification(
-          populated.userId,
-          transaction,
-          populated.propertyId,
-          populated.roomId,
-          populated.ownerId
-        );
+      if (populated.userId) {
+        if (populated.userId.email) {
+          await emailService.sendPaymentStatusNotification(
+            populated.userId,
+            transaction,
+            populated.propertyId,
+            populated.roomId,
+            populated.ownerId
+          );
+        }
+
+        // Mobile Push Notification
+        await notificationService.sendPushNotification({
+          userId: populated.userId._id,
+          title: 'Payment Rejected ❌',
+          body: `Your manual payment of ₹${transaction.amount} was rejected. Reason: ${reason || 'Not specified'}`,
+          type: 'payment_rejected',
+          data: { transactionId: transaction._id }
+        }).catch(err => logger.error(`[Push] Failed to send push: ${err.message}`));
       }
     }
   } catch (emailErr) {

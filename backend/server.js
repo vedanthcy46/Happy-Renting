@@ -44,6 +44,7 @@ const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const healthRoutes    = require('./routes/healthRoutes');
 const systemRoutes    = require('./routes/systemRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { startCronJobs } = require('./jobs/cronJobs');
 const ledgerQueueService = require('./services/ledgerQueueService');
 const { initKeepAlive } = require('./services/keepAliveService');
@@ -186,6 +187,7 @@ app.use('/api/v2/admin',      walletAdminRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/owner-requests', ownerRequestRoutes);
+app.use('/api/v2/notifications', notificationRoutes);
 
 // ── 10. 404 + Global error handler ────────────────────────────────────────
 app.use(notFound);

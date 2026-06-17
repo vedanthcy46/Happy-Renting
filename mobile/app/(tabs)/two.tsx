@@ -294,12 +294,16 @@ const handlePayNow = async (record: RentRecord) => {
                         <Text style={styles.txnMethod}>{txn.paymentMethod.toUpperCase()}</Text>
                         <Text style={styles.txnDate}>{new Date(txn.paymentDate).toLocaleDateString()}</Text>
                       </View>
-                      <View style={styles.txnSecondary}>
-                        <Text style={styles.txnAmount}>₹{txn.amount}</Text>
-                        <View style={[styles.statusBadge, (styles as any)[`status_${txn.status}`]]}>
-                          <Text style={styles.txnStatusText}>{txn.status.toUpperCase()}</Text>
+                        <View style={styles.txnSecondary}>
+                          <Text style={styles.txnAmount}>₹{txn.amount}</Text>
+                          <View style={[styles.statusBadge, (styles as any)[`status_${txn.status}`]]}>
+                            <Text style={styles.txnStatusText}>
+                              {txn.status === 'verifying' 
+                                ? 'PENDING VERIFICATION' 
+                                : (txn.status === 'completed' ? 'VERIFIED' : txn.status.toUpperCase())}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
                     </View>
                   ))
                 ) : (
@@ -605,10 +609,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  status_verifying: { backgroundColor: '#FFB300' },
+  status_completed: { backgroundColor: '#4CAF50' },
+  status_verified: { backgroundColor: '#4CAF50' },
+  status_rejected: { backgroundColor: '#F44336' },
+  status_reversed: { backgroundColor: '#9E9E9E' },
   txn_verified: { backgroundColor: '#4CAF50' },
-  txn_pending: { backgroundColor: '#FF9800' },
-  txn_rejected: { backgroundColor: '#F44336' },
-  txn_reversed: { backgroundColor: '#9E9E9E' },
   emptyTxnText: {
     textAlign: 'center',
     color: '#999',

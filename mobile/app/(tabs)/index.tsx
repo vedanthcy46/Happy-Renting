@@ -5,6 +5,8 @@ import { Text, View } from '@/components/Themed';
 import { getMyTenancy, addRoommate, updateRoommate, deleteRoommate } from '../../src/api/tenant';
 import { getRentRecords } from '../../src/api/payment';
 import { useAuthStore } from '../../src/store/useAuthStore';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
@@ -102,14 +104,21 @@ export default function HomeScreen() {
     );
   }
 
-  if (isError || !tenant) {
+  if (isError || !tenant || tenant.status === 'vacated') {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>
-          {isError ? 'Failed to load data.' : 'No active tenancy found.'}
+        <Text style={{ fontSize: 48, marginBottom: 20 }}>🚪</Text>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 10, color: '#333' }}>
+          {tenant?.status === 'vacated' ? 'Tenancy Ended' : 'No Active Tenancy'}
+        </Text>
+        <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 30, paddingHorizontal: 20 }}>
+          {isError ? 'Failed to load data.' : 
+           (tenant?.status === 'vacated' 
+            ? `Your stay at Room ${tenant.roomId?.roomNumber || ''} concluded on ${tenant.exitDate ? new Date(tenant.exitDate).toLocaleDateString() : 'an unknown date'}.`
+            : 'You haven\'t been assigned to a room yet. Contact an owner to get added.')}
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>Retry / Refresh</Text>
         </TouchableOpacity>
       </View>
     );
@@ -123,8 +132,16 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome,</Text>
-        <Text style={styles.userName}>{user?.name}</Text>
+        <View style={{ backgroundColor: 'transparent' }}>
+          <Text style={styles.welcomeText}>Welcome,</Text>
+          <Text style={styles.userName}>{user?.name}</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.bellIcon} 
+          onPress={() => router.push('/notifications')}
+        >
+          <Ionicons name="notifications-outline" size={28} color="#333" />
+        </TouchableOpacity>
       </View>
 
       {latestRecord ? (
@@ -323,6 +340,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bellIcon: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   welcomeText: {
     fontSize: 16,
