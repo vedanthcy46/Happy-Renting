@@ -26,9 +26,20 @@ const {
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { createUploadMiddleware } = require('../middleware/uploadMiddleware');
+const { renderMobileCheckout } = require('../controllers/cashfreeController');
 
 const upload = createUploadMiddleware('payment_proofs');
 
+// ─────────────────────────────────────────────────────────────────────────
+// PUBLIC ROUTES
+// ─────────────────────────────────────────────────────────────────────────
+
+// Mobile SDK Proxy: Must be public because the mobile browser opens it
+router.get('/cashfree/checkout', renderMobileCheckout);
+
+// ─────────────────────────────────────────────────────────────────────────
+// AUTHENTICATED ROUTES
+// ─────────────────────────────────────────────────────────────────────────
 router.use(authenticate);
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -78,9 +89,6 @@ const {
 
 // 1. Create Cashfree order (tenant initiates payment)
 router.post('/cashfree/create-order/:rentRecordId', authorize('tenant'), createCashfreeOrder);
-
-// 1.5 Mobile SDK Proxy
-router.get('/cashfree/checkout', renderMobileCheckout);
 
 // 2. Poll payment status (frontend polls after modal closes — read-only, no side effects)
 router.get('/cashfree/status/:orderId', authorize('tenant'), getCashfreePaymentStatus);
