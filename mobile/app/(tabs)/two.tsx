@@ -105,7 +105,8 @@ export default function PaymentsScreen() {
 const handlePayNow = async (record: RentRecord) => {
   console.log('[Payment] Initiating for record:', record._id, 'amount:', record.remainingAmount);
   try {
-    const redirectUrl = AuthSession.makeRedirectUri({ path: 'payments' });
+    // We use path 'two' because this screen is /two. This prevents Expo Router from showing 404!
+    const redirectUrl = AuthSession.makeRedirectUri({ path: 'two' });
     const response = await createCashfreeOrder(record._id, record.remainingAmount, redirectUrl);
     console.log('[Payment] Order created:', response);
 
