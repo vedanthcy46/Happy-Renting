@@ -63,7 +63,7 @@ router.post('/transactions/:transactionId/reject', authorize('superadmin', 'owne
 router.get('/summary/metrics', authorize('superadmin', 'owner'), getPaymentSummary);
 router.get('/history/transactions', authorize('superadmin', 'owner', 'tenant'), getTransactionHistory);
 router.get('/export/csv', authorize('superadmin', 'owner'), exportTransactionsCSV);
-router.post('/sync', authorize('superadmin', 'owner'), triggerBillingSync);
+router.post('/sync', authorize('superadmin', 'owner', 'tenant'), triggerBillingSync);
 
 // ─────────────────────────────────────────────────────────────────────────
 // GATEWAY (Cashfree) ROUTES

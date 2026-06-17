@@ -15,11 +15,11 @@ const logger = require('../config/logger');
 const emailService = require('./emailService');
 
 /**
- * generateMonthlyBills(ownerId)
- * Performs automated calendar-month billing orchestration for all active/vacated stays.
+ * generateMonthlyBills(ownerId, tenantId)
+ * Performs automated calendar-month billing orchestration.
  * Idempotently generates bills from join month to current month.
  */
-const generateMonthlyBills = async (ownerId) => {
+const generateMonthlyBills = async (ownerId, tenantId) => {
   try {
     const today = new Date();
     const currentMonthStr = today.toISOString().slice(0, 7); // "YYYY-MM"
@@ -33,6 +33,7 @@ const generateMonthlyBills = async (ownerId) => {
       ]
     };
     if (ownerId) activeQuery.ownerId = ownerId;
+    if (tenantId) activeQuery._id = tenantId;
 
     const tenancies = await Tenant.find(activeQuery)
       .populate('roomId')
@@ -215,11 +216,10 @@ const generateMonthlyBills = async (ownerId) => {
 };
 
 /**
- * processBillingRemindersAndOverdue(ownerId?)
- * Marks records as overdue and implements the 1, 7, 15, 21, 30 day overdue cadence,
- * alongside Due Tomorrow (-1) and Due Today (0) reminders.
+ * processBillingRemindersAndOverdue(ownerId?, tenantId?)
+ * Marks records as overdue and implements the 1, 7, 15, 21, 30 day overdue cadence.
  */
-const updateOverduePayments = async (ownerId, forceReminders = false) => {
+const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -228,6 +228,7 @@ const updateOverduePayments = async (ownerId, forceReminders = false) => {
       status: { $in: ['pending', 'partial', 'overdue'] },
     };
     if (ownerId) query.ownerId = ownerId;
+    if (tenantId) query.tenantId = tenantId;
 
     const records = await MonthlyRentRecord.find(query)
       .populate('userId')

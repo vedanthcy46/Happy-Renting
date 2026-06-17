@@ -529,15 +529,27 @@ const exportTransactionsCSV = async (req, res, next) => {
 
 const triggerBillingSync = async (req, res, next) => {
   try {
-    const ownerId = req.user.role === 'superadmin' ? null : req.user._id;
+    let ownerId = null;
+    let tenantId = null;
 
-    logger.info(`[BILLING SYNC] Manual sync triggered by user=${req.user._id}`);
+    if (req.user.role === 'owner') {
+      ownerId = req.user._id;
+    } else if (req.user.role === 'tenant') {
+      // Find the tenant record for this user
+      const tenant = await Tenant.findOne({ userId: req.user._id, status: 'active' });
+      if (!tenant) {
+        return res.status(404).json({ success: false, message: 'No active tenancy found to sync.' });
+      }
+      tenantId = tenant._id;
+    }
+
+    logger.info(`[BILLING SYNC] Manual sync triggered by user=${req.user._id} role=${req.user.role}`);
 
     // 1. Generate any missing bills
-    const billingResults = await billingServiceV2.generateMonthlyBills(ownerId);
+    const billingResults = await billingServiceV2.generateMonthlyBills(ownerId, tenantId);
 
-    // 2. Update overdue statuses and send milestone emails (Force reminders for manual sync)
-    const overdueMarked = await billingServiceV2.updateOverduePayments(ownerId, true);
+    // 2. Update overdue statuses
+    const overdueMarked = await billingServiceV2.updateOverduePayments(ownerId, true, tenantId);
 
     res.status(200).json({
       success: true,

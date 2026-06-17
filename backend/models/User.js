@@ -86,6 +86,16 @@ const userSchema = new mongoose.Schema(
     },
     emailVerificationToken  : { type: String, select: false },
     emailVerificationExpires: { type: Date,   select: false },
+    // ── Expo Push Tokens (multi-device) ─────────────────────────────────────
+    expoPushTokens: [
+      {
+        token:      { type: String, required: true },
+        platform:   { type: String, enum: ['ios', 'android', 'web'], default: 'android' },
+        deviceName: { type: String, default: null },
+        lastSeenAt: { type: Date, default: Date.now },
+      }
+    ],
+
     // ── Preferences ─────────────────────────────────────────────────────────
     notificationPreferences: {
       loginAlerts: { type: Boolean, default: true },

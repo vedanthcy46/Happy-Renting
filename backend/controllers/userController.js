@@ -400,6 +400,41 @@ const resetUserPassword = async (req, res, next) => {
   }
 };
 
+
+// ── PATCH /api/users/profile/push-token (Mobile App — Expo push notifications) ────────────────
+const savePushToken = async (req, res, next) => {
+  try {
+    const { token, platform, deviceName } = req.body;
+
+    if (!token || typeof token !== 'string' || token.length < 5) {
+      return res.status(400).json({ success: false, message: 'Valid token is required.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    // Remove existing entry for this token, then upsert
+    user.expoPushTokens = (user.expoPushTokens || []).filter((t) => t.token !== token);
+    user.expoPushTokens.push({
+      token,
+      platform: platform || 'android',
+      deviceName: deviceName || null,
+      lastSeenAt: new Date(),
+    });
+
+    // Cap at 10 tokens per user (oldest removed first)
+    if (user.expoPushTokens.length > 10) {
+      user.expoPushTokens = user.expoPushTokens.slice(-10);
+    }
+
+    await user.save();
+    logger.info(`[PushToken] Saved push token for user ${user._id} (${platform})`);
+    res.status(200).json({ success: true, message: 'Push token saved.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getUsers,
   getUser,
@@ -415,5 +450,6 @@ module.exports = {
   getActivityLogs,
   changePassword,
   resetUserPassword,
-  createUserValidation
+  createUserValidation,
+  savePushToken,
 };

@@ -3,7 +3,8 @@
 const router = require('express').Router();
 const {
   getUsers, getUser, getProfile, updateProfile, createUser, updateUser, deleteUser,
-  getAdminStats, getOwnerPropertyMapping, uploadQRCode, getActivityLogs, changePassword, resetUserPassword, createUserValidation,
+  getAdminStats, getOwnerPropertyMapping, uploadQRCode, getActivityLogs, changePassword,
+  resetUserPassword, createUserValidation, savePushToken,
 } = require('../controllers/userController');
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -18,6 +19,7 @@ router.use(authenticate);
 router.get ('/profile', getProfile);
 router.patch('/profile', updateProfile);
 router.patch('/profile/password', changePassword);
+router.patch('/profile/push-token', savePushToken); // Mobile app — Expo push tokens
 
 router.get ('/admin/stats',   authorize('superadmin'), getAdminStats);
 router.get ('/admin/mapping', authorize('superadmin'), getOwnerPropertyMapping);

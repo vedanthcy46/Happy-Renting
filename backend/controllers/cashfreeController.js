@@ -149,10 +149,16 @@ exports.createCashfreeOrder = async (req, res, next) => {
       `[CASHFREE] Order Created — orderId=${orderId} rentRecordId=${rentRecordId} amount=₹${parsedAmount} tenant=${req.user.id}`
     );
 
+    const isProd = process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION';
+    const paymentUrl = isProd
+      ? `https://payments.cashfree.com/order/#${response.data.payment_session_id}`
+      : `https://payments-test.cashfree.com/order/#${response.data.payment_session_id}`;
+
     return res.status(200).json({
       success: true,
       orderId: response.data.order_id,
       paymentSessionId: response.data.payment_session_id,
+      paymentUrl,
       amount: response.data.order_amount,
       currency: response.data.order_currency,
     });
