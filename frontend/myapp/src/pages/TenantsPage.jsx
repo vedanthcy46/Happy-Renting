@@ -24,7 +24,7 @@ const TenantsPage = () => {
 
   // Edit Advance modal state
   // Edit Advance/Profile modal state
-  const [editAdv,    setEditAdv]    = useState({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5, name: '', email: '', phone: '', idProof: '' });
+  const [editAdv,    setEditAdv]    = useState({ open: false, tenant: null, amount: '', total: '', name: '', email: '', phone: '', idProof: '' });
   const [editTab,    setEditTab]    = useState('finance'); // 'finance' or 'profile'
   const [updatingAdv, setUpdatingAdv] = useState(false);
 
@@ -88,7 +88,6 @@ const TenantsPage = () => {
       tenant, 
       amount: tenant.advancePaid || 0,
       total: tenant.securityDeposit || tenant.roomId?.securityDeposit || 0,
-      rentDueDay: tenant.rentDueDay || 5,
       name: tenant.userId?.name || '',
       email: tenant.userId?.email || '',
       phone: tenant.phone || '',
@@ -110,14 +109,13 @@ const TenantsPage = () => {
       await api.patch(`/tenants/${editAdv.tenant._id}`, { 
         advancePaid: Number(editAdv.amount),
         securityDeposit: Number(editAdv.total),
-        rentDueDay: Number(editAdv.rentDueDay),
         name: editAdv.name,
         email: editAdv.email,
         phone: editAdv.phone,
         idProof: editAdv.idProof
       });
       toast.success('Tenant details updated successfully.');
-      setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5, name: '', email: '', phone: '', idProof: '' });
+      setEditAdv({ open: false, tenant: null, amount: '', total: '', name: '', email: '', phone: '', idProof: '' });
       fetchTenants();
     } catch (err) {
       toast.error(err.message);
@@ -258,7 +256,6 @@ const TenantsPage = () => {
                 <th>Joined</th>
                 {tab === 'vacated' && <th>Exited</th>}
                 <th>Advance</th>
-                {tab === 'active' && <th>Due Day</th>}
                 <th>Status</th>
                 {tab === 'active' && <th className="text-right">Actions</th>}
                 {tab === 'vacated' && <th className="text-right">Refund</th>}
@@ -318,13 +315,6 @@ const TenantsPage = () => {
                         </button>
                       )}
                     </td>
-                    {tab === 'active' && (
-                      <td className="text-white font-mono text-xs">
-                        <span className="bg-brand-500/10 text-brand-400 px-2 py-1 rounded border border-brand-500/20">
-                          {t.rentDueDay || 5}th
-                        </span>
-                      </td>
-                    )}
                     <td><StatusBadge status={t.status} /></td>
                     {tab === 'active' && (
                       <td className="text-right">
@@ -485,7 +475,7 @@ const TenantsPage = () => {
         </form>
       </Modal>
 
-      <Modal isOpen={editAdv.open} onClose={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 })} title="Update Tenant Details" size="sm">
+      <Modal isOpen={editAdv.open} onClose={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', name: '', email: '', phone: '', idProof: '' })} title="Update Tenant Details" size="sm">
         <div className="flex rounded-xl bg-surface border border-surface-border p-1 gap-1 mb-4">
           <button 
             type="button" 
@@ -506,13 +496,6 @@ const TenantsPage = () => {
         <form onSubmit={handleUpdateAdvance} className="space-y-4">
           {editTab === 'finance' ? (
             <>
-              <div>
-                <label className="form-label">Rent Due Day (1-31)</label>
-                <input type="number" min="1" max="31" className="form-input" 
-                  value={editAdv.rentDueDay} onChange={e => setEditAdv(a => ({ ...a, rentDueDay: e.target.value }))} />
-                <p className="text-[10px] text-slate-500 mt-1">Day of the month rent is due.</p>
-              </div>
-              <div className="pt-2 border-t border-surface-border"></div>
               <div>
                 <label className="form-label">Target Security Deposit (Total ₹)</label>
                 <input type="number" min="0" className="form-input" 
@@ -550,7 +533,7 @@ const TenantsPage = () => {
             </>
           )}
           <div className="flex gap-3 pt-4">
-            <button type="button" onClick={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', rentDueDay: 5 })} className="btn-secondary flex-1">Cancel</button>
+            <button type="button" onClick={() => setEditAdv({ open: false, tenant: null, amount: '', total: '', name: '', email: '', phone: '', idProof: '' })} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" disabled={updatingAdv} className="btn-primary flex-1">{updatingAdv ? 'Updating…' : 'Save Changes'}</button>
           </div>
         </form>

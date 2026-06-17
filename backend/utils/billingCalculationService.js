@@ -17,26 +17,17 @@ const getDaysInMonth = (year, monthIndex) => {
 };
 
 /**
- * Calculate standard calendar Due Date (strictly the 5th of the NEXT month).
+ * Calculate standard calendar Due Date (strictly the 5th of the billing month).
  * @param {string} monthStr - 'YYYY-MM'
  * @returns {Date} 
  */
 const calculateDueDate = (monthStr) => {
   const [year, monthNum] = monthStr.split('-').map(Number);
+  // Default to 5 if not in env
   const defaultDueDay = parseInt(process.env.GLOBAL_RENT_DUE_DAY || process.env.DEFAULT_RENT_DUE_DAY || '5', 10);
   
-  let dueYear = year;
-  let dueMonthIndex = monthNum; // Next month (since monthNum is 1-12)
-  if (dueMonthIndex > 11) {
-    dueMonthIndex = 0;
-    dueYear += 1;
-  }
-
-  let dueDate = new Date(dueYear, dueMonthIndex, defaultDueDay, 12, 0, 0, 0);
-  if (dueDate.getMonth() !== dueMonthIndex) {
-    dueDate = new Date(dueYear, dueMonthIndex + 1, 0, 12, 0, 0, 0);
-  }
-  return dueDate;
+  // Create Date for the 5th of the billing month (monthNum - 1 because JS months are 0-11)
+  return new Date(year, monthNum - 1, defaultDueDay, 12, 0, 0, 0);
 };
 
 /**

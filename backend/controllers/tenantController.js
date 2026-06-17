@@ -255,36 +255,7 @@ const updateTenant = async (req, res, next) => {
 
     await tenant.save();
 
-    // ── Sync Current Month Due Date for V2 MonthlyRentRecord ──
-    if (rentDueDay !== undefined) {
-      try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const currentMonthStr = today.toISOString().slice(0, 7);
-
-        // Calculate new due date using billing day (capped to last day of month)
-        const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-        const clampedDay = Math.min(Number(rentDueDay), lastDayOfMonth);
-        const newDueDate = new Date(today.getFullYear(), today.getMonth(), clampedDay);
-        newDueDate.setHours(0, 0, 0, 0);
-
-        const MonthlyRentRecord = require('../models/MonthlyRentRecord');
-        const currentRecord = await MonthlyRentRecord.findOne({
-          tenantId: tenant._id,
-          month: currentMonthStr,
-          status: { $nin: ['paid', 'overpaid'] }
-        });
-
-        if (currentRecord) {
-          currentRecord.dueDate = newDueDate;
-          // Status recalculated by pre-save hook automatically
-          await currentRecord.save();
-          logger.info(`[TENANT UPDATE] Synced V2 dueDate for tenant=${tenant._id} to day=${clampedDay} month=${currentMonthStr}`);
-        }
-      } catch (syncErr) {
-        logger.error(`[TENANT UPDATE] Failed to sync V2 dueDate: ${syncErr.message}`);
-      }
-    }
+    // rentDueDay sync is removed because due dates are globally hardcoded to the 5th now.
 
     res.status(200).json({ success: true, message: 'Tenant updated.', tenant });
   } catch (err) {

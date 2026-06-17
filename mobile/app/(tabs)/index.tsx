@@ -153,7 +153,7 @@ export default function HomeScreen() {
           <Text style={styles.highlightTitle}>Current Billing Status</Text>
           <View style={styles.highlightBody}>
             <Text style={styles.noBillText}>No bills generated yet.</Text>
-            <Text style={styles.highlightLabel}>Bills are generated on the {tenant.rentDueDay}th of each month.</Text>
+            <Text style={styles.highlightLabel}>Bills are generated on the 5th of each month.</Text>
           </View>
         </View>
       )}
@@ -177,7 +177,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Rent Due Day</Text>
-            <Text style={styles.value}>{tenant.rentDueDay}th of month</Text>
+            <Text style={styles.value}>5th of month</Text>
           </View>
         </View>
       </View>

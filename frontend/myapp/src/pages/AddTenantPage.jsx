@@ -21,7 +21,6 @@ const AddTenantPage = () => {
     propertyId  : '',
     joinDate    : new Date().toISOString().split('T')[0],
     advancePaid : '',
-    rentDueDay  : 5,
     notes       : '',
     phone       : '',
     idProof     : '',
@@ -110,7 +109,6 @@ const AddTenantPage = () => {
     if (form.advancePaid && form.securityDeposit && Number(form.advancePaid) > Number(form.securityDeposit)) {
       errs.advancePaid = 'Initial advance or advance paid should be less than or equal to the security deposit.';
     }
-    if (form.rentDueDay < 1 || form.rentDueDay > 31) errs.rentDueDay = 'Day must be 1-31';
     
     if (form.createUser) {
       if (!form.name.trim()) errs.name = 'Name required';
@@ -157,7 +155,6 @@ const AddTenantPage = () => {
         advancePaid : form.advancePaid ? Number(form.advancePaid) : 0,
         notes       : form.notes,
         phone       : form.phone,
-        rentDueDay  : Number(form.rentDueDay) || 5,
         idProof     : form.idProof,
         coOccupants : form.coOccupants,
         tempPassword: form.password, // Pass password for email onboarding
@@ -384,14 +381,6 @@ const AddTenantPage = () => {
               value={form.joinDate} onChange={e => setForm(f => ({ ...f, joinDate: e.target.value }))}
               max={new Date().toISOString().split('T')[0]} />
             {errors.joinDate && <p className="form-error">{errors.joinDate}</p>}
-          </div>
-          <div>
-            <label className="form-label">Rent Due Day (Monthly) *</label>
-            <input type="number" min="1" max="31" className={`form-input ${errors.rentDueDay ? 'border-danger' : ''}`}
-              value={form.rentDueDay} onChange={e => setForm(f => ({ ...f, rentDueDay: e.target.value }))}
-              placeholder="e.g. 5" />
-            <p className="text-[10px] text-slate-500 mt-1">Day of month (1-31). Default: 5th</p>
-            {errors.rentDueDay && <p className="form-error">{errors.rentDueDay}</p>}
           </div>
         </div>
 
