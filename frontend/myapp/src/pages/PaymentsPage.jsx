@@ -59,6 +59,19 @@ const PaymentsPage = () => {
 
   useEffect(() => { fetchPendingApprovals(); }, [fetchPendingApprovals]);
 
+  // Handle Mobile App Redirect Bounce
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const appRedirect = params.get('app_redirect');
+    const orderId = params.get('order_id');
+    
+    // If the URL contains an app_redirect (deep link), bounce immediately
+    if (appRedirect && orderId) {
+      console.log('Redirecting to mobile app:', appRedirect);
+      window.location.href = `${appRedirect}?order_id=${orderId}`;
+    }
+  }, []);
+
   const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);

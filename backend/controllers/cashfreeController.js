@@ -76,7 +76,7 @@ const verifyWebhookSignature = (rawBody, timestamp, signature) => {
 exports.createCashfreeOrder = async (req, res, next) => {
   try {
     const { rentRecordId } = req.params;
-    const { amount } = req.body;
+    const { amount, appRedirect } = req.body;
 
     const parsedAmount = Number(amount);
     if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -126,7 +126,7 @@ exports.createCashfreeOrder = async (req, res, next) => {
         customer_phone: safePhone,
       },
       order_meta: {
-        return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payments?order_id={order_id}`,
+        return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payments?order_id={order_id}${appRedirect ? '&app_redirect=' + encodeURIComponent(appRedirect) : ''}`,
         notify_url: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/v2/payments/cashfree/webhook`,
       },
     };
@@ -149,10 +149,14 @@ exports.createCashfreeOrder = async (req, res, next) => {
       `[CASHFREE] Order Created — orderId=${orderId} rentRecordId=${rentRecordId} amount=₹${parsedAmount} tenant=${req.user.id}`
     );
 
-    const isProd = process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION';
+    const cfEnv = String(process.env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase();
+    const isProd = cfEnv === 'PRODUCTION';
+    
     const paymentUrl = isProd
       ? `https://payments.cashfree.com/order/#${response.data.payment_session_id}`
       : `https://payments-test.cashfree.com/order/#${response.data.payment_session_id}`;
+
+    logger.info(`[CASHFREE] Redirect URL Generated: ${paymentUrl} (Env: ${cfEnv})`);
 
     return res.status(200).json({
       success: true,
