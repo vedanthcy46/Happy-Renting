@@ -99,16 +99,7 @@ const AdminWalletPage = () => {
     }
   };
 
-  // Handle Approval
-  const handleApprove = async (id) => {
-    try {
-      await api.patch(`/v2/admin/withdrawals/${id}/approve`);
-      toast.success('Withdrawal request approved');
-      fetchAdminData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Approval failed');
-    }
-  };
+
 
   // Handle Reject Modal open/submit
   const handleRejectOpen = (req) => {
