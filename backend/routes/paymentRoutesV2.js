@@ -72,10 +72,15 @@ router.post('/sync', authorize('superadmin', 'owner', 'tenant'), triggerBillingS
 const {
   createCashfreeOrder,
   getCashfreePaymentStatus,
+  handleCashfreeWebhook,
+  renderMobileCheckout
 } = require('../controllers/cashfreeController');
 
 // 1. Create Cashfree order (tenant initiates payment)
 router.post('/cashfree/create-order/:rentRecordId', authorize('tenant'), createCashfreeOrder);
+
+// 1.5 Mobile SDK Proxy
+router.get('/cashfree/checkout', renderMobileCheckout);
 
 // 2. Poll payment status (frontend polls after modal closes — read-only, no side effects)
 router.get('/cashfree/status/:orderId', authorize('tenant'), getCashfreePaymentStatus);

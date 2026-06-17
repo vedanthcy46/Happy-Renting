@@ -174,11 +174,12 @@ tenantSchema.pre('save', function() {
     this.moveInDate = this.joinDate || new Date();
   }
 
-  // 2. Compute billingDay: use customBillingDay if set, otherwise fallback to moveInDate day
+  // 2. Compute billingDay: use customBillingDay if set, otherwise use global default
+  const GLOBAL_DUE_DAY = 5;
   if (this.customBillingDay) {
     this.billingDay = this.customBillingDay;
   } else {
-    this.billingDay = new Date(this.moveInDate).getDate();
+    this.billingDay = GLOBAL_DUE_DAY;
   }
 
   // Also sync the legacy rentDueDay field so we don't break legacy queries or controllers

@@ -152,9 +152,10 @@ exports.createCashfreeOrder = async (req, res, next) => {
     const cfEnv = String(process.env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase();
     const isProd = cfEnv === 'PRODUCTION';
     
-    const paymentUrl = isProd
-      ? `https://payments.cashfree.com/order/#${response.data.payment_session_id}`
-      : `https://payments-test.cashfree.com/order/#${response.data.payment_session_id}`;
+    // Instead of the dead V2 order URL, we point the mobile app to our own backend route
+    // that safely hosts the V3 JS SDK and auto-triggers the checkout flow.
+    const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const paymentUrl = `${baseUrl}/api/v2/payments/cashfree/checkout?session_id=${response.data.payment_session_id}&order_id=${response.data.order_id}&env=${cfEnv}&app_redirect=${encodeURIComponent(appRedirect || '')}`;
 
     logger.info(`[CASHFREE] Redirect URL Generated: ${paymentUrl} (Env: ${cfEnv})`);
 
@@ -451,6 +452,75 @@ exports.handleCashfreeWebhook = async (req, res) => {
       logger.info(`[CASHFREE] Duplicate Webhook Ignored — race condition caught at DB level`);
     } else {
       logger.error(`[CASHFREE] Webhook processing error: ${err.message}`, err);
-    }
   }
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// ENDPOINT 4: Mobile Web Checkout Proxy
+// GET /api/v2/payments/cashfree/checkout
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * @desc    Serves a lightweight HTML page that loads Cashfree V3 SDK.
+ *          Used by the mobile app's WebBrowser since Cashfree V3 has no direct URL.
+ * @access  Public
+ */
+exports.renderMobileCheckout = (req, res) => {
+  const { session_id, order_id, env, app_redirect } = req.query;
+
+  if (!session_id) {
+    return res.status(400).send('Missing session_id');
+  }
+
+  const mode = env === 'PRODUCTION' ? 'production' : 'sandbox';
+  
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <title>Secure Payment Checkout</title>
+      <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f9fafb; margin: 0; }
+        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #2196f3; animation: spin 1s linear infinite; margin-bottom: 16px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h2 { color: #333; margin: 0; font-size: 1.2rem; }
+        p { color: #666; margin-top: 8px; font-size: 0.9rem; text-align: center; padding: 0 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="spinner"></div>
+      <h2>Initializing Payment...</h2>
+      <p>Redirecting you to Cashfree Secure Checkout. Please do not close this window.</p>
+      
+      <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+          try {
+            const cashfree = Cashfree({ mode: '${mode}' });
+            
+            // _self redirects the current tab to Cashfree's checkout.
+            // When payment completes, Cashfree will redirect this tab to our return_url!
+            const result = await cashfree.checkout({
+              paymentSessionId: '${session_id}',
+              redirectTarget: '_self'
+            });
+            
+            // This code only runs if checkout fails to initialize or user dismisses an overlay
+            if (result && result.error) {
+              alert(result.error.message || 'Payment failed to load.');
+              if ('${app_redirect}') {
+                window.location.href = '${app_redirect}?order_id=${order_id}';
+              }
+            }
+          } catch (err) {
+            alert('Failed to initialize payment: ' + err.message);
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `;
+  res.send(html);
 };
