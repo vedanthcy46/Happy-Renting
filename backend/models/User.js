@@ -63,6 +63,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    upiDetails: {
+      upiId: { type: String, trim: true, default: null },
+      upiName: { type: String, trim: true, default: null },
+      verified: { type: Boolean, default: false },
+      verifiedAt: { type: Date, default: null }
+    },
     bankDetails: {
       accountHolder: { type: String, trim: true },
       accountNumber: { type: String, trim: true },

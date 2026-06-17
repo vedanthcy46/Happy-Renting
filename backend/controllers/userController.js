@@ -119,19 +119,31 @@ const getProfile = async (req, res, next) => {
 // ── PATCH /api/users/profile ───────────────────────────────────────────────
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, email, upiId, upiNumber, bankDetails } = req.body;
+    const { name, phone, email, upiId, upiNumber, bankDetails, upiDetails } = req.body;
     const user = await User.findById(req.user._id);
-    
+
     if (name)  user.name  = name;
     if (phone) user.phone = phone;
     if (upiId !== undefined)   user.upiId   = upiId;
     if (upiNumber !== undefined) user.upiNumber = upiNumber;
+
+    if (upiDetails !== undefined && typeof upiDetails === 'object') {
+      user.upiDetails = {
+        ...((user.upiDetails && typeof user.upiDetails === 'object') ? user.upiDetails : {}),
+        ...upiDetails
+      };
+      if (upiDetails.upiId !== undefined) {
+        user.upiId = upiDetails.upiId;
+      }
+    }
+
     if (bankDetails !== undefined && typeof bankDetails === 'object') {
       user.bankDetails = {
         ...((user.bankDetails && typeof user.bankDetails === 'object') ? user.bankDetails : {}),
         ...bankDetails
       };
     }
+
 
     if (email && email.toLowerCase() !== user.email) {
       const existing = await User.findOne({ email: email.toLowerCase() });

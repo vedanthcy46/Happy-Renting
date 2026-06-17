@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
@@ -7,6 +8,7 @@ import Modal from '../components/common/Modal';
 
 const AdminWalletPage = () => {
   const toast = useToast();
+  const { isSuperAdmin } = useAuth();
 
   const [wallets, setWallets] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -25,7 +27,7 @@ const AdminWalletPage = () => {
   // Settlement completion modal state
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [selectedReq, setSelectedReq] = useState(null);
-  const [transferType, setTransferType] = useState('imps');
+  const [transferType, setTransferType] = useState('upi_qr');
   const [refNumber, setRefNumber] = useState('');
   const [settleNote, setSettleNote] = useState('');
   const [settling, setSettling] = useState(false);
@@ -34,6 +36,11 @@ const AdminWalletPage = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
+
+  // UPI QR Modal state
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrData, setQrData] = useState(null);
+  const [generatingQr, setGeneratingQr] = useState(false);
 
   // Rebuilding wallet state
   const [rebuildingId, setRebuildingId] = useState(null);
@@ -131,10 +138,49 @@ const AdminWalletPage = () => {
     }
   };
 
+  // Handle UPI QR Code generation and modal display
+  const handleGenerateQr = async (req) => {
+    try {
+      setGeneratingQr(true);
+      const res = await api.post(`/v2/admin/withdrawals/${req._id}/generate-qr`);
+      setQrData({
+        qrCode: res.data.qrCode,
+        upiUri: res.data.upiUri,
+        upiId: res.data.upiId,
+        ownerName: res.data.ownerName,
+        request: res.data.withdrawalRequest || req
+      });
+      setRefNumber('');
+      setSettleNote('');
+      setShowQrModal(true);
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to generate UPI QR code');
+    } finally {
+      setGeneratingQr(false);
+    }
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrData?.qrCode) return;
+    const link = document.createElement('a');
+    link.href = qrData.qrCode;
+    link.download = `Settlement_QR_${qrData.request._id}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCopyUpiId = () => {
+    if (!qrData?.upiId) return;
+    navigator.clipboard.writeText(qrData.upiId);
+    toast.success('UPI ID copied to clipboard');
+  };
+
   // Handle Settlement Completion modal open/submit
   const handleCompleteOpen = (req) => {
     setSelectedReq(req);
-    setTransferType('imps');
+    setTransferType('upi_qr');
     setRefNumber('');
     setSettleNote('');
     setShowCompleteModal(true);
@@ -142,16 +188,16 @@ const AdminWalletPage = () => {
 
   const handleCompleteSubmit = async (e) => {
     e.preventDefault();
-    if (!refNumber) {
-      toast.error('Reference number is required');
+    if (!refNumber || refNumber.trim().length < 10 || refNumber.trim().length > 30) {
+      toast.error('UTR number must be between 10 and 30 characters');
       return;
     }
     try {
       setSettling(true);
       await api.patch(`/v2/admin/withdrawals/${selectedReq._id}/complete`, {
-        transferType,
-        referenceNumber: refNumber,
-        note: settleNote
+        settlementMethod: transferType,
+        utrNumber: refNumber,
+        remarks: settleNote
       });
       toast.success('Withdrawal request completed successfully');
       setShowCompleteModal(false);
@@ -307,29 +353,39 @@ const AdminWalletPage = () => {
                         )}
                       </td>
                       <td>
-                        <div className="flex gap-2">
-                          {req.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleApprove(req._id)}
-                                className="btn-success btn-sm font-semibold px-3 py-1"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleRejectOpen(req)}
-                                className="btn-danger btn-sm font-semibold px-3 py-1"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {(req.status === 'approved' || req.status === 'pending') && (
+                        <div className="flex flex-wrap gap-2">
+                          {['pending', 'approved', 'processing'].includes(req.status) && (
                             <button
-                              onClick={() => handleCompleteOpen(req)}
+                              onClick={() => handleGenerateQr(req)}
+                              disabled={generatingQr}
                               className="btn-primary btn-sm font-semibold px-3 py-1"
                             >
-                              Settle (Mark Complete)
+                              Generate QR
+                            </button>
+                          )}
+                          {req.status === 'qr_generated' && (
+                            <button
+                              onClick={() => handleGenerateQr(req)}
+                              disabled={generatingQr}
+                              className="btn-secondary btn-sm font-semibold px-3 py-1 border border-brand-500 text-brand-400 hover:bg-brand-500/10"
+                            >
+                              👁️ View QR
+                            </button>
+                          )}
+                          {['pending', 'approved', 'processing', 'qr_generated'].includes(req.status) && (
+                            <button
+                              onClick={() => handleRejectOpen(req)}
+                              className="btn-danger btn-sm font-semibold px-3 py-1"
+                            >
+                              Reject
+                            </button>
+                          )}
+                          {isSuperAdmin && ['pending', 'approved', 'processing', 'qr_generated'].includes(req.status) && (
+                            <button
+                              onClick={() => handleCompleteOpen(req)}
+                              className="btn-success btn-sm font-semibold px-3 py-1"
+                            >
+                              Settle (Manual)
                             </button>
                           )}
                           {req.status === 'completed' && (
@@ -615,6 +671,133 @@ const AdminWalletPage = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* UPI Settlement QR Modal */}
+      <Modal
+        isOpen={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        title="UPI Settlement QR Code"
+      >
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <p className="text-slate-400 text-sm">
+              Scan this QR code using any UPI application (GPay, PhonePe, Paytm, etc.) to pay this landlord.
+            </p>
+            <div className="bg-slate-800/40 p-4 rounded-xl border border-surface-border inline-block mt-3 w-full">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Landlord Name</p>
+              <p className="text-md font-bold text-white mb-2">{qrData?.ownerName}</p>
+
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">UPI ID</p>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="font-mono text-sm text-brand-400">{qrData?.upiId}</span>
+                <button
+                  type="button"
+                  onClick={handleCopyUpiId}
+                  className="text-slate-400 hover:text-white transition-colors"
+                  title="Copy UPI ID"
+                >
+                  📋
+                </button>
+              </div>
+
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Settlement Amount</p>
+              <p className="text-2xl font-extrabold text-success">
+                ₹{qrData?.request?.amount?.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-center space-y-4">
+            {qrData?.qrCode ? (
+              <div className="p-3 bg-white rounded-xl shadow-lg border border-slate-700">
+                <img
+                  src={qrData.qrCode}
+                  alt="UPI QR Code"
+                  className="w-48 h-48 select-none"
+                />
+              </div>
+            ) : (
+              <LoadingSpinner size="md" />
+            )}
+            <button
+              type="button"
+              onClick={handleDownloadQr}
+              className="btn-secondary btn-sm px-4 py-1.5 flex items-center gap-2 border border-slate-600 hover:bg-slate-800"
+            >
+              📥 Download QR Code
+            </button>
+          </div>
+
+          {isSuperAdmin && (
+            <div className="pt-6 border-t border-surface-border space-y-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Complete Settlement Inline</h3>
+              <p className="text-xs text-slate-400">
+                Once paid, enter the UTR/Reference number (10-30 characters) to complete the withdrawal and update the ledger.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="form-label text-xs">Transaction Reference Number / UTR</label>
+                  <input
+                    type="text"
+                    value={refNumber}
+                    onChange={(e) => setRefNumber(e.target.value)}
+                    placeholder="e.g. UTR2817264812"
+                    className="form-input font-mono text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label text-xs">Admin note (Optional)</label>
+                  <textarea
+                    value={settleNote}
+                    onChange={(e) => setSettleNote(e.target.value)}
+                    placeholder="e.g. Paid via scanned UPI QR code"
+                    className="form-input text-xs h-16"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!refNumber || refNumber.trim().length < 10 || refNumber.trim().length > 30) {
+                      toast.error('UTR number must be between 10 and 30 characters');
+                      return;
+                    }
+                    try {
+                      setSettling(true);
+                      await api.patch(`/v2/admin/withdrawals/${qrData.request._id}/complete`, {
+                        settlementMethod: 'upi_qr',
+                        utrNumber: refNumber,
+                        remarks: settleNote
+                      });
+                      toast.success('Withdrawal request completed successfully');
+                      setShowQrModal(false);
+                      fetchAdminData();
+                    } catch (err) {
+                      toast.error(err.response?.data?.message || err.message || 'Settlement failed');
+                    } finally {
+                      setSettling(false);
+                    }
+                  }}
+                  disabled={settling}
+                  className="btn-success w-full font-bold py-2 text-sm rounded-lg"
+                >
+                  {settling ? 'Completing...' : 'Mark Paid & Completed'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-4 border-t border-surface-border">
+            <button
+              type="button"
+              onClick={() => setShowQrModal(false)}
+              className="btn-secondary"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

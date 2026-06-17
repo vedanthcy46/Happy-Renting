@@ -828,7 +828,26 @@ const sendDailyDigestEmail = async (owner, summary) => {
   await queueEmail(owner.email, subject, html, 'alert');
 };
 
+const sendWithdrawalSettledEmail = async (owner, amount, utrNumber, date) => {
+  const subject = `[Happy Renting] Withdrawal Request Settled - ₹${amount}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #16a34a;">Withdrawal Settled Successfully</h2>
+      <p>Hello <strong>${owner.name}</strong>,</p>
+      <p>Your withdrawal request of <strong>₹${amount.toLocaleString('en-IN')}</strong> has been settled successfully to your registered settlement account.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Settlement Reference (UTR):</strong> <span style="font-family: monospace; font-weight: bold;">${utrNumber}</span></p>
+      <p><strong>Paid At:</strong> ${new Date(date).toLocaleString('en-IN')}</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p>Please check your bank/UPI logs to confirm the deposit.</p>
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(owner.email, subject, html, 'receipt');
+};
+
 module.exports = {
+  sendWithdrawalSettledEmail,
   sendComplaintNotification,
   sendComplaintResolvedNotification,
   sendPaymentProofNotification,

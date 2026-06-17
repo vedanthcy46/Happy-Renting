@@ -18,6 +18,10 @@ const ProfilePage = () => {
     phone: '',
     upiId: '',
     upiNumber: '',
+    upiDetails: {
+      upiId: '',
+      upiName: ''
+    },
     bankDetails: {
       accountHolder: '',
       accountNumber: '',
@@ -40,6 +44,10 @@ const ProfilePage = () => {
         phone: profile.phone || '',
         upiId: profile.upiId || '',
         upiNumber: profile.upiNumber || '',
+        upiDetails: {
+          upiId: profile.upiDetails?.upiId || profile.upiId || '',
+          upiName: profile.upiDetails?.upiName || profile.name || ''
+        },
         bankDetails: {
           accountHolder: profile.bankDetails?.accountHolder || '',
           accountNumber: profile.bankDetails?.accountNumber || '',
@@ -67,6 +75,17 @@ const ProfilePage = () => {
           [field]: value
         }
       }));
+    } else if (name.startsWith('upiDetails.')) {
+      const field = name.split('.')[1];
+      setFormData(prev => ({
+        ...prev,
+        upiDetails: {
+          ...prev.upiDetails,
+          [field]: value
+        },
+        // Sync top-level upiId for compatibility
+        ...(field === 'upiId' ? { upiId: value } : {})
+      }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -80,7 +99,7 @@ const ProfilePage = () => {
       updateUser(data.user);
       toast.success('Profile updated successfully!');
     } catch (err) {
-      toast.error(err.message || 'Update failed.');
+      toast.error(err.response?.data?.message || err.message || 'Update failed.');
     } finally {
       setLoading(false);
     }
@@ -196,8 +215,15 @@ const ProfilePage = () => {
                   <div>
                     <label className="form-label">UPI ID</label>
                     <input 
-                      type="text" name="upiId" className="form-input" 
-                      value={formData.upiId} onChange={handleChange} placeholder="e.g. name@upi"
+                      type="text" name="upiDetails.upiId" className="form-input" 
+                      value={formData.upiDetails.upiId} onChange={handleChange} placeholder="e.g. name@upi"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">UPI Registered Name</label>
+                    <input 
+                      type="text" name="upiDetails.upiName" className="form-input" 
+                      value={formData.upiDetails.upiName} onChange={handleChange} placeholder="e.g. John Doe"
                     />
                   </div>
                   <div>

@@ -56,8 +56,8 @@ const WalletPage = () => {
     setWithdrawAmount('');
     if (user?.bankDetails) {
       setBankAccount(user.bankDetails.accountNumber || '');
-      setIfscCode(user.bankDetails.ifsc || '');
-      setHolderName(user.name || '');
+      setIfscCode(user.bankDetails.ifscCode || user.bankDetails.ifsc || '');
+      setHolderName(user.bankDetails.accountHolder || user.name || '');
     } else {
       setBankAccount('');
       setIfscCode('');
@@ -80,8 +80,10 @@ const WalletPage = () => {
       return;
     }
 
-    if (!bankAccount || !ifscCode || !holderName) {
-      toast.error('Please fill in all bank details');
+    // Ensure there is at least bank details OR a registered UPI ID
+    const upiId = user?.upiDetails?.upiId || user?.upiId;
+    if (!bankAccount && !upiId) {
+      toast.error('Please enter bank details or configure a UPI ID in your profile settings to request a settlement');
       return;
     }
 
@@ -89,9 +91,9 @@ const WalletPage = () => {
       setSubmitting(true);
       await api.post('/v2/wallet/withdraw', {
         amount: amountNum,
-        bankAccountNumber: bankAccount,
-        ifscCode,
-        accountHolderName: holderName
+        bankAccountNumber: bankAccount || null,
+        ifscCode: ifscCode || null,
+        accountHolderName: holderName || null
       });
 
       toast.success('Withdrawal request submitted successfully');
@@ -351,6 +353,9 @@ const WalletPage = () => {
         title="Request Settlement Transfer"
       >
         <form onSubmit={handleWithdrawSubmit} className="space-y-4">
+          <div className="bg-brand-500/10 border border-brand-500/20 rounded-lg p-3 text-xs text-brand-300 leading-relaxed">
+            💡 <strong>Faster Settlements:</strong> Add your <strong>UPI ID</strong> and <strong>UPI Registered Name</strong> in your <a href="/profile" className="text-brand-400 underline hover:text-brand-300">Profile Settings</a> to enable instant UPI QR-code settlements.
+          </div>
           <div>
             <label className="form-label">Amount (₹)</label>
             <input
@@ -376,38 +381,35 @@ const WalletPage = () => {
 
             <div className="space-y-3">
               <div>
-                <label className="form-label text-xs">Account Holder Name</label>
+                <label className="form-label text-xs">Account Holder Name (Optional)</label>
                 <input
                   type="text"
                   value={holderName}
                   onChange={(e) => setHolderName(e.target.value)}
                   placeholder="e.g. John Doe"
                   className="form-input"
-                  required
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="form-label text-xs">Bank Account Number</label>
+                  <label className="form-label text-xs">Bank Account Number (Optional)</label>
                   <input
                     type="text"
                     value={bankAccount}
                     onChange={(e) => setBankAccount(e.target.value)}
                     placeholder="e.g. 918273645012"
                     className="form-input font-mono"
-                    required
                   />
                 </div>
                 <div>
-                  <label className="form-label text-xs">IFSC Code</label>
+                  <label className="form-label text-xs">IFSC Code (Optional)</label>
                   <input
                     type="text"
                     value={ifscCode}
                     onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
                     placeholder="e.g. HDFC0000281"
                     className="form-input font-mono"
-                    required
                   />
                 </div>
               </div>

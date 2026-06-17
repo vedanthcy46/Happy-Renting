@@ -34,6 +34,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.18.0",
+    "qrcode": "^1.5.4",
     "resend": "^6.12.2",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"

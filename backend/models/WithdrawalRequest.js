@@ -17,24 +17,62 @@ const withdrawalRequestSchema = new mongoose.Schema(
     },
     bankAccountNumber: {
       type: String,
-      required: [true, 'Bank account number is required'],
-      trim: true
+      trim: true,
+      default: null
     },
     ifscCode: {
       type: String,
-      required: [true, 'IFSC code is required'],
-      trim: true
+      trim: true,
+      default: null
     },
     accountHolderName: {
       type: String,
-      required: [true, 'Account holder name is required'],
-      trim: true
+      trim: true,
+      default: null
     },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'processing', 'completed', 'rejected'],
+      enum: ['pending', 'qr_generated', 'paid', 'completed', 'rejected'],
       default: 'pending',
       index: true
+    },
+    qrGeneratedAt: {
+      type: Date,
+      default: null
+    },
+    qrGeneratedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    utrNumber: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    settlementMethod: {
+      type: String,
+      enum: ['upi_qr', 'upi_manual', 'bank_transfer', 'cash', null],
+      default: null
+    },
+    settlementReference: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    paidAt: {
+      type: Date,
+      default: null
+    },
+    paidBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    remarks: {
+      type: String,
+      trim: true,
+      default: null
     },
     requestedAt: {
       type: Date,

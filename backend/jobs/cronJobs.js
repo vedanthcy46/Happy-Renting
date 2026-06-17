@@ -17,6 +17,7 @@ const SystemHealth = require('../models/SystemHealth');
 const billingServiceV2 = require('../services/billingServiceV2');
 const backupService = require('../services/backupService');
 const ledgerQueueService = require('../services/ledgerQueueService');
+const walletService = require('../services/walletService');
 
 const runDailyJobs = async () => {
   logger.info('[CRON] Starting daily rent status check (IST timezone)...');
@@ -81,6 +82,13 @@ const runDailyJobs = async () => {
       await billingServiceV2.purgePrivacyData();
     } catch (err) {
       logger.error(`[CRON ERROR] purgePrivacyData failed: ${err.message}`);
+    }
+
+    try {
+      logger.info('[CRON-V2] Charging landlord monthly subscriptions...');
+      await walletService.chargeMonthlySubscriptions();
+    } catch (err) {
+      logger.error(`[CRON ERROR] chargeMonthlySubscriptions failed: ${err.message}`);
     }
 
     logger.info(`[CRON] Daily check completed successfully.`);

@@ -313,10 +313,15 @@ exports.adminRejectWithdrawal = async (req, res, next) => {
 exports.adminCompleteWithdrawal = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { transferType, referenceNumber, note } = req.body;
+    const { transferType, referenceNumber, note, utrNumber, remarks, settlementMethod } = req.body;
 
-    if (!transferType || !referenceNumber) {
-      const err = new Error('Transfer type and reference number are required for manual settlement completion');
+    const utr = utrNumber || referenceNumber;
+    const method = settlementMethod || transferType;
+    const finalRemarks = remarks || note;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (!utr) {
+      const err = new Error('UTR number or reference number is required');
       err.statusCode = 400;
       return next(err);
     }
@@ -324,7 +329,7 @@ exports.adminCompleteWithdrawal = async (req, res, next) => {
     const request = await walletService.processWithdrawal(
       id,
       'complete',
-      { transferType, referenceNumber, note },
+      { utrNumber: utr, settlementMethod: method, remarks: finalRemarks, ipAddress },
       req.user._id
     );
 
@@ -335,6 +340,32 @@ exports.adminCompleteWithdrawal = async (req, res, next) => {
     });
   } catch (err) {
     logger.error(`[WALLET CONTROLLER] adminCompleteWithdrawal error: ${err.message}`);
+    next(err);
+  }
+};
+
+/**
+ * POST /api/v2/admin/withdrawals/:id/generate-qr
+ * Generates a UPI QR code for a withdrawal request.
+ */
+exports.adminGenerateQrCode = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    const result = await walletService.generateWithdrawalQr(id, req.user._id, ipAddress);
+
+    return res.status(200).json({
+      success: true,
+      message: 'UPI QR code generated successfully',
+      qrCode: result.qrCodeDataUrl,
+      upiUri: result.upiUri,
+      upiId: result.upiId,
+      ownerName: result.ownerName,
+      withdrawalRequest: result.request
+    });
+  } catch (err) {
+    logger.error(`[WALLET CONTROLLER] adminGenerateQrCode error: ${err.message}`);
     next(err);
   }
 };

@@ -6,6 +6,10 @@ const WalletTransaction = require('../models/WalletTransaction');
 const WithdrawalRequest = require('../models/WithdrawalRequest');
 const PlatformSettings = require('../models/PlatformSettings');
 const PaymentTransaction = require('../models/PaymentTransaction');
+const SettlementAuditLog = require('../models/SettlementAuditLog');
+const Notification = require('../models/Notification');
+const emailService = require('./emailService');
+const User = require('../models/User');
 const logger = require('../config/logger');
 
 /**
@@ -332,10 +336,11 @@ const processWithdrawal = async (requestId, action, details = {}, adminId, sessi
     }
 
     if (action === 'reject') {
-      if (!['pending', 'approved', 'processing'].includes(request.status)) {
+      if (!['pending', 'approved', 'processing', 'qr_generated'].includes(request.status)) {
         throw new Error(`Cannot reject request in ${request.status} status`);
       }
 
+      const oldStatus = request.status;
       const wallet = await getOrCreateWallet(request.ownerId, txSession);
       const balanceBefore = wallet.availableBalance;
       const balanceAfter = Math.round((balanceBefore + request.amount) * 100) / 100;
@@ -357,6 +362,7 @@ const processWithdrawal = async (requestId, action, details = {}, adminId, sessi
         [
           {
             ownerId: request.ownerId,
+            withdrawalId: request._id,
             grossAmount: request.amount,
             gatewayFee: 0,
             platformFee: 0,
@@ -371,18 +377,53 @@ const processWithdrawal = async (requestId, action, details = {}, adminId, sessi
         { session: txSession }
       );
 
+      // Create Audit Log
+      await SettlementAuditLog.create(
+        [
+          {
+            withdrawalId: request._id,
+            ownerId: request.ownerId,
+            adminId,
+            action: 'settlement_rejected',
+            oldStatus,
+            newStatus: 'rejected',
+            ipAddress: details.ipAddress || null
+          }
+        ],
+        { session: txSession }
+      );
+
+      // Create Notification
+      await Notification.create(
+        [
+          {
+            userId: request.ownerId,
+            title: 'Withdrawal Request Rejected',
+            message: `Your withdrawal request of ₹${request.amount} has been rejected. Reason: ${request.rejectionReason}`,
+            type: 'alert'
+          }
+        ],
+        { session: txSession }
+      );
+
       logger.info(`[WALLET] Withdrawal rejected requestId=${requestId} by admin=${adminId}. Balance refunded.`);
       return request;
     }
 
     if (action === 'complete') {
-      // Allow transition from approved, processing, or directly from pending for phase 1 manual settlement
-      if (!['pending', 'approved', 'processing'].includes(request.status)) {
+      // Allow transition from approved, processing, qr_generated, or directly from pending for phase 1 manual settlement
+      if (!['pending', 'approved', 'processing', 'qr_generated'].includes(request.status)) {
         throw new Error(`Cannot complete request in ${request.status} status`);
       }
 
-      if (!details.transferType || !details.referenceNumber) {
-        throw new Error('Manual settlement requires transferType and referenceNumber');
+      const utr = details.utrNumber ? details.utrNumber.trim() : '';
+      if (!utr || utr.length < 10 || utr.length > 30) {
+        throw new Error('UTR number must be between 10 and 30 characters');
+      }
+
+      const method = details.settlementMethod || 'upi_qr';
+      if (!['upi_qr', 'upi_manual', 'bank_transfer', 'cash'].includes(method)) {
+        throw new Error(`Invalid settlement method: ${method}`);
       }
 
       const wallet = await getOrCreateWallet(request.ownerId, txSession);
@@ -393,14 +434,21 @@ const processWithdrawal = async (requestId, action, details = {}, adminId, sessi
       wallet.lastSettlementDate = new Date();
       await wallet.save({ session: txSession });
 
+      const oldStatus = request.status;
+
       // Update request details
       request.status = 'completed';
       request.processedAt = new Date();
       request.processedBy = adminId;
+      request.utrNumber = utr;
+      request.settlementMethod = method;
+      request.paidAt = new Date();
+      request.paidBy = adminId;
+      request.remarks = details.remarks || 'Settled manually by admin';
       request.settlementDetails = {
-        transferType: details.transferType,
-        referenceNumber: details.referenceNumber,
-        note: details.note || 'Settled manually by admin'
+        transferType: method === 'upi_qr' || method === 'upi_manual' ? 'upi' : 'bank_transfer',
+        referenceNumber: utr,
+        note: details.remarks || 'Settled manually by admin'
       };
       await request.save({ session: txSession });
 
@@ -409,6 +457,7 @@ const processWithdrawal = async (requestId, action, details = {}, adminId, sessi
         [
           {
             ownerId: request.ownerId,
+            withdrawalId: request._id,
             grossAmount: request.amount,
             gatewayFee: 0,
             platformFee: 0,
@@ -416,12 +465,47 @@ const processWithdrawal = async (requestId, action, details = {}, adminId, sessi
             balanceBefore: wallet.availableBalance, // Available balance was already adjusted during withdrawal request
             balanceAfter: wallet.availableBalance,
             type: 'settlement',
-            remarks: `Manual settlement completed via ${details.transferType.toUpperCase()}. Ref: ${details.referenceNumber}`,
+            remarks: `Manual settlement completed via ${method.toUpperCase()}. Ref: ${utr}`,
             createdBy: adminId
           }
         ],
         { session: txSession }
       );
+
+      // Create Audit Log
+      await SettlementAuditLog.create(
+        [
+          {
+            withdrawalId: request._id,
+            ownerId: request.ownerId,
+            adminId,
+            action: 'settlement_completed',
+            oldStatus,
+            newStatus: 'completed',
+            ipAddress: details.ipAddress || null
+          }
+        ],
+        { session: txSession }
+      );
+
+      // Create Notification
+      await Notification.create(
+        [
+          {
+            userId: request.ownerId,
+            title: 'Withdrawal Request Settled',
+            message: `Your withdrawal request of ₹${request.amount} has been completed. UTR: ${utr}`,
+            type: 'billing'
+          }
+        ],
+        { session: txSession }
+      );
+
+      // Send Email
+      const owner = await User.findById(request.ownerId).session(txSession);
+      if (owner) {
+        await emailService.sendWithdrawalSettledEmail(owner, request.amount, utr, new Date());
+      }
 
       logger.info(`[WALLET] Withdrawal completed/settled requestId=${requestId} by admin=${adminId}`);
       return request;
@@ -588,6 +672,85 @@ const chargeMonthlySubscriptions = async () => {
   });
 };
 
+
+/**
+ * Generate UPI QR code for a withdrawal request and transition status.
+ */
+const generateWithdrawalQr = async (requestId, adminId, ipAddress, session = null) => {
+  const qrFn = async (txSession) => {
+    const request = await WithdrawalRequest.findById(requestId).session(txSession);
+    if (!request) {
+      throw new Error(`Withdrawal request ${requestId} not found`);
+    }
+
+    if (!['pending', 'approved', 'processing', 'qr_generated'].includes(request.status)) {
+      throw new Error(`Cannot generate QR code for request in ${request.status} status`);
+    }
+
+    const owner = await User.findById(request.ownerId).session(txSession);
+    if (!owner) {
+      throw new Error(`Owner/Landlord not found for withdrawal request`);
+    }
+
+    const upiId = (owner.upiDetails && owner.upiDetails.upiId) || owner.upiId;
+    if (!upiId) {
+      throw new Error('Landlord does not have a registered UPI ID for settlement');
+    }
+
+    const ownerName = (owner.upiDetails && owner.upiDetails.upiName) || owner.name || 'Owner';
+    const amount = request.amount;
+    const withdrawalIdStr = request._id.toString();
+
+    // Construct UPI URI
+    const encodedName = encodeURIComponent(ownerName);
+    const encodedNote = encodeURIComponent(`Happy Renting Settlement ${withdrawalIdStr}`);
+    const upiUri = `upi://pay?pa=${upiId}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`;
+
+    const QRCode = require('qrcode');
+    const qrCodeDataUrl = await QRCode.toDataURL(upiUri);
+
+    const oldStatus = request.status;
+
+    // Update request status
+    request.status = 'qr_generated';
+    request.qrGeneratedAt = new Date();
+    request.qrGeneratedBy = adminId;
+    await request.save({ session: txSession });
+
+    // Create Audit Log
+    await SettlementAuditLog.create(
+      [
+        {
+          withdrawalId: request._id,
+          ownerId: request.ownerId,
+          adminId,
+          action: 'qr_generated',
+          oldStatus,
+          newStatus: 'qr_generated',
+          ipAddress
+        }
+      ],
+      { session: txSession }
+    );
+
+    logger.info(`[WALLET] UPI QR generated for withdrawal requestId=${requestId} by admin=${adminId}`);
+
+    return {
+      request,
+      qrCodeDataUrl,
+      upiUri,
+      upiId,
+      ownerName
+    };
+  };
+
+  if (session) {
+    return await qrFn(session);
+  } else {
+    return await withTransaction(qrFn);
+  }
+};
+
 module.exports = {
   getPlatformSettings,
   updatePlatformSettings,
@@ -595,6 +758,7 @@ module.exports = {
   creditWalletOnPayment,
   requestWithdrawal,
   processWithdrawal,
+  generateWithdrawalQr,
   rebuildOwnerWallet,
   chargeMonthlySubscriptions,
   calculateGatewayFee

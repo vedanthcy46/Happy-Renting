@@ -25,6 +25,11 @@ const walletTransactionSchema = new mongoose.Schema(
       ref: 'PaymentTransaction',
       default: null
     },
+    withdrawalId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'WithdrawalRequest',
+      default: null
+    },
     grossAmount: {
       type: Number,
       required: [true, 'Gross amount is required']
