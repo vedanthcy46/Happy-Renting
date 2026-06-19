@@ -591,7 +591,7 @@ const sendLoginAlertEmail = async (user, ipAddress, device) => {
 const Notification = require('../models/Notification');
 
 const sendOwnerBillingSummaryEmail = async (owner, count, month) => {
-  if (owner.notificationPreferences?.billingSummaryEmails === false) return;
+  if (!owner.isActive || owner.notificationPreferences?.billingSummaryEmails === false) return;
 
   const subject = `Billing Cycle Completed - ${month}`;
   const html = `
@@ -799,7 +799,7 @@ const sendSystemFailureAlert = async (type, errorMsg) => {
 };
 
 const sendDailyDigestEmail = async (owner, summary) => {
-  if (owner.notificationPreferences?.dailyDigestEmails === false) return;
+  if (!owner.isActive || owner.notificationPreferences?.dailyDigestEmails === false) return;
 
   const isSuperAdmin = owner.role === 'superadmin';
   const subject = isSuperAdmin ? `Global Platform Summary - Happy Renting` : `Daily Owner Summary - Happy Renting`;

@@ -35,7 +35,9 @@ const getUsers = async (req, res, next) => {
       if (req.query.role) filter.role = req.query.role;
     }
 
-    const users = await User.find(filter).select('-password').sort({ createdAt: -1 });
+    const users = await User.find(filter)
+      .select('_id name email role isActive phone lastLogin createdAt mustChangePassword ownerId')
+      .sort({ createdAt: -1 });
     res.status(200).json({ success: true, count: users.length, users });
   } catch (err) {
     next(err);

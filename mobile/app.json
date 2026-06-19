@@ -1,14 +1,18 @@
 {
   "expo": {
     "name": "mobile",
-    "slug": "mobile",
+    "slug": "happy-renting-tenant",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.happyrenting.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.happyrenting.app",
@@ -42,8 +46,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b6a8f405-d133-4e81-a15f-5becdd43adf6"
+        "projectId": "4c66fc8a-93a0-4b25-a211-41a3b4bc9e99"
       }
-    }
+    },
+    "owner": "vedanthcy"
   }
 }
