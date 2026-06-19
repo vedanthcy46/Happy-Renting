@@ -151,7 +151,7 @@ const UsersPage = () => {
                     </span>
                   </td>
                   <td>
-                    <StatusBadge status={u.isActive ? 'paid' : 'failed'} />
+                    <StatusBadge status={u.isActive ? 'active' : 'inactive'} />
                   </td>
                   <td>
                     <div className="flex gap-2">

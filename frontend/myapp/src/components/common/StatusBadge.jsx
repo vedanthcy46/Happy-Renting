@@ -2,6 +2,7 @@ import React from 'react';
 
 const variants = {
   active  : 'bg-success/20 text-success border-success/30',
+  inactive: 'bg-danger/20 text-danger border-danger/30',
   vacated : 'bg-slate-500/20 text-slate-400 border-slate-500/30',
   full    : 'bg-danger/20 text-danger border-danger/30',
   available:'bg-success/20 text-success border-success/30',
@@ -17,6 +18,7 @@ const variants = {
 
 const dots = {
   active  : 'bg-success',
+  inactive: 'bg-danger',
   vacated : 'bg-slate-400',
   full    : 'bg-danger',
   available:'bg-success',
@@ -32,6 +34,7 @@ const dots = {
 
 const labels = {
   active    : 'Active',
+  inactive  : 'Inactive',
   vacated   : 'Vacated',
   full      : 'Full',
   available : 'Available',
