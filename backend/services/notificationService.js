@@ -16,13 +16,22 @@ let expo = new Expo();
  * @param {string} [params.type='general'] - Categorization type
  * @param {Object} [params.data={}] - Additional payload data
  */
-const sendPushNotification = async ({ userId, title, body, type = 'general', data = {} }) => {
+const sendPushNotification = async ({ userId, title, body, message, type = 'general', data = {} }) => {
   try {
+    const finalMessage = message || body || 'A new notification is available.';
+
+    logger.info('[NOTIFICATION DEBUG]', {
+      user: userId,
+      type,
+      title,
+      message: finalMessage
+    });
+
     // 1. Save to database history
     const notification = await Notification.create({
       userId,
       title,
-      body,
+      message: finalMessage,
       type,
       data,
       isRead: false
@@ -49,7 +58,7 @@ const sendPushNotification = async ({ userId, title, body, type = 'general', dat
       to: token,
       sound: 'default',
       title,
-      body,
+      body: finalMessage,
       data: { notificationId: notification._id, ...data },
     }));
 
