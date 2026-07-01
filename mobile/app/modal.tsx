@@ -1,14 +1,27 @@
 import { StatusBar } from 'expo-status-bar';
-import { Platform, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import {
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View } from '@/components/Themed';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { updateProfile, changePassword as apiChangePassword, getProfile } from '../src/api/user';
+import { AppCard, AppButton, AppInput, AppHeader } from '../src/components';
+import { colors, typography, spacing, radius, shadows } from '../src/theme';
+import { getInitials } from '../src/utils';
 
 export default function ModalScreen() {
   const { user, logout, setAuth, token } = useAuthStore();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -31,7 +44,6 @@ export default function ModalScreen() {
             email: res.user.email,
             phone: (res.user as any).phone || '',
           });
-          // Update store
           await setAuth(res.user, token!);
         }
       } catch (e) {
@@ -51,10 +63,10 @@ export default function ModalScreen() {
       const res = await updateProfile(formData);
       if (res.success) {
         await setAuth(res.user, token!);
-        Alert.alert('Success', 'Profile updated successfully');
+        Alert.alert('Success', 'Profile updated');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to update profile');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to update');
     } finally {
       setLoading(false);
     }
@@ -66,17 +78,17 @@ export default function ModalScreen() {
       return;
     }
     if (passData.newPassword !== passData.confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
     setPassLoading(true);
     try {
       const res = await apiChangePassword({
         currentPassword: passData.currentPassword,
-        newPassword: passData.newPassword
+        newPassword: passData.newPassword,
       });
       if (res.success) {
-        Alert.alert('Success', 'Password changed successfully');
+        Alert.alert('Success', 'Password changed');
         setShowPassModal(false);
         setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       }
@@ -90,236 +102,248 @@ export default function ModalScreen() {
   const handleLogout = async () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Logout', 
+      {
+        text: 'Logout',
         style: 'destructive',
         onPress: async () => {
           await logout();
           router.replace('/login');
-        }
+        },
       },
     ]);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Your Profile</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      
-      <View style={styles.form}>
-        <Text style={styles.label}>Name</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.name}
-          onChangeText={(text) => setFormData({ ...formData, name: text })}
-          placeholder="Enter your name"
-        />
-        
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.email}
-          onChangeText={(text) => setFormData({ ...formData, email: text })}
-          placeholder="Enter your email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+    <View style={styles.container}>
+      <AppHeader
+        title="Profile"
+        onBack={() => router.back()}
+        style={{ paddingTop: insets.top + spacing.md }}
+      />
 
-        <Text style={styles.label}>Phone</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.phone}
-          onChangeText={(text) => setFormData({ ...formData, phone: text })}
-          placeholder="Enter your phone"
-          keyboardType="phone-pad"
-        />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Avatar & Name */}
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarLarge}>
+            <Text style={styles.avatarLargeText}>{getInitials(user?.name || '')}</Text>
+          </View>
+          <Text style={styles.profileName}>{user?.name}</Text>
+          <Text style={styles.profileEmail}>{user?.email}</Text>
+          <View style={styles.roleBadge}>
+            <Ionicons name="person" size={12} color={colors.primary} />
+            <Text style={styles.roleText}>Tenant</Text>
+          </View>
+        </View>
 
-        <TouchableOpacity 
-          style={[styles.button, styles.updateButton, loading && styles.disabledButton]} 
-          onPress={handleUpdateProfile}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Update Profile</Text>}
+        {/* Edit Profile */}
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="create-outline" size={18} color={colors.text.primary} />
+            <Text style={styles.sectionTitle}>Edit Profile</Text>
+          </View>
+          <AppInput
+            label="Name"
+            placeholder="Enter your name"
+            value={formData.name}
+            onChangeText={(text) => setFormData({ ...formData, name: text })}
+          />
+          <AppInput
+            label="Email"
+            placeholder="Enter your email"
+            value={formData.email}
+            onChangeText={(text) => setFormData({ ...formData, email: text })}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <AppInput
+            label="Phone"
+            placeholder="Enter your phone"
+            value={formData.phone}
+            onChangeText={(text) => setFormData({ ...formData, phone: text })}
+            keyboardType="phone-pad"
+          />
+          <AppButton
+            title="Update Profile"
+            onPress={handleUpdateProfile}
+            loading={loading}
+            fullWidth
+          />
+        </AppCard>
+
+        {/* Security */}
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.text.primary} />
+            <Text style={styles.sectionTitle}>Security</Text>
+          </View>
+          <AppButton
+            title="Change Password"
+            onPress={() => setShowPassModal(true)}
+            variant="outline"
+            fullWidth
+            icon={<Ionicons name="lock-closed-outline" size={18} color={colors.primary} />}
+          />
+        </AppCard>
+
+        {/* Logout */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.button, styles.passwordButton]} 
-          onPress={() => setShowPassModal(true)}
-        >
-          <Text style={styles.passwordButtonText}>Change Password</Text>
-        </TouchableOpacity>
-      </View>
+        <Text style={styles.versionText}>Happy Renting v1.0.0</Text>
+      </ScrollView>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
-
+      {/* Change Password Modal */}
       {showPassModal && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Change Password</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Current Password"
-              secureTextEntry
+        <View style={styles.passOverlay}>
+          <View style={styles.passModal}>
+            <View style={styles.passHeader}>
+              <Text style={styles.passTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => setShowPassModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <AppInput
+              label="Current Password"
+              placeholder="Enter current password"
               value={passData.currentPassword}
               onChangeText={(text) => setPassData({ ...passData, currentPassword: text })}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="New Password"
               secureTextEntry
+            />
+            <AppInput
+              label="New Password"
+              placeholder="Enter new password"
               value={passData.newPassword}
               onChangeText={(text) => setPassData({ ...passData, newPassword: text })}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm New Password"
               secureTextEntry
+            />
+            <AppInput
+              label="Confirm New Password"
+              placeholder="Confirm new password"
               value={passData.confirmPassword}
               onChangeText={(text) => setPassData({ ...passData, confirmPassword: text })}
+              secureTextEntry
             />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]} 
-                onPress={() => setShowPassModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.button, styles.submitButton]} 
-                onPress={handleChangePassword}
-                disabled={passLoading}
-              >
-                {passLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Change</Text>}
-              </TouchableOpacity>
+            <View style={styles.passButtons}>
+              <AppButton title="Cancel" onPress={() => setShowPassModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
+              <AppButton title="Change" onPress={handleChangePassword} loading={passLoading} style={{ flex: 1, marginLeft: spacing.sm }} />
             </View>
           </View>
         </View>
       )}
 
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 40,
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.huge,
+  },
+  profileHeader: {
     alignItems: 'center',
-    paddingTop: 40,
-    backgroundColor: '#fff',
+    paddingVertical: spacing.xxl,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
-  form: {
-    width: '85%',
-    backgroundColor: 'transparent',
-  },
-  label: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-    marginTop: 15,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333',
-  },
-  button: {
-    padding: 15,
-    borderRadius: 8,
+  avatarLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
-  updateButton: {
-    backgroundColor: '#2196F3',
+  avatarLargeText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
   },
-  passwordButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#2196F3',
+  profileName: {
+    ...typography.h3,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
-  disabledButton: {
-    opacity: 0.6,
+  profileEmail: {
+    ...typography.body,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
+    gap: spacing.xs,
   },
-  passwordButtonText: {
-    color: '#2196F3',
-    fontSize: 16,
-    fontWeight: 'bold',
+  roleText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  sectionCard: {
+    marginBottom: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    ...typography.subtitle,
+    color: colors.text.primary,
   },
   logoutButton: {
-    backgroundColor: '#F44336',
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 8,
-    marginTop: 40,
-    width: '85%',
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    padding: 20,
+    paddingVertical: spacing.lg,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  logoutText: {
+    ...typography.subtitle,
+    color: colors.error,
+  },
+  versionText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginTop: spacing.xxl,
+  },
+  passOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    padding: spacing.xl,
     zIndex: 100,
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
+  passModal: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xxl,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalButtons: {
+  passHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'transparent',
-    marginTop: 10,
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#eee',
-    marginRight: 10,
+  passTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
   },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#2196F3',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  passButtons: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
   },
 });

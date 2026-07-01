@@ -26,8 +26,8 @@ const calculateDueDate = (monthStr) => {
   // Default to 5 if not in env
   const defaultDueDay = parseInt(process.env.GLOBAL_RENT_DUE_DAY || process.env.DEFAULT_RENT_DUE_DAY || '5', 10);
   
-  // Create Date for the 5th of the billing month (monthNum - 1 because JS months are 0-11)
-  return new Date(year, monthNum - 1, defaultDueDay, 12, 0, 0, 0);
+  // Create Date for the 5th of the NEXT month (since postpaid bills are generated for the previous month)
+  return new Date(year, monthNum, defaultDueDay, 12, 0, 0, 0);
 };
 
 /**

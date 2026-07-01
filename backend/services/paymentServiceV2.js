@@ -115,7 +115,7 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
         notificationService.sendPushNotification({
           userId: tenant.userId,
           title: 'New Rent Bill Generated 📄',
-          body: `Your rent bill for ${month} of ₹${finalRent} has been generated. Due date is ${dueDate.getDate()}th.`,
+          message: `Your rent bill for ${month} has been generated.`,
           type: 'bill_generated',
           data: { rentRecordId: rentRecord._id, month }
         }).catch(err => logger.error(`[Push] Failed to send bill generation push: ${err.message}`));

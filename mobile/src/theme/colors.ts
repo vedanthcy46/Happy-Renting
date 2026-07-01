@@ -1,0 +1,38 @@
+export const colors = {
+  primary: '#2563EB',
+  primaryLight: '#DBEAFE',
+  primaryDark: '#1D4ED8',
+  secondary: '#22C55E',
+  secondaryLight: '#DCFCE7',
+  secondaryDark: '#16A34A',
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  text: {
+    primary: '#0F172A',
+    secondary: '#64748B',
+    tertiary: '#94A3B8',
+    inverse: '#FFFFFF',
+  },
+  border: '#E2E8F0',
+  borderLight: '#F1F5F9',
+  success: '#16A34A',
+  successLight: '#DCFCE7',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+  error: '#EF4444',
+  errorLight: '#FEE2E2',
+  info: '#3B82F6',
+  infoLight: '#DBEAFE',
+  overlay: 'rgba(15, 23, 42, 0.5)',
+  tabInactive: '#94A3B8',
+  skeleton: '#E2E8F0',
+  gradient: {
+    primary: ['#2563EB', '#1D4ED8'] as const,
+    secondary: ['#22C55E', '#16A34A'] as const,
+    card: ['#2563EB', '#1D4ED8'] as const,
+    premium: ['#0F172A', '#1E293B'] as const,
+  },
+} as const;
+
+export type AppColors = typeof colors;

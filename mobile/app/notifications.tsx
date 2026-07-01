@@ -1,13 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View, ActivityIndicator, FlatList } from 'react-native';
-import { Text } from '@/components/Themed';
-import { getNotifications, markAsRead, markAllAsRead, Notification } from '../src/api/notifications';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React from 'react';
+import { StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { Text, View } from '@/components/Themed';
+import { getNotifications, markAsRead, markAllAsRead, Notification } from '../src/api/notifications';
+import { AppCard, AppHeader, EmptyState } from '../src/components';
+import { colors, typography, spacing, radius } from '../src/theme';
+import { formatRelativeTime } from '../src/utils';
+
+const notificationIcons: Record<string, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
+  payment_verified: { name: 'checkmark-circle', color: colors.success },
+  payment_rejected: { name: 'close-circle', color: colors.error },
+  bill_generated: { name: 'document-text', color: colors.primary },
+};
 
 export default function NotificationsScreen() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['notifications'],
@@ -16,62 +28,69 @@ export default function NotificationsScreen() {
 
   const mutationMarkRead = useMutation({
     mutationFn: (id: string) => markAsRead(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const mutationMarkAllRead = useMutation({
     mutationFn: () => markAllAsRead(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.isRead) {
       mutationMarkRead.mutate(notification._id);
     }
-    // Optional routing logic based on notification.type
-    // if (notification.type === 'bill_generated') {
-    //   router.push('/(tabs)/two');
-    // }
   };
 
-  const renderItem = ({ item }: { item: Notification }) => (
-    <TouchableOpacity 
-      style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
-      onPress={() => handleNotificationPress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.iconContainer}>
-        {item.type === 'payment_verified' && <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />}
-        {item.type === 'payment_rejected' && <Ionicons name="close-circle" size={24} color="#F44336" />}
-        {item.type === 'bill_generated' && <Ionicons name="document-text" size={24} color="#2196F3" />}
-        {!['payment_verified', 'payment_rejected', 'bill_generated'].includes(item.type) && <Ionicons name="notifications" size={24} color="#757575" />}
-      </View>
-      <View style={styles.contentContainer}>
-        <Text style={[styles.title, !item.isRead && styles.unreadText]}>{item.title}</Text>
-        <Text style={styles.body}>{item.body}</Text>
-        <Text style={styles.date}>{new Date(item.createdAt).toLocaleString()}</Text>
-      </View>
-      {!item.isRead && <View style={styles.unreadDot} />}
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }: { item: Notification }) => {
+    const iconConfig = notificationIcons[item.type] || { name: 'notifications' as const, color: colors.text.tertiary };
+    return (
+      <TouchableOpacity
+        onPress={() => handleNotificationPress(item)}
+        activeOpacity={0.7}
+      >
+        <AppCard
+          style={[styles.notificationCard, !item.isRead ? styles.unreadCard : undefined] as any}
+          variant={item.isRead ? 'bordered' : 'elevated'}
+          padding={spacing.lg}
+        >
+          <View style={styles.notifRow}>
+            <View style={[styles.notifIcon, { backgroundColor: iconConfig.color + '15' }]}>
+              <Ionicons name={iconConfig.name} size={22} color={iconConfig.color} />
+            </View>
+            <View style={styles.notifContent}>
+              <Text style={[styles.notifTitle, !item.isRead && styles.notifTitleUnread]}>
+                {item.title}
+              </Text>
+              <Text style={styles.notifBody} numberOfLines={2}>{item.body}</Text>
+              <Text style={styles.notifDate}>{formatRelativeTime(item.createdAt)}</Text>
+            </View>
+            {!item.isRead && <View style={styles.unreadDot} />}
+          </View>
+        </AppCard>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        {data?.unreadCount ? (
-          <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()}>
-            <Text style={styles.markAllText}>Mark all read</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+      <AppHeader
+        title="Notifications"
+        style={{ paddingTop: insets.top + spacing.md }}
+        onBack={() => router.back()}
+        rightAction={
+          data?.unreadCount ? (
+            <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()} activeOpacity={0.7}>
+              <Text style={styles.markAllText}>Mark all read</Text>
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
 
       {isLoading ? (
-        <ActivityIndicator size="large" color="#2196F3" style={{ marginTop: 50 }} />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       ) : (
         <FlatList
           data={data?.notifications || []}
@@ -80,11 +99,13 @@ export default function NotificationsScreen() {
           contentContainerStyle={styles.listContent}
           refreshing={isLoading}
           onRefresh={refetch}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>You have no notifications</Text>
-            </View>
+            <EmptyState
+              icon="notifications-off-outline"
+              title="No Notifications"
+              description="You're all caught up!"
+            />
           }
         />
       )}
@@ -95,84 +116,67 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  center: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  markAllText: {
-    color: '#2196F3',
-    fontWeight: '600',
   },
   listContent: {
-    padding: 15,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
   },
   notificationCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    marginBottom: spacing.sm,
   },
   unreadCard: {
-    backgroundColor: '#F0F8FF',
+    backgroundColor: '#F0F7FF',
   },
-  iconContainer: {
-    marginRight: 15,
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  contentContainer: {
+  notifIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  notifContent: {
     flex: 1,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+  notifTitle: {
+    ...typography.subtitle,
+    color: colors.text.primary,
+    marginBottom: 2,
   },
-  unreadText: {
-    fontWeight: 'bold',
-    color: '#000',
+  notifTitleUnread: {
+    fontWeight: '700',
   },
-  body: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 8,
+  notifBody: {
+    ...typography.bodySmall,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    lineHeight: 18,
   },
-  date: {
+  notifDate: {
+    ...typography.caption,
+    color: colors.text.tertiary,
     fontSize: 11,
-    color: '#999',
   },
   unreadDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#2196F3',
-    marginLeft: 10,
+    backgroundColor: colors.primary,
+    marginTop: 4,
+    marginLeft: spacing.sm,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
+  markAllText: {
+    ...typography.buttonSmall,
+    color: colors.primary,
   },
-  emptyText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#999',
-  }
 });

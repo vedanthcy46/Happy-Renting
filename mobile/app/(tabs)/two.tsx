@@ -1,31 +1,48 @@
 import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, RefreshControl, Platform, Alert, Modal, ScrollView, ActivityIndicator, TextInput, Image, Linking } from 'react-native';
+import {
+  StyleSheet,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  Modal,
+  ScrollView,
+  ActivityIndicator,
+  TextInput,
+  Image,
+  Linking,
+  Platform,
+} from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
 import * as AuthSession from 'expo-auth-session';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View } from '@/components/Themed';
 import { getRentRecords, createCashfreeOrder, getCashfreePaymentStatus, getRentRecordDetail, submitManualPayment, triggerBillingSync } from '../../src/api/payment';
 import { RentRecord, PaymentTransaction } from '../../src/types/payment';
+import { AppCard, AppButton, AppInput, StatusBadge, EmptyState, AppHeader } from '../../src/components';
+import { colors, typography, spacing, radius, shadows } from '../../src/theme';
+import { formatCurrency, formatMonth } from '../../src/utils';
 
 export default function PaymentsScreen() {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [polling, setPolling] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<RentRecord | null>(null);
   const [showTxnModal, setShowTxnModal] = useState(false);
-  
-  // Manual Payment State
+
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualForm, setManualForm] = useState({
     amount: '',
     paymentMethod: 'upi',
     transactionId: '',
-    note: ''
+    note: '',
   });
   const [proofImage, setProofImage] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['rentRecords'],
     queryFn: getRentRecords,
   });
@@ -37,27 +54,23 @@ export default function PaymentsScreen() {
   });
 
   const mutationManual = useMutation({
-    mutationFn: ({ id, formData }: { id: string, formData: FormData }) => submitManualPayment(id, formData),
+    mutationFn: ({ id, formData }: { id: string; formData: FormData }) => submitManualPayment(id, formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
       setShowManualModal(false);
       resetManualForm();
-      Alert.alert('Success', 'Payment submitted for verification');
+      Alert.alert('Submitted', 'Payment submitted for verification');
     },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to submit payment');
-    },
+    onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed'),
   });
 
   const mutationSync = useMutation({
     mutationFn: triggerBillingSync,
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
-      Alert.alert('Sync Complete', `Successfully generated ${res.details.billsCreated} new bills.`);
+      Alert.alert('Sync Complete', `Generated ${res.details?.billsCreated || 0} new bills.`);
     },
-    onError: (error: any) => {
-      Alert.alert('Sync Failed', error.response?.data?.message || 'Failed to sync billing data');
-    },
+    onError: (error: any) => Alert.alert('Sync Failed', error.response?.data?.message || 'Failed to sync'),
   });
 
   const resetManualForm = () => {
@@ -71,94 +84,65 @@ export default function PaymentsScreen() {
       allowsEditing: true,
       quality: 0.7,
     });
-
-    if (!result.canceled) {
-      setProofImage(result.assets[0].uri);
-    }
+    if (!result.canceled) setProofImage(result.assets[0].uri);
   };
 
   const handleManualSubmit = async () => {
     if (!manualForm.amount || isNaN(Number(manualForm.amount))) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert('Error', 'Enter a valid amount');
       return;
     }
-
     const formData = new FormData();
     formData.append('amount', manualForm.amount);
     formData.append('paymentMethod', manualForm.paymentMethod);
     formData.append('transactionId', manualForm.transactionId);
     formData.append('note', manualForm.note);
-
     if (proofImage) {
       const uriParts = proofImage.split('.');
       const fileType = uriParts[uriParts.length - 1];
-      formData.append('image', {
-        uri: proofImage,
-        name: `proof.${fileType}`,
-        type: `image/${fileType}`,
-      } as any);
+      formData.append('image', { uri: proofImage, name: `proof.${fileType}`, type: `image/${fileType}` } as any);
     }
-
     mutationManual.mutate({ id: selectedRecord!._id, formData });
   };
 
-const handlePayNow = async (record: RentRecord) => {
-  console.log('[Payment] Initiating for record:', record._id, 'amount:', record.remainingAmount);
-  try {
-    // We use path 'two' because this screen is /two. This prevents Expo Router from showing 404!
-    const redirectUrl = AuthSession.makeRedirectUri({ path: 'two' });
-    const response = await createCashfreeOrder(record._id, record.remainingAmount, redirectUrl);
-    console.log('[Payment] Order created:', response);
-
-    if (response.success && response.paymentUrl) {
-      console.log('[Payment] Opening browser with URL:', response.paymentUrl);
-
-      try {
-        // Attempt 1: In-app Auth Session browser (Intercepts deep link to close automatically)
-        const result = await WebBrowser.openAuthSessionAsync(response.paymentUrl, redirectUrl, {
-          showTitle: true,
-        });
-        console.log('[Payment] Auth Session result:', result);
-
-        if (result.type === 'cancel' || result.type === 'dismiss' || result.type === 'success') {
-          checkPaymentStatus(response.orderId);
+  const handlePayNow = async (record: RentRecord) => {
+    try {
+      const redirectUrl = AuthSession.makeRedirectUri({ path: 'two' });
+      const response = await createCashfreeOrder(record._id, record.remainingAmount, redirectUrl);
+      if (response.success && response.paymentUrl) {
+        try {
+          const result = await WebBrowser.openAuthSessionAsync(response.paymentUrl, redirectUrl, { showTitle: true });
+          if (result.type === 'cancel' || result.type === 'dismiss' || result.type === 'success') {
+            checkPaymentStatus(response.orderId);
+          }
+        } catch {
+          const canOpen = await Linking.canOpenURL(response.paymentUrl);
+          if (canOpen) {
+            await Linking.openURL(response.paymentUrl);
+            Alert.alert('Payment Initiated', 'Complete payment in browser, then check status.', [
+              { text: 'Check Status', onPress: () => checkPaymentStatus(response.orderId) },
+            ]);
+          }
         }
-      } catch (browserError) {
-        console.warn('[Payment] In-app browser failed, using fallback:', browserError);
-        // Attempt 2: System browser (Fallback)
-        const canOpen = await Linking.canOpenURL(response.paymentUrl);
-        if (canOpen) {
-          await Linking.openURL(response.paymentUrl);
-          // Since we moved to external browser, we can't detect "close"
-          // We should show a "Check Status" button or poll automatically
-          Alert.alert('Payment Initiated', 'Please return here after completing the payment.', [
-            { text: 'OK', onPress: () => checkPaymentStatus(response.orderId) }
-          ]);
-        } else {
-          Alert.alert('Error', 'Could not open payment gateway.');
-        }
+      } else {
+        Alert.alert('Error', 'Payment gateway URL not found.');
       }
-    } else {
-      console.warn('[Payment] Missing paymentUrl in response:', response);
-      Alert.alert('Error', 'Payment gateway URL not found.');
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to initiate payment');
     }
-  } catch (error: any) {
-    console.error('[Payment] Create order failed:', error);
-    Alert.alert('Error', error.response?.data?.message || 'Failed to initiate payment');
-  }
-};
+  };
 
   const checkPaymentStatus = async (orderId: string) => {
     setPolling(true);
     try {
       const response = await getCashfreePaymentStatus(orderId);
       if (response.status === 'PAID') {
-        Alert.alert('Success', 'Payment received successfully!');
+        Alert.alert('Success', 'Payment received!');
         refetch();
       } else if (response.status === 'FAILED') {
-        Alert.alert('Payment Failed', 'The payment transaction failed.');
+        Alert.alert('Payment Failed', 'Transaction failed.');
       } else {
-        Alert.alert('Payment Pending', 'If you completed the payment, it may take a few minutes to reflect.');
+        Alert.alert('Pending', 'May take a few minutes to reflect.');
       }
     } catch (error) {
       console.error(error);
@@ -169,158 +153,171 @@ const handlePayNow = async (record: RentRecord) => {
 
   const renderItem = ({ item }: { item: RentRecord }) => {
     const isPaid = item.status === 'paid' || item.status === 'overpaid';
-    
     return (
-      <View style={styles.recordCard}>
-        <TouchableOpacity 
-          onPress={() => {
-            setSelectedRecord(item);
-            setShowTxnModal(true);
-          }}
+      <AppCard style={styles.recordCard} variant="elevated">
+        <TouchableOpacity
+          onPress={() => { setSelectedRecord(item); setShowTxnModal(true); }}
           activeOpacity={0.7}
-          style={styles.recordHeader}
         >
-          <Text style={styles.monthText}>{item.month}</Text>
-          <View style={[styles.statusBadge, (styles as any)[`status_${item.status}`]]}>
-            <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+          <View style={styles.recordHeader}>
+            <View>
+              <Text style={styles.monthText}>{formatMonth(item.month)}</Text>
+              <Text style={styles.recordSubtext}>
+                {isPaid ? 'All cleared' : `${formatCurrency(item.remainingAmount)} remaining`}
+              </Text>
+            </View>
+            <StatusBadge status={item.status} />
           </View>
-        </TouchableOpacity>
 
-        <View style={styles.recordBody}>
+          <View style={styles.recordDivider} />
+
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Total Rent</Text>
-            <Text style={styles.amountValue}>₹{item.totalRent}</Text>
+            <Text style={styles.amountValue}>{formatCurrency(item.totalRent)}</Text>
           </View>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Paid</Text>
-            <Text style={[styles.amountValue, { color: '#4CAF50' }]}>₹{item.totalPaid}</Text>
+            <Text style={[styles.amountValue, { color: colors.success }]}>{formatCurrency(item.totalPaid)}</Text>
           </View>
           {!isPaid && (
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Remaining</Text>
-              <Text style={[styles.amountValue, { color: '#F44336' }]}>₹{item.remainingAmount}</Text>
+              <Text style={[styles.amountValue, { color: colors.error }]}>{formatCurrency(item.remainingAmount)}</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {!isPaid && (
           <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={[styles.payButton, { flex: 1, marginRight: 5 }]} 
+            <AppButton
+              title="Pay Online"
               onPress={() => handlePayNow(item)}
+              size="sm"
               disabled={polling}
-            >
-              <Text style={styles.payButtonText}>Pay Online</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.manualButton, { flex: 1, marginLeft: 5 }]} 
+              style={styles.payButton}
+            />
+            <AppButton
+              title="Manual Pay"
               onPress={() => {
                 setSelectedRecord(item);
                 setManualForm({ ...manualForm, amount: item.remainingAmount.toString() });
                 setShowManualModal(true);
               }}
-            >
-              <Text style={styles.manualButtonText}>Manual Pay</Text>
-            </TouchableOpacity>
+              variant="outline"
+              size="sm"
+              style={styles.manualButton}
+            />
           </View>
         )}
-        
-        <TouchableOpacity 
-          style={styles.viewHistoryButton}
-          onPress={() => {
-            setSelectedRecord(item);
-            setShowTxnModal(true);
-          }}
+
+        <TouchableOpacity
+          style={styles.historyLink}
+          onPress={() => { setSelectedRecord(item); setShowTxnModal(true); }}
+          activeOpacity={0.7}
         >
-          <Text style={styles.viewHistoryText}>View Transactions</Text>
+          <Text style={styles.historyLinkText}>View Transactions</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
         </TouchableOpacity>
-      </View>
+      </AppCard>
     );
   };
 
-  if (isLoading && !data) {
+  const renderContent = () => {
+    if (isLoading && !data) {
+      return (
+        <View style={styles.centerFlex}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    const records = data?.rentRecords || [];
+    if (records.length === 0) {
+      return (
+        <View style={styles.centerFlex}>
+          <EmptyState
+            icon="card-outline"
+            title="No Payments Yet"
+            description="Bills are generated on the 5th. Sync if you just joined."
+            actionLabel="Sync My Billing"
+            onAction={() => mutationSync.mutate()}
+          />
+        </View>
+      );
+    }
+
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={{ marginTop: 10 }}>Loading your payments...</Text>
-      </View>
+      <FlashList
+        data={records}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={isLoading || polling} onRefresh={refetch} tintColor={colors.primary} />
+        }
+      />
     );
-  }
+  };
 
   return (
     <View style={styles.container}>
-      <FlashList
-        data={data?.rentRecords || []}
-        renderItem={renderItem}
-        // @ts-ignore
-        estimatedItemSize={200}
-        contentContainerStyle={{ padding: 15 }}
-        refreshControl={
-          <RefreshControl refreshing={isLoading || polling} onRefresh={refetch} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No payment records found.</Text>
-            <TouchableOpacity 
-              style={[styles.syncButton, mutationSync.isPending && styles.disabledButton]} 
-              onPress={() => mutationSync.mutate()}
-              disabled={mutationSync.isPending}
-            >
-              {mutationSync.isPending ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.syncButtonText}>Sync My Billing</Text>
-              )}
-            </TouchableOpacity>
-            <Text style={styles.syncHint}>Click sync if you just joined and don't see your bills yet.</Text>
-          </View>
-        }
+      <AppHeader
+        title="Payments"
+        subtitle="Rent & billing history"
+        style={{ paddingTop: insets.top + spacing.md }}
       />
+      {renderContent()}
 
       {/* Transaction History Modal */}
       <Modal visible={showTxnModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Transactions - {selectedRecord?.month}</Text>
-            
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>
+                {selectedRecord ? formatMonth(selectedRecord.month) : 'Transactions'}
+              </Text>
+              <TouchableOpacity onPress={() => { setShowTxnModal(false); setSelectedRecord(null); }}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
             {isLoadingDetail ? (
-              <ActivityIndicator size="large" color="#2196F3" style={{ margin: 20 }} />
+              <ActivityIndicator size="large" color={colors.primary} style={{ margin: 30 }} />
             ) : (
-              <ScrollView style={styles.txnList}>
+              <ScrollView style={styles.txnList} showsVerticalScrollIndicator={false}>
                 {recordDetail?.transactions && recordDetail.transactions.length > 0 ? (
                   recordDetail.transactions.map((txn: PaymentTransaction) => (
                     <View key={txn._id} style={styles.txnItem}>
-                      <View style={styles.txnMain}>
-                        <Text style={styles.txnMethod}>{txn.paymentMethod.toUpperCase()}</Text>
-                        <Text style={styles.txnDate}>{new Date(txn.paymentDate).toLocaleDateString()}</Text>
-                      </View>
-                        <View style={styles.txnSecondary}>
-                          <Text style={styles.txnAmount}>₹{txn.amount}</Text>
-                          <View style={[styles.statusBadge, (styles as any)[`status_${txn.status}`]]}>
-                            <Text style={styles.txnStatusText}>
-                              {txn.status === 'verifying' 
-                                ? 'PENDING VERIFICATION' 
-                                : (txn.status === 'completed' ? 'VERIFIED' : txn.status.toUpperCase())}
-                            </Text>
-                          </View>
+                      <View style={styles.txnLeft}>
+                        <View style={[styles.txnIcon, {
+                          backgroundColor: txn.status === 'completed' || txn.status === 'verified'
+                            ? colors.successLight : txn.status === 'rejected' ? colors.errorLight : colors.warningLight,
+                        }]}>
+                          <Ionicons
+                            name={txn.status === 'completed' || txn.status === 'verified' ? 'checkmark' : txn.status === 'rejected' ? 'close' : 'time'}
+                            size={18}
+                            color={txn.status === 'completed' || txn.status === 'verified' ? colors.success : txn.status === 'rejected' ? colors.error : colors.warning}
+                          />
                         </View>
+                        <View>
+                          <Text style={styles.txnMethod}>{txn.paymentMethod.replace('_', ' ').toUpperCase()}</Text>
+                          <Text style={styles.txnDate}>{new Date(txn.paymentDate).toLocaleDateString()}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.txnRight}>
+                        <Text style={styles.txnAmount}>{formatCurrency(txn.amount)}</Text>
+                        <StatusBadge status={txn.status} size="sm" />
+                      </View>
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.emptyTxnText}>No transactions found for this month.</Text>
+                  <View style={styles.emptyTxn}>
+                    <Ionicons name="receipt-outline" size={48} color={colors.text.tertiary} />
+                    <Text style={styles.emptyTxnText}>No transactions found</Text>
+                  </View>
                 )}
               </ScrollView>
             )}
-
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={() => {
-                setShowTxnModal(false);
-                setSelectedRecord(null);
-              }}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -328,89 +325,100 @@ const handlePayNow = async (record: RentRecord) => {
       {/* Manual Payment Modal */}
       <Modal visible={showManualModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { padding: 0 }]}>
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
-            <Text style={styles.modalTitle}>Submit Manual Payment</Text>
-            
-            <Text style={styles.label}>Amount Paid</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Amount"
-              keyboardType="numeric"
-              value={manualForm.amount}
-              onChangeText={(text) => setManualForm({ ...manualForm, amount: text })}
-            />
-
-            <Text style={styles.label}>Payment Method</Text>
-            <View style={styles.methodContainer}>
-              {['upi', 'bank_transfer', 'cash', 'other'].map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.methodButton, manualForm.paymentMethod === m && styles.methodButtonActive]}
-                  onPress={() => setManualForm({ ...manualForm, paymentMethod: m })}
-                >
-                  <Text style={[styles.methodButtonText, manualForm.paymentMethod === m && styles.methodButtonTextActive]}>
-                    {m.replace('_', ' ').toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Manual Payment</Text>
+              <TouchableOpacity onPress={() => setShowManualModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
             </View>
 
-            {manualForm.paymentMethod === 'upi' && recordDetail?.rentRecord?.ownerId && (
-              <View style={styles.paymentInfoBox}>
-                <Text style={styles.paymentInfoTitle}>Pay to Owner via UPI</Text>
-                {recordDetail.rentRecord.ownerId.upiId && (
-                  <Text selectable style={styles.paymentInfoText}>UPI ID: {recordDetail.rentRecord.ownerId.upiId}</Text>
-                )}
-                {recordDetail.rentRecord.ownerId.upiNumber && (
-                  <Text selectable style={styles.paymentInfoText}>UPI Phone: {recordDetail.rentRecord.ownerId.upiNumber}</Text>
-                )}
-                {recordDetail.rentRecord.ownerId.qrCodeImage?.secureUrl && (
-                  <Image source={{ uri: recordDetail.rentRecord.ownerId.qrCodeImage.secureUrl }} style={styles.qrCode} resizeMode="contain" />
-                )}
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <AppInput
+                label="Amount Paid"
+                placeholder="Enter amount"
+                value={manualForm.amount}
+                onChangeText={(text) => setManualForm({ ...manualForm, amount: text })}
+                keyboardType="numeric"
+              />
+
+              <Text style={styles.fieldLabel}>Payment Method</Text>
+              <View style={styles.methodRow}>
+                {['upi', 'bank_transfer', 'cash', 'other'].map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[
+                      styles.methodChip,
+                      manualForm.paymentMethod === m && styles.methodChipActive,
+                    ]}
+                    onPress={() => setManualForm({ ...manualForm, paymentMethod: m })}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.methodChipText,
+                      manualForm.paymentMethod === m && styles.methodChipTextActive,
+                    ]}>
+                      {m.replace('_', ' ').toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            )}
 
-            <Text style={styles.label}>Transaction ID / Reference (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. UPI Ref Number"
-              value={manualForm.transactionId}
-              onChangeText={(text) => setManualForm({ ...manualForm, transactionId: text })}
-            />
-
-            <Text style={styles.label}>Note (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Additional info"
-              value={manualForm.note}
-              onChangeText={(text) => setManualForm({ ...manualForm, note: text })}
-            />
-
-            <Text style={styles.label}>Payment Proof (Optional)</Text>
-            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-              {proofImage ? (
-                <Image source={{ uri: proofImage }} style={styles.previewImage} />
-              ) : (
-                <Text style={styles.imagePickerText}>Select Receipt Image</Text>
+              {manualForm.paymentMethod === 'upi' && recordDetail?.rentRecord?.ownerId && (
+                <View style={styles.upiBox}>
+                  <Text style={styles.upiTitle}>Pay to Owner via UPI</Text>
+                  {recordDetail.rentRecord.ownerId.upiId && (
+                    <Text selectable style={styles.upiText}>ID: {recordDetail.rentRecord.ownerId.upiId}</Text>
+                  )}
+                  {recordDetail.rentRecord.ownerId.upiNumber && (
+                    <Text selectable style={styles.upiText}>Phone: {recordDetail.rentRecord.ownerId.upiNumber}</Text>
+                  )}
+                  {recordDetail.rentRecord.ownerId.qrCodeImage?.secureUrl && (
+                    <Image
+                      source={{ uri: recordDetail.rentRecord.ownerId.qrCodeImage.secureUrl }}
+                      style={styles.qrImage}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
               )}
-            </TouchableOpacity>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]} 
-                onPress={() => setShowManualModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+              <AppInput
+                label="Transaction ID (Optional)"
+                placeholder="e.g. UPI Ref Number"
+                value={manualForm.transactionId}
+                onChangeText={(text) => setManualForm({ ...manualForm, transactionId: text })}
+              />
+
+              <AppInput
+                label="Note (Optional)"
+                placeholder="Additional info"
+                value={manualForm.note}
+                onChangeText={(text) => setManualForm({ ...manualForm, note: text })}
+              />
+
+              <Text style={styles.fieldLabel}>Payment Proof (Optional)</Text>
+              <TouchableOpacity style={styles.imagePicker} onPress={pickImage} activeOpacity={0.7}>
+                {proofImage ? (
+                  <Image source={{ uri: proofImage }} style={styles.previewImage} />
+                ) : (
+                  <View style={styles.imagePickerPlaceholder}>
+                    <Ionicons name="camera-outline" size={32} color={colors.text.tertiary} />
+                    <Text style={styles.imagePickerText}>Upload Receipt</Text>
+                  </View>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.button, styles.submitButton]} 
-                onPress={handleManualSubmit}
-                disabled={mutationManual.isPending}
-              >
-                {mutationManual.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Submit</Text>}
-              </TouchableOpacity>
-            </View>
+
+              <View style={styles.manualButtons}>
+                <AppButton title="Cancel" onPress={() => setShowManualModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
+                <AppButton
+                  title="Submit"
+                  onPress={handleManualSubmit}
+                  loading={mutationManual.isPending}
+                  style={{ flex: 1, marginLeft: spacing.sm }}
+                />
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -422,347 +430,239 @@ const handlePayNow = async (record: RentRecord) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
-  center: {
+  centerFlex: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.xxl,
+  },
+  listContent: {
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
   },
   recordCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-      android: { elevation: 2 },
-    }),
+    marginBottom: spacing.lg,
   },
   recordHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    backgroundColor: 'transparent',
+    alignItems: 'flex-start',
   },
   monthText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    ...typography.h4,
+    color: colors.text.primary,
   },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
+  recordSubtext: {
+    ...typography.bodySmall,
+    color: colors.text.secondary,
+    marginTop: 2,
   },
-  statusText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  status_paid: { backgroundColor: '#4CAF50' },
-  status_partial: { backgroundColor: '#FF9800' },
-  status_pending: { backgroundColor: '#2196F3' },
-  status_overdue: { backgroundColor: '#F44336' },
-  status_overpaid: { backgroundColor: '#9C27B0' },
-  recordBody: {
-    backgroundColor: 'transparent',
+  recordDivider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginVertical: spacing.md,
   },
   amountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
-    backgroundColor: 'transparent',
+    marginBottom: spacing.sm,
   },
   amountLabel: {
-    color: '#666',
-    fontSize: 14,
+    ...typography.body,
+    color: colors.text.secondary,
   },
   amountValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    ...typography.subtitle,
+    color: colors.text.primary,
   },
   buttonRow: {
     flexDirection: 'row',
-    marginTop: 15,
-    backgroundColor: 'transparent',
+    marginTop: spacing.lg,
+    gap: spacing.sm,
   },
   payButton: {
-    backgroundColor: '#2196F3',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  payButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    flex: 1,
   },
   manualButton: {
-    backgroundColor: '#E3F2FD',
-    padding: 12,
-    borderRadius: 8,
+    flex: 1,
+  },
+  historyLink: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2196F3',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  manualButtonText: {
-    color: '#2196F3',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  viewHistoryButton: {
-    marginTop: 10,
-    padding: 10,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  viewHistoryText: {
-    color: '#2196F3',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#999',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: 'red',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  historyLinkText: {
+    ...typography.buttonSmall,
+    color: colors.primary,
+    marginRight: spacing.xs,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    maxHeight: '90%',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+    padding: spacing.xxl,
+    paddingBottom: spacing.huge,
+    maxHeight: '80%',
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: spacing.xl,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    ...typography.h3,
+    color: colors.text.primary,
   },
   txnList: {
-    backgroundColor: 'transparent',
+    maxHeight: 400,
   },
   txnItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: 'transparent',
+    borderBottomColor: colors.borderLight,
   },
-  txnMain: {
-    backgroundColor: 'transparent',
+  txnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  txnIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
   },
   txnMethod: {
+    ...typography.subtitle,
+    color: colors.text.primary,
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
   },
   txnDate: {
-    fontSize: 12,
-    color: '#888',
+    ...typography.caption,
+    color: colors.text.secondary,
     marginTop: 2,
   },
-  txnSecondary: {
+  txnRight: {
     alignItems: 'flex-end',
-    backgroundColor: 'transparent',
   },
   txnAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2196F3',
+    ...typography.subtitle,
+    color: colors.text.primary,
+    marginBottom: 4,
   },
-  txnBadge: {
-    marginTop: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  emptyTxn: {
+    alignItems: 'center',
+    paddingVertical: spacing.huge,
   },
-  txnStatusText: {
-    fontSize: 8,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  status_verifying: { backgroundColor: '#FFB300' },
-  status_completed: { backgroundColor: '#4CAF50' },
-  status_verified: { backgroundColor: '#4CAF50' },
-  status_rejected: { backgroundColor: '#F44336' },
-  status_reversed: { backgroundColor: '#9E9E9E' },
-  txn_verified: { backgroundColor: '#4CAF50' },
   emptyTxnText: {
-    textAlign: 'center',
-    color: '#999',
-    marginVertical: 20,
+    ...typography.body,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#666',
-    marginTop: 15,
-    marginBottom: 5,
+  fieldLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  methodContainer: {
+  methodRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    backgroundColor: 'transparent',
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
   },
-  methodButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginRight: 8,
-    marginBottom: 8,
+  methodChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  methodButtonActive: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
+  methodChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  methodButtonText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: 'bold',
+  methodChipText: {
+    ...typography.buttonSmall,
+    color: colors.text.secondary,
   },
-  methodButtonTextActive: {
-    color: '#fff',
+  methodChipTextActive: {
+    color: colors.text.inverse,
+  },
+  upiBox: {
+    backgroundColor: colors.primaryLight,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    marginBottom: spacing.xl,
+  },
+  upiTitle: {
+    ...typography.subtitle,
+    color: colors.primary,
+    marginBottom: spacing.sm,
+  },
+  upiText: {
+    ...typography.bodySmall,
+    color: colors.text.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginBottom: 2,
+  },
+  qrImage: {
+    width: 180,
+    height: 180,
+    alignSelf: 'center',
+    marginTop: spacing.md,
+    borderRadius: radius.md,
   },
   imagePicker: {
-    height: 150,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    height: 140,
+    backgroundColor: colors.borderLight,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    marginBottom: spacing.xxl,
+  },
+  imagePickerPlaceholder: {
+    alignItems: 'center',
   },
   imagePickerText: {
-    color: '#666',
+    ...typography.body,
+    color: colors.text.tertiary,
+    marginTop: spacing.sm,
   },
   previewImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
+    borderRadius: radius.lg - 2,
   },
-  paymentInfoBox: {
-    backgroundColor: '#E3F2FD',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  paymentInfoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2196F3',
-    marginBottom: 5,
-  },
-  paymentInfoText: {
-    fontSize: 14,
-    color: '#333',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginBottom: 2,
-  },
-  qrCode: {
-    width: 200,
-    height: 200,
-    alignSelf: 'center',
-    marginTop: 10,
-    borderRadius: 8,
-  },
-  closeButton: {
-    marginTop: 20,
-    backgroundColor: '#eee',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  modalButtons: {
+  manualButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'transparent',
-    marginTop: 25,
-  },
-  button: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#eee',
-  },
-  submitButton: {
-    backgroundColor: '#2196F3',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  syncButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
-    minWidth: 150,
-    alignItems: 'center',
-  },
-  syncButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  syncHint: {
-    color: '#999',
-    fontSize: 12,
-    marginTop: 10,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
-  disabledButton: {
-    opacity: 0.6,
+    marginTop: spacing.md,
   },
 });

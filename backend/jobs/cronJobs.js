@@ -18,6 +18,7 @@ const billingServiceV2 = require('../services/billingServiceV2');
 const backupService = require('../services/backupService');
 const ledgerQueueService = require('../services/ledgerQueueService');
 const walletService = require('../services/walletService');
+const dailyDigestService = require('../services/dailyDigestService');
 
 const runDailyJobs = async () => {
   logger.info('[CRON] Starting daily rent status check (IST timezone)...');
@@ -171,44 +172,42 @@ const startCronJobs = () => {
     }
   });
 
-  // Daily Digest for Owners (Every day at 8:00 AM)
-  cron.schedule('0 8 * * *', async () => {
-    logger.info('[CRON] Generating Daily Digest for Owners...');
+  // Daily Digest Publishers
+  const ownerCron = process.env.OWNER_DIGEST_CRON || '0 8 * * *';
+  cron.schedule(ownerCron, async () => {
     try {
-      const User = require('../models/User');
-      const Tenant = require('../models/Tenant');
-      const MonthlyRentRecord = require('../models/MonthlyRentRecord');
-      
-      const owners = await User.find({ role: { $in: ['owner', 'superadmin'] }, isActive: true });
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      for (const owner of owners) {
-        if (owner.notificationPreferences?.dailyDigestEmails === false) continue;
-
-        const isSuperAdmin = owner.role === 'superadmin';
-        const metricsOwnerId = isSuperAdmin ? null : owner._id;
-
-        const metrics = await billingServiceV2.getSummaryMetrics(metricsOwnerId);
-        
-        const moveOutQuery = { exitDate: { $gte: today } };
-        if (!isSuperAdmin) moveOutQuery.ownerId = owner._id;
-        
-        const moveOutRequests = await Tenant.countDocuments(moveOutQuery);
-
-        const summary = {
-          overdueTenants: metrics.overdueCount || 0,
-          pendingPayments: metrics.pendingCount || 0,
-          collectionsToday: metrics.totalCollected || 0,
-          moveOutRequests
-        };
-
-        await emailService.sendDailyDigestEmail(owner, summary).catch(() => null);
-      }
+      await dailyDigestService.generateOwnerDigests();
     } catch (err) {
-      logger.error(`[CRON ERROR] Daily digest failed: ${err.message}`);
+      logger.error(`[CRON ERROR] generateOwnerDigests failed: ${err.message}`);
     }
   }, { timezone: 'Asia/Kolkata' });
+
+  const adminCron = process.env.ADMIN_DIGEST_CRON || '0 8 * * *';
+  cron.schedule(adminCron, async () => {
+    try {
+      await dailyDigestService.generateAdminDigests();
+    } catch (err) {
+      logger.error(`[CRON ERROR] generateAdminDigests failed: ${err.message}`);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+
+  // Daily Digest Processor (Every 1 minute)
+  cron.schedule('* * * * *', async () => {
+    try {
+      await dailyDigestService.processDigestQueue();
+    } catch (err) {
+      logger.error(`[CRON ERROR] processDigestQueue failed: ${err.message}`);
+    }
+  });
+
+  // Daily Digest Watchdog (Every 5 minutes)
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      await dailyDigestService.runDigestWatchdog();
+    } catch (err) {
+      logger.error(`[CRON ERROR] runDigestWatchdog failed: ${err.message}`);
+    }
+  });
 };
 
 module.exports = { startCronJobs, runDailyJobs };

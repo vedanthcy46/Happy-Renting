@@ -873,6 +873,7 @@ module.exports = {
   sendOwnerBillingSummaryEmail,
   sendSystemFailureAlert,
   sendDailyDigestEmail,
+  sendEmail, // Exported for custom queue processors like dailyDigestService
 };
 
 // ── Background Queue Processor ──────────────────────────────────────────────

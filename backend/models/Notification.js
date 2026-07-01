@@ -21,7 +21,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['billing', 'maintenance', 'system', 'lifecycle', 'alert'],
+      enum: ['billing', 'maintenance', 'system', 'lifecycle', 'alert', 'rent_due', 'rent_paid', 'overdue', 'payment_received', 'bill_generated'],
       default: 'alert'
     },
     read: {

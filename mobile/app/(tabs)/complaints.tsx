@@ -1,17 +1,38 @@
 import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, RefreshControl, Platform, Alert, Modal, TextInput, ScrollView } from 'react-native';
+import {
+  StyleSheet,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  Modal,
+  ScrollView,
+  TextInput,
+  Platform,
+} from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View } from '@/components/Themed';
 import { getComplaints, createComplaint } from '../../src/api/complaint';
 import { Complaint } from '../../src/types/complaint';
+import { AppCard, AppButton, AppInput, StatusBadge, EmptyState, AppHeader } from '../../src/components';
+import { colors, typography, spacing, radius } from '../../src/theme';
+import { formatRelativeTime } from '../../src/utils';
+
+const priorityColors: Record<string, string> = {
+  low: colors.success,
+  medium: colors.warning,
+  high: colors.error,
+};
 
 export default function ComplaintsScreen() {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium' });
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['complaints'],
     queryFn: getComplaints,
   });
@@ -22,100 +43,117 @@ export default function ComplaintsScreen() {
       queryClient.invalidateQueries({ queryKey: ['complaints'] });
       setShowAddModal(false);
       setForm({ title: '', description: '', priority: 'medium' });
-      Alert.alert('Success', 'Complaint raised successfully');
     },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to raise complaint');
-    },
+    onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed'),
   });
 
   const handleCreate = () => {
     if (!form.title.trim() || !form.description.trim()) {
-      Alert.alert('Error', 'Please fill in title and description');
+      Alert.alert('Error', 'Title and description are required');
       return;
     }
     mutation.mutate(form);
   };
 
   const renderItem = ({ item }: { item: Complaint }) => (
-    <View style={styles.complaintCard}>
+    <AppCard style={styles.complaintCard} variant="elevated">
       <View style={styles.cardHeader}>
-        <Text style={styles.complaintTitle}>{item.title}</Text>
-        <View style={[styles.statusBadge, (styles as any)[`status_${item.status}`]]}>
-          <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+        <View style={styles.cardHeaderLeft}>
+          <StatusBadge status={item.status} />
+          <View style={[styles.priorityDot, { backgroundColor: priorityColors[item.priority] || colors.text.tertiary }]} />
         </View>
+        <Text style={styles.dateText}>{formatRelativeTime(item.createdAt)}</Text>
       </View>
-      <Text style={styles.complaintDesc}>{item.description}</Text>
-      <View style={styles.cardFooter}>
-        <Text style={styles.priorityText}>Priority: {item.priority.toUpperCase()}</Text>
-        <Text style={styles.dateText}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-      </View>
+      <Text style={styles.complaintTitle}>{item.title}</Text>
+      <Text style={styles.complaintDesc} numberOfLines={3}>{item.description}</Text>
       {item.resolutionNotes && (
         <View style={styles.resolutionBox}>
-          <Text style={styles.resolutionLabel}>Resolution Notes:</Text>
-          <Text style={styles.resolutionNotes}>{item.resolutionNotes}</Text>
+          <View style={styles.resolutionHeader}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+            <Text style={styles.resolutionLabel}>Resolution</Text>
+          </View>
+          <Text style={styles.resolutionText}>{item.resolutionNotes}</Text>
         </View>
       )}
-    </View>
+    </AppCard>
   );
 
   return (
     <View style={styles.container}>
+      <AppHeader
+        title="Complaints"
+        subtitle="Track and manage issues"
+        style={{ paddingTop: insets.top + spacing.md }}
+      />
+
       <FlashList
         data={data?.complaints || []}
         renderItem={renderItem}
-        // @ts-ignore
-        estimatedItemSize={150}
-        contentContainerStyle={{ padding: 15 } as any}
+        contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refetch} />
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No complaints raised yet.</Text>
-          </View>
+          <EmptyState
+            icon="chatbubble-ellipses-outline"
+            title="No Complaints"
+            description="No issues raised yet. Tap + to raise a complaint."
+          />
         }
       />
 
-      <TouchableOpacity style={styles.fab} onPress={() => setShowAddModal(true)}>
-        <Text style={styles.fabIcon}>+</Text>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setShowAddModal(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
       <Modal visible={showAddModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Raise Complaint</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Title (e.g., Leaking Tap)"
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Raise a Complaint</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <AppInput
+              label="Title"
+              placeholder="e.g. Leaking Tap"
               value={form.title}
               onChangeText={(text) => setForm({ ...form, title: text })}
             />
-            
+
+            <Text style={styles.fieldLabel}>Description</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Description"
+              style={styles.textArea}
+              placeholder="Describe the issue in detail..."
+              placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={4}
               value={form.description}
               onChangeText={(text) => setForm({ ...form, description: text })}
             />
 
-            <Text style={styles.label}>Priority</Text>
-            <View style={styles.priorityContainer}>
-              {['low', 'medium', 'high'].map((p) => (
+            <Text style={styles.fieldLabel}>Priority</Text>
+            <View style={styles.priorityRow}>
+              {(['low', 'medium', 'high'] as const).map((p) => (
                 <TouchableOpacity
                   key={p}
                   style={[
-                    styles.priorityButton,
-                    form.priority === p && styles.priorityButtonActive,
+                    styles.priorityChip,
+                    form.priority === p && { backgroundColor: priorityColors[p], borderColor: priorityColors[p] },
                   ]}
                   onPress={() => setForm({ ...form, priority: p })}
+                  activeOpacity={0.7}
                 >
                   <Text style={[
-                    styles.priorityButtonText,
-                    form.priority === p && styles.priorityButtonTextActive,
+                    styles.priorityChipText,
+                    form.priority === p && { color: '#FFFFFF' },
                   ]}>
                     {p.toUpperCase()}
                   </Text>
@@ -124,21 +162,13 @@ export default function ComplaintsScreen() {
             </View>
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]} 
-                onPress={() => setShowAddModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.button, styles.submitButton]} 
+              <AppButton title="Cancel" onPress={() => setShowAddModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
+              <AppButton
+                title="Submit"
                 onPress={handleCreate}
-                disabled={mutation.isPending}
-              >
-                <Text style={styles.submitButtonText}>
-                  {mutation.isPending ? 'Submitting...' : 'Submit'}
-                </Text>
-              </TouchableOpacity>
+                loading={mutation.isPending}
+                style={{ flex: 1, marginLeft: spacing.sm }}
+              />
             </View>
           </View>
         </View>
@@ -150,218 +180,156 @@ export default function ComplaintsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
+  },
+  listContent: {
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
   },
   complaintCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-      android: { elevation: 2 },
-    }),
+    marginBottom: spacing.lg,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-    backgroundColor: 'transparent',
+    marginBottom: spacing.md,
   },
-  complaintTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
-    marginRight: 10,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  status_pending: { backgroundColor: '#FF9800' },
-  status_resolved: { backgroundColor: '#4CAF50' },
-  status_closed: { backgroundColor: '#9E9E9E' },
-  status_in_progress: { backgroundColor: '#2196F3' },
-  complaintDesc: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  cardFooter: {
+  cardHeaderLeft: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 10,
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  priorityText: {
-    fontSize: 12,
-    color: '#888',
-    fontWeight: '500',
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   dateText: {
-    fontSize: 12,
-    color: '#888',
+    ...typography.caption,
+    color: colors.text.tertiary,
+  },
+  complaintTitle: {
+    ...typography.subtitle,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  complaintDesc: {
+    ...typography.body,
+    color: colors.text.secondary,
+    lineHeight: 21,
   },
   resolutionBox: {
-    marginTop: 12,
-    padding: 10,
-    backgroundColor: '#F1F8E9',
-    borderRadius: 8,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.md,
+  },
+  resolutionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
   },
   resolutionLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#2E7D32',
-    marginBottom: 4,
+    ...typography.caption,
+    color: colors.success,
+    fontWeight: '600',
+    marginLeft: spacing.xs,
   },
-  resolutionNotes: {
-    fontSize: 13,
-    color: '#388E3C',
+  resolutionText: {
+    ...typography.bodySmall,
+    color: colors.success,
   },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 20,
+    right: spacing.xl,
+    bottom: spacing.xl,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2196F3',
-    justifyContent: 'center',
+    backgroundColor: colors.primary,
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  fabIcon: {
-    fontSize: 30,
-    color: '#fff',
-    fontWeight: 'bold',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+    padding: spacing.xxl,
+    paddingBottom: spacing.huge,
+    maxHeight: '85%',
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: spacing.xl,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#666',
-  },
-  priorityContainer: {
+  modalHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 25,
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
-  priorityButton: {
+  modalTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+  },
+  fieldLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
+  },
+  textArea: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    ...typography.body,
+    color: colors.text.primary,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: spacing.xl,
+  },
+  priorityRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.xxl,
+  },
+  priorityChip: {
     flex: 1,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginHorizontal: 5,
-    borderRadius: 8,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
     alignItems: 'center',
   },
-  priorityButtonActive: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  priorityButtonText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
-  },
-  priorityButtonTextActive: {
-    color: '#fff',
+  priorityChipText: {
+    ...typography.buttonSmall,
+    color: colors.text.secondary,
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'transparent',
-  },
-  button: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#eee',
-  },
-  submitButton: {
-    backgroundColor: '#2196F3',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#999',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: 'red',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
 });
+
+

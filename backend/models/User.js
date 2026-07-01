@@ -105,6 +105,8 @@ const userSchema = new mongoose.Schema(
       settlementEmails: { type: Boolean, default: true },
       systemEmails: { type: Boolean, default: true },
       dailyDigestEmails: { type: Boolean, default: true },
+      weeklyDigestEmails: { type: Boolean, default: true },
+      monthlyDigestEmails: { type: Boolean, default: true },
       marketingEmails: { type: Boolean, default: false },
     },
   },

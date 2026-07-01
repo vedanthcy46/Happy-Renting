@@ -1,17 +1,36 @@
-import { StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Linking, Platform, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  TextInput,
+  Animated,
+  Platform,
+  Linking,
+} from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Text, View } from '@/components/Themed';
 import { getMyTenancy, addRoommate, updateRoommate, deleteRoommate } from '../../src/api/tenant';
 import { getRentRecords } from '../../src/api/payment';
 import { useAuthStore } from '../../src/store/useAuthStore';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { AppCard, AppButton, AppInput, StatusBadge, EmptyState, ErrorState, CardSkeleton } from '../../src/components';
+import { colors, typography, spacing, radius, shadows } from '../../src/theme';
+import { formatCurrency, formatDate, getInitials } from '../../src/utils';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   const [showRoommateModal, setShowRoommateModal] = useState(false);
   const [editingRoommate, setEditingRoommate] = useState<any>(null);
   const [roommateForm, setRoommateForm] = useState({ name: '', phone: '', idProof: '' });
@@ -35,29 +54,24 @@ export default function HomeScreen() {
       queryClient.invalidateQueries({ queryKey: ['myTenancy'] });
       setShowRoommateModal(false);
       setRoommateForm({ name: '', phone: '', idProof: '' });
-      Alert.alert('Success', 'Roommate added successfully');
     },
     onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to add roommate'),
   });
 
   const mutationUpdate = useMutation({
-    mutationFn: (data: any) => updateRoommate(tenant!._id, editingRoommate._id, data),
+    mutationFn: (data: any) => updateRoommate(tenant!._id, editingRoommate!._id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myTenancy'] });
       setShowRoommateModal(false);
       setEditingRoommate(null);
       setRoommateForm({ name: '', phone: '', idProof: '' });
-      Alert.alert('Success', 'Roommate updated successfully');
     },
     onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to update roommate'),
   });
 
   const mutationDelete = useMutation({
     mutationFn: (coId: string) => deleteRoommate(tenant!._id, coId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myTenancy'] });
-      Alert.alert('Success', 'Roommate removed successfully');
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['myTenancy'] }),
     onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to remove roommate'),
   });
 
@@ -66,560 +80,652 @@ export default function HomeScreen() {
       Alert.alert('Error', 'Name and phone are required');
       return;
     }
-    if (editingRoommate) {
-      mutationUpdate.mutate(roommateForm);
-    } else {
-      mutationAdd.mutate(roommateForm);
-    }
+    if (editingRoommate) mutationUpdate.mutate(roommateForm);
+    else mutationAdd.mutate(roommateForm);
   };
 
   const confirmDeleteRoommate = (co: any) => {
-    Alert.alert(
-      'Remove Roommate',
-      `Are you sure you want to remove ${co.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => mutationDelete.mutate(co._id) },
-      ]
-    );
+    Alert.alert('Remove Roommate', `Are you sure you want to remove ${co.name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => mutationDelete.mutate(co._id) },
+    ]);
   };
 
   const handleCallOwner = () => {
-    if (tenant?.ownerId?.phone) {
-      Linking.openURL(`tel:${tenant.ownerId.phone}`);
-    }
+    if (tenant?.ownerId?.phone) Linking.openURL(`tel:${tenant.ownerId.phone}`);
   };
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     refetch();
     queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
-  };
+  }, []);
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
   if (isLoading || isLoadingRent) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={{ marginTop: 10 }}>Loading your dashboard...</Text>
+      <View style={styles.container}>
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + spacing.xxl }]}>
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </View>
       </View>
     );
   }
 
   if (isError || !tenant || tenant.status === 'vacated') {
     return (
-      <View style={styles.center}>
-        <Text style={{ fontSize: 48, marginBottom: 20 }}>🚪</Text>
-        <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 10, color: '#333' }}>
-          {tenant?.status === 'vacated' ? 'Tenancy Ended' : 'No Active Tenancy'}
-        </Text>
-        <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 30, paddingHorizontal: 20 }}>
-          {isError ? 'Failed to load data.' : 
-           (tenant?.status === 'vacated' 
-            ? `Your stay at Room ${tenant.roomId?.roomNumber || ''} concluded on ${tenant.exitDate ? new Date(tenant.exitDate).toLocaleDateString() : 'an unknown date'}.`
-            : 'You haven\'t been assigned to a room yet. Contact an owner to get added.')}
-        </Text>
-        <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
-          <Text style={styles.retryButtonText}>Retry / Refresh</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <View style={[styles.center, { paddingTop: insets.top + spacing.huge }]}>
+          <EmptyState
+            icon={tenant?.status === 'vacated' ? 'exit-outline' : 'home-outline'}
+            title={tenant?.status === 'vacated' ? 'Tenancy Ended' : 'No Active Tenancy'}
+            description={
+              isError
+                ? 'Failed to load data.'
+                : tenant?.status === 'vacated'
+                ? `Your stay concluded on ${tenant.exitDate ? formatDate(tenant.exitDate) : 'an unknown date'}.`
+                : "You haven't been assigned to a room yet."
+            }
+            actionLabel="Try Again"
+            onAction={onRefresh}
+          />
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={isLoading || isLoadingRent} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <View style={{ backgroundColor: 'transparent' }}>
-          <Text style={styles.welcomeText}>Welcome,</Text>
-          <Text style={styles.userName}>{user?.name}</Text>
-        </View>
-        <TouchableOpacity 
-          style={styles.bellIcon} 
-          onPress={() => router.push('/notifications')}
+    <View style={styles.container}>
+      <Animated.View style={[styles.headerGradient, { opacity: headerOpacity }]}>
+        <LinearGradient
+          colors={['#2563EB', '#1D4ED8']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.headerContent, { paddingTop: insets.top + spacing.lg }]}
         >
-          <Ionicons name="notifications-outline" size={28} color="#333" />
-        </TouchableOpacity>
-      </View>
-
-      {latestRecord ? (
-        <View style={[styles.card, styles.highlightCard]}>
-          <View style={styles.highlightHeader}>
-            <Text style={styles.highlightTitle}>Current Bill - {latestRecord.month}</Text>
-            <View style={[styles.statusBadge, (styles as any)[`status_${latestRecord.status}`]]}>
-              <Text style={styles.statusText}>{latestRecord.status.toUpperCase()}</Text>
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.greeting}>Hello,</Text>
+              <Text style={styles.userName}>{user?.name || 'Tenant'}</Text>
             </View>
-          </View>
-          <View style={styles.highlightBody}>
-            <Text style={styles.highlightAmount}>₹{latestRecord.remainingAmount}</Text>
-            <Text style={styles.highlightLabel}>Remaining Balance</Text>
-          </View>
-          {latestRecord.status !== 'paid' && latestRecord.status !== 'overpaid' && (
-            <TouchableOpacity 
-              style={styles.payNowButton} 
-              onPress={() => Alert.alert('Payment', 'Please go to the Payments tab to pay.')}
+            <TouchableOpacity
+              style={styles.bellButton}
+              onPress={() => router.push('/notifications')}
+              activeOpacity={0.7}
             >
-              <Text style={styles.payNowButtonText}>View Payment Options</Text>
+              <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
             </TouchableOpacity>
-          )}
-        </View>
-      ) : (
-        <View style={[styles.card, styles.highlightCard]}>
-          <Text style={styles.highlightTitle}>Current Billing Status</Text>
-          <View style={styles.highlightBody}>
+          </View>
+          <Text style={styles.propertySubtitle}>
+            {tenant.propertyId?.name} · Room {tenant.roomId?.roomNumber}
+          </Text>
+        </LinearGradient>
+      </Animated.View>
+
+      <Animated.ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading || isLoadingRent}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Current Bill Card */}
+        {latestRecord ? (
+          <AppCard style={styles.billCard} variant="elevated">
+            <View style={styles.billHeader}>
+              <View>
+                <Text style={styles.billLabel}>Current Month Rent</Text>
+                <Text style={styles.billMonth}>{latestRecord.month}</Text>
+              </View>
+              <StatusBadge status={latestRecord.status} />
+            </View>
+            <Text style={styles.billAmount}>{formatCurrency(latestRecord.remainingAmount)}</Text>
+            <Text style={styles.billDueLabel}>
+              {latestRecord.status === 'paid' || latestRecord.status === 'overpaid'
+                ? 'All cleared for this month'
+                : 'Remaining Balance'}
+            </Text>
+            {latestRecord.status !== 'paid' && latestRecord.status !== 'overpaid' && (
+              <AppButton
+                title="Pay Now"
+                onPress={() => router.push('/(tabs)/two')}
+                size="md"
+                fullWidth
+                style={styles.payButton}
+              />
+            )}
+          </AppCard>
+        ) : (
+          <AppCard style={styles.billCard} variant="elevated">
+            <View style={styles.billHeader}>
+              <Text style={styles.billLabel}>Current Billing Status</Text>
+            </View>
             <Text style={styles.noBillText}>No bills generated yet.</Text>
-            <Text style={styles.highlightLabel}>Bills are generated on the 5th of each month.</Text>
-          </View>
-        </View>
-      )}
+            <Text style={styles.billDueLabel}>Bills are generated on the 5th of each month.</Text>
+          </AppCard>
+        )}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Your Room</Text>
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <Text style={styles.label}>Property</Text>
-            <Text style={styles.value}>{tenant.propertyId.name}</Text>
-          </View>
-          <View style={styles.column}>
-            <Text style={styles.label}>Room No.</Text>
-            <Text style={styles.value}>{tenant.roomId.roomNumber}</Text>
-          </View>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <Text style={styles.label}>Monthly Rent</Text>
-            <Text style={styles.value}>₹{tenant.roomId.monthlyRent}</Text>
-          </View>
-          <View style={styles.column}>
-            <Text style={styles.label}>Rent Due Day</Text>
-            <Text style={styles.value}>5th of month</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.cardHeaderWithAction}>
-          <Text style={styles.cardTitle}>Roommates</Text>
-          <TouchableOpacity 
-            style={styles.addAction} 
-            onPress={() => {
-              setEditingRoommate(null);
-              setRoommateForm({ name: '', phone: '', idProof: '' });
-              setShowRoommateModal(true);
-            }}
+        {/* Quick Actions */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => router.push('/(tabs)/two')}
+            activeOpacity={0.7}
           >
-            <Text style={styles.addActionText}>+ Add</Text>
+            <View style={[styles.actionIcon, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="card" size={24} color={colors.primary} />
+            </View>
+            <Text style={styles.actionLabel}>Pay Rent</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => router.push('/(tabs)/complaints')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: colors.warningLight }]}>
+              <Ionicons name="chatbubble-ellipses" size={24} color={colors.warning} />
+            </View>
+            <Text style={styles.actionLabel}>Raise Complaint</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => router.push('/(tabs)/two')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: colors.successLight }]}>
+              <Ionicons name="receipt" size={24} color={colors.success} />
+            </View>
+            <Text style={styles.actionLabel}>View Receipts</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={handleCallOwner}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: colors.infoLight }]}>
+              <Ionicons name="call" size={24} color={colors.info} />
+            </View>
+            <Text style={styles.actionLabel}>Contact Owner</Text>
           </TouchableOpacity>
         </View>
-        
-        {tenant.coOccupants && tenant.coOccupants.length > 0 ? (
-          tenant.coOccupants.map((co: any) => (
-            <View key={co._id} style={styles.roommateItem}>
-              <View style={styles.roommateInfo}>
-                <Text style={styles.roommateName}>{co.name}</Text>
-                <Text style={styles.roommatePhone}>{co.phone}</Text>
-              </View>
-              <View style={styles.roommateActions}>
-                <TouchableOpacity 
-                  onPress={() => {
-                    setEditingRoommate(co);
-                    setRoommateForm({ name: co.name, phone: co.phone, idProof: co.idProof || '' });
-                    setShowRoommateModal(true);
-                  }}
-                  style={styles.iconButton}
-                >
-                  <Text style={styles.editIcon}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => confirmDeleteRoommate(co)}
-                  style={styles.iconButton}
-                >
-                  <Text style={styles.deleteIcon}>Delete</Text>
-                </TouchableOpacity>
-              </View>
+
+        {/* Room Details */}
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.cardHeaderRow}>
+            <Ionicons name="bed-outline" size={20} color={colors.text.primary} />
+            <Text style={styles.cardTitle}>Your Room</Text>
+          </View>
+          <View style={styles.detailGrid}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Property</Text>
+              <Text style={styles.detailValue}>{tenant.propertyId?.name}</Text>
             </View>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>No roommates added.</Text>
-        )}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Owner Details</Text>
-        <Text style={styles.ownerName}>{tenant.ownerId.name}</Text>
-        <TouchableOpacity style={styles.contactButton} onPress={handleCallOwner}>
-          <Text style={styles.contactButtonText}>Call Owner: {tenant.ownerId.phone}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Financials</Text>
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <Text style={styles.label}>Security Deposit</Text>
-            <Text style={styles.value}>₹{tenant.securityDeposit}</Text>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Room No.</Text>
+              <Text style={styles.detailValue}>{tenant.roomId?.roomNumber}</Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Monthly Rent</Text>
+              <Text style={styles.detailValue}>{formatCurrency(tenant.roomId?.monthlyRent)}</Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Due Day</Text>
+              <Text style={styles.detailValue}>5th of month</Text>
+            </View>
           </View>
-          <View style={styles.column}>
-            <Text style={styles.label}>Advance Paid</Text>
-            <Text style={styles.value}>₹{tenant.advancePaid}</Text>
+        </AppCard>
+
+        {/* Roommates */}
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.cardHeaderRow}>
+            <Ionicons name="people-outline" size={20} color={colors.text.primary} />
+            <Text style={styles.cardTitle}>Roommates</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setEditingRoommate(null);
+                setRoommateForm({ name: '', phone: '', idProof: '' });
+                setShowRoommateModal(true);
+              }}
+              style={styles.addButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add-circle" size={22} color={colors.primary} />
+            </TouchableOpacity>
           </View>
+          {tenant.coOccupants && tenant.coOccupants.length > 0 ? (
+            tenant.coOccupants.map((co: any) => (
+              <View key={co._id} style={styles.roommateRow}>
+                <View style={styles.roommateAvatar}>
+                  <Text style={styles.avatarText}>{getInitials(co.name)}</Text>
+                </View>
+                <View style={styles.roommateInfo}>
+                  <Text style={styles.roommateName}>{co.name}</Text>
+                  <Text style={styles.roommatePhone}>{co.phone}</Text>
+                </View>
+                <View style={styles.roommateActions}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingRoommate(co);
+                      setRoommateForm({ name: co.name, phone: co.phone, idProof: co.idProof || '' });
+                      setShowRoommateModal(true);
+                    }}
+                    style={styles.actionButton}
+                  >
+                    <Ionicons name="pencil" size={16} color={colors.text.secondary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => confirmDeleteRoommate(co)}
+                    style={styles.actionButton}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyText}>No roommates added yet.</Text>
+          )}
+        </AppCard>
+
+        {/* Owner Details */}
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.cardHeaderRow}>
+            <Ionicons name="person-outline" size={20} color={colors.text.primary} />
+            <Text style={styles.cardTitle}>Owner</Text>
+          </View>
+          <View style={styles.ownerRow}>
+            <View style={styles.ownerAvatar}>
+              <Text style={styles.avatarText}>{getInitials(tenant.ownerId?.name)}</Text>
+            </View>
+            <View style={styles.ownerInfo}>
+              <Text style={styles.ownerName}>{tenant.ownerId?.name}</Text>
+              <Text style={styles.ownerPhone}>{tenant.ownerId?.phone}</Text>
+            </View>
+          </View>
+          <AppButton
+            title={`Call ${tenant.ownerId?.name?.split(' ')[0]}`}
+            onPress={handleCallOwner}
+            variant="outline"
+            size="md"
+            fullWidth
+            icon={<Ionicons name="call-outline" size={18} color={colors.primary} />}
+          />
+        </AppCard>
+
+        {/* Financials */}
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.cardHeaderRow}>
+            <Ionicons name="wallet-outline" size={20} color={colors.text.primary} />
+            <Text style={styles.cardTitle}>Financials</Text>
+          </View>
+          <View style={styles.detailGrid}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Security Deposit</Text>
+              <Text style={styles.detailValue}>{formatCurrency(tenant.securityDeposit)}</Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Advance Paid</Text>
+              <Text style={styles.detailValue}>{formatCurrency(tenant.advancePaid)}</Text>
+            </View>
+          </View>
+        </AppCard>
+
+        {/* Join Date */}
+        <View style={styles.footerSection}>
+          <Ionicons name="calendar-outline" size={14} color={colors.text.tertiary} />
+          <Text style={styles.joinedText}>
+            Joined on {formatDate(tenant.joinDate)}
+          </Text>
         </View>
-      </View>
+      </Animated.ScrollView>
 
-      <View style={styles.footer}>
-        <Text style={styles.joinedText}>
-          Joined on {new Date(tenant.joinDate).toLocaleDateString()}
-        </Text>
-      </View>
-
+      {/* Roommate Modal */}
       <Modal visible={showRoommateModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>
               {editingRoommate ? 'Edit Roommate' : 'Add Roommate'}
             </Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Name"
+            <AppInput
+              label="Name"
+              placeholder="Enter name"
               value={roommateForm.name}
               onChangeText={(text) => setRoommateForm({ ...roommateForm, name: text })}
             />
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Phone"
-              keyboardType="phone-pad"
+            <AppInput
+              label="Phone"
+              placeholder="Enter phone number"
               value={roommateForm.phone}
               onChangeText={(text) => setRoommateForm({ ...roommateForm, phone: text })}
+              keyboardType="phone-pad"
             />
-
-            <TextInput
-              style={styles.input}
-              placeholder="ID Proof (Optional)"
+            <AppInput
+              label="ID Proof (Optional)"
+              placeholder="Enter ID proof reference"
               value={roommateForm.idProof}
               onChangeText={(text) => setRoommateForm({ ...roommateForm, idProof: text })}
             />
-
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]} 
+              <AppButton
+                title="Cancel"
                 onPress={() => setShowRoommateModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.button, styles.submitButton]} 
+                variant="ghost"
+                style={styles.modalButtonHalf}
+              />
+              <AppButton
+                title={editingRoommate ? 'Update' : 'Add'}
                 onPress={handleSaveRoommate}
-              >
-                <Text style={styles.submitButtonText}>Save</Text>
-              </TouchableOpacity>
+                loading={mutationAdd.isPending || mutationUpdate.isPending}
+                style={styles.modalButtonHalf}
+              />
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    paddingHorizontal: spacing.lg,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: spacing.xxl,
   },
-  header: {
-    padding: 20,
-    backgroundColor: '#2196F3',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+  headerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
+  headerContent: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
+    borderBottomLeftRadius: radius.xxl,
+    borderBottomRightRadius: radius.xxl,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  bellIcon: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  headerLeft: {
+    backgroundColor: 'transparent',
   },
-  welcomeText: {
-    fontSize: 16,
-    color: '#E3F2FD',
+  greeting: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.8)',
   },
   userName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
+    letterSpacing: -0.3,
   },
-  card: {
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+  propertySubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: spacing.sm,
+    backgroundColor: 'transparent',
   },
-  highlightCard: {
-    backgroundColor: '#fff',
-    borderLeftWidth: 5,
-    borderLeftColor: '#2196F3',
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  highlightHeader: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 160,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.huge,
+  },
+  billCard: {
+    marginBottom: spacing.xxl,
+  },
+  billHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    backgroundColor: 'transparent',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
   },
-  highlightTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#666',
+  billLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
   },
-  highlightBody: {
-    alignItems: 'center',
-    marginVertical: 10,
-    backgroundColor: 'transparent',
+  billMonth: {
+    ...typography.bodySmall,
+    color: colors.text.tertiary,
+    marginTop: 2,
   },
-  highlightAmount: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#333',
+  billAmount: {
+    ...typography.number,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
-  highlightLabel: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 5,
-    textAlign: 'center',
+  billDueLabel: {
+    ...typography.bodySmall,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+  },
+  payButton: {
+    marginTop: spacing.sm,
   },
   noBillText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 5,
+    ...typography.subtitle,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
   },
-  payNowButton: {
-    backgroundColor: '#2196F3',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 15,
+  sectionTitle: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+    marginLeft: spacing.xs,
   },
-  payNowButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  status_paid: { backgroundColor: '#4CAF50' },
-  status_partial: { backgroundColor: '#FF9800' },
-  status_pending: { backgroundColor: '#2196F3' },
-  status_overdue: { backgroundColor: '#F44336' },
-  status_overpaid: { backgroundColor: '#9C27B0' },
-  cardHeaderWithAction: {
+  quickActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: spacing.xxl,
+  },
+  actionItem: {
     alignItems: 'center',
-    marginBottom: 15,
-    backgroundColor: 'transparent',
+    width: '22%',
+  },
+  actionIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  actionLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    fontSize: 11,
+  },
+  sectionCard: {
+    marginBottom: spacing.lg,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    ...typography.subtitle,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
   },
-  addAction: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+  addButton: {
+    padding: spacing.xs,
   },
-  addActionText: {
-    color: '#2196F3',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  roommateItem: {
+  detailGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  detailItem: {
+    width: '50%',
+    marginBottom: spacing.md,
+  },
+  detailLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.xxs,
+  },
+  detailValue: {
+    ...typography.subtitle,
+    color: colors.text.primary,
+    fontSize: 15,
+  },
+  roommateRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: 'transparent',
+    borderBottomColor: colors.borderLight,
+  },
+  roommateAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   roommateInfo: {
-    backgroundColor: 'transparent',
+    flex: 1,
   },
   roommateName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    ...typography.subtitle,
+    color: colors.text.primary,
+    fontSize: 15,
   },
   roommatePhone: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    ...typography.bodySmall,
+    color: colors.text.secondary,
+    marginTop: 1,
   },
   roommateActions: {
     flexDirection: 'row',
-    backgroundColor: 'transparent',
   },
-  iconButton: {
-    marginLeft: 15,
-    padding: 5,
-  },
-  editIcon: {
-    color: '#2196F3',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  deleteIcon: {
-    color: '#F44336',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    marginTop: 15,
-    backgroundColor: 'transparent',
-  },
-  column: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  label: {
-    fontSize: 12,
-    color: '#999',
-    textTransform: 'uppercase',
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 2,
-  },
-  ownerName: {
-    fontSize: 18,
-    color: '#333',
-    marginBottom: 15,
-    marginTop: 15,
-  },
-  contactButton: {
-    backgroundColor: '#E3F2FD',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  contactButtonText: {
-    color: '#2196F3',
-    fontWeight: '600',
-  },
-  footer: {
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  joinedText: {
-    fontSize: 12,
-    color: '#999',
+  actionButton: {
+    padding: spacing.sm,
+    marginLeft: spacing.xs,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#999',
+    ...typography.body,
+    color: colors.text.tertiary,
     fontStyle: 'italic',
   },
-  errorText: {
-    color: 'red',
-    marginBottom: 20,
-    textAlign: 'center',
+  ownerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
-  retryButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
+  ownerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.secondaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
   },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  ownerInfo: {
+    flex: 1,
+  },
+  ownerName: {
+    ...typography.subtitle,
+    color: colors.text.primary,
+  },
+  ownerPhone: {
+    ...typography.bodySmall,
+    color: colors.text.secondary,
+  },
+  footerSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+  },
+  joinedText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginLeft: spacing.xs,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+    padding: spacing.xxl,
+    paddingBottom: spacing.huge,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: spacing.xl,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    ...typography.h3,
+    color: colors.text.primary,
+    marginBottom: spacing.xxl,
     textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 16,
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'transparent',
+    marginTop: spacing.md,
   },
-  button: {
+  modalButtonHalf: {
     flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#eee',
-  },
-  submitButton: {
-    backgroundColor: '#2196F3',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    marginHorizontal: spacing.xs,
   },
 });

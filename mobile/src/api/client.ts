@@ -2,19 +2,24 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../store/useAuthStore';
 
+const PRODUCTION_API = 'https://happy-renting.onrender.com/api';
+
 const getBaseUrl = () => {
+  // Default to production API
+  let url = PRODUCTION_API;
+
   if (__DEV__) {
-    // For local development
-    const debuggerHost = Constants.expoConfig?.hostUri;
-    // Android emulator uses 10.0.2.2, iOS uses localhost
-    // Physical devices use the machine's local IP (debuggerHost)
-    const localhost = debuggerHost ? debuggerHost.split(':')[0] : 'localhost';
-    const url = `http://${localhost}:5000/api`;
-    console.log('[API] Using Base URL:', url);
-    return url;
+    // Check if we should use local backend (set USE_LOCAL_API=true in app.json extra or expo env)
+    const useLocal = Constants.expoConfig?.extra?.USE_LOCAL_API === true;
+    if (useLocal) {
+      const debuggerHost = Constants.expoConfig?.hostUri;
+      const localhost = debuggerHost ? debuggerHost.split(':')[0] : 'localhost';
+      url = `http://${localhost}:5000/api`;
+    }
   }
-  // Production URL
-  return 'https://happy-renting.onrender.com/api';
+
+  console.log('[API] Using Base URL:', url);
+  return url;
 };
 
 const client = axios.create({

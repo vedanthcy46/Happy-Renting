@@ -21,8 +21,12 @@ const emailService = require('./emailService');
  */
 const generateMonthlyBills = async (ownerId, tenantId) => {
   try {
-    const today = new Date();
+    const utcDate = new Date();
+    const istString = utcDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+    const today = new Date(istString);
     const currentMonthStr = today.toISOString().slice(0, 7); // "YYYY-MM"
+    
+    logger.info(`[CRON-V2] IST Date: ${today.toISOString()}`);
     const billingResults = { created: 0, skipped: 0, errors: 0 };
 
     // Query stays that are active or vacated
@@ -40,6 +44,8 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
       .populate('userId')
       .populate('ownerId')
       .populate('propertyId');
+
+    logger.info(`[CRON-V2] Found ${tenancies.length} eligible tenants`);
 
     // Bulk pre-fetch existing records to avoid N+1 queries in the loop
     const allRecords = await MonthlyRentRecord.find({
@@ -141,6 +147,7 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
             );
             
             billingResults.created++;
+            logger.info(`[CRON-V2] Created rent record for tenant ${tenant._id}`);
 
             // Email Triggers
             // Do not spam historical backfills
@@ -185,6 +192,7 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
 
       } catch (tenantErr) {
         logger.error(`[BILLING ERROR] Failed for tenant ${tenant._id}: ${tenantErr.message}`);
+        logger.error(`[CRON-V2] Failed for tenant ${tenant._id}`, tenantErr);
         billingResults.errors++;
       }
     }
@@ -204,7 +212,10 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
     }
 
     if (billingResults.created > 0) {
+      logger.info(`[CRON-V2] Generated ${billingResults.created} monthly rent records`);
       logger.info(`[BILLING] Generated ${billingResults.created} bills${ownerId ? ` for owner=${ownerId}` : ' globally'}`);
+    } else {
+      logger.info(`[CRON-V2] Generated 0 monthly rent records`);
     }
 
     return billingResults;
@@ -244,10 +255,20 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
       const dueDate = new Date(record.dueDate);
       dueDate.setHours(0, 0, 0, 0);
 
-      const diffTime = today - dueDate;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      // Guard: prevent newly generated rent records from being marked overdue during the same cron run
+      const isCreatedToday = record.createdAt && record.createdAt.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+      if (isCreatedToday) {
+        logger.info(`[OVERDUE DEBUG] Skipping overdue processing for newly generated bill ${record._id}`);
+        continue;
+      }
 
-      logger.info(`[OVERDUE DEBUG] Tenant=${record.userId?.name} Month=${record.month} Status=${record.status} diffDays=${diffDays} reminderSentAt=${record.reminderSentAt || 'Never'}`);
+      let diffDays = 0;
+      if (today > dueDate) {
+        const diffTime = today.getTime() - dueDate.getTime();
+        diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      }
+
+      logger.info(`[OVERDUE DEBUG] currentDate=${today.toISOString()} dueDate=${dueDate.toISOString()} billMonth=${record.month} generatedAt=${record.createdAt ? record.createdAt.toISOString() : 'Unknown'} diffDays=${diffDays}`);
 
       // Mark as overdue if past due date (Only for pending. Partial stays partial)
       if (diffDays > 0 && record.status === 'pending') {

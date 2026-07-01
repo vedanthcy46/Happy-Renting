@@ -1,60 +1,37 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs, Redirect } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
-
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { Tabs, Redirect } from 'expo-router';
+import { Platform, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../src/store/useAuthStore';
+import { colors, typography, shadows } from '../../src/theme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { token, isLoading } = useAuthStore();
 
-  if (isLoading) {
-    return null; // Or a loading spinner
-  }
-
-  if (!token) {
-    return <Redirect href="/login" />;
-  }
+  if (isLoading) return null;
+  if (!token) return <Redirect href="/login" />;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.tabInactive,
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarItemStyle: styles.tabItem,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'house',
-                android: 'home',
-                web: 'home',
-              }}
-              tintColor={color}
-              size={28}
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'home' : 'home-outline'}
+              size={24}
+              color={color}
             />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'person.circle', android: 'person', web: 'person' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
           ),
         }}
       />
@@ -62,15 +39,11 @@ export default function TabLayout() {
         name="two"
         options={{
           title: 'Payments',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'creditcard',
-                android: 'payment',
-                web: 'payment',
-              }}
-              tintColor={color}
-              size={28}
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'card' : 'card-outline'}
+              size={24}
+              color={color}
             />
           ),
         }}
@@ -79,15 +52,11 @@ export default function TabLayout() {
         name="complaints"
         options={{
           title: 'Complaints',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'exclamationmark.bubble',
-                android: 'report_problem',
-                web: 'report_problem',
-              }}
-              tintColor={color}
-              size={28}
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'chatbubble' : 'chatbubble-outline'}
+              size={24}
+              color={color}
             />
           ),
         }}
@@ -95,3 +64,32 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 0,
+    elevation: 0,
+    height: Platform.OS === 'ios' ? 88 : 64,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  tabLabel: {
+    ...typography.tab,
+    marginTop: 2,
+  },
+  tabItem: {
+    paddingVertical: 4,
+  },
+});
