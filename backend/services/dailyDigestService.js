@@ -15,6 +15,40 @@ const ADMIN_TEMPLATE = fs.readFileSync(path.join(__dirname, '../templates/email/
 
 const TEMPLATE_VERSION = 'v1';
 
+const normalizeOwnerDigestMetrics = (metrics = {}) => ({
+  pendingRent: Number(metrics.pendingRent) || 0,
+  overdueTenants: Number(metrics.overdueTenants) || 0,
+  unverifiedPayments: Number(metrics.unverifiedPayments) || 0,
+  upcomingMoveOuts: Number(metrics.upcomingMoveOuts) || 0,
+  openComplaints: Number(metrics.openComplaints) || 0,
+  collectedToday: Number(metrics.collectedToday) || 0,
+  walletBalance: Number(metrics.walletBalance) || 0,
+  withdrawableAmount: Number(metrics.withdrawableAmount) || 0,
+  totalRooms: Number(metrics.totalRooms) || 0,
+  occupiedRooms: Number(metrics.occupiedRooms) || 0,
+  vacantRooms: Number(metrics.vacantRooms) || 0,
+  occupancyRate: Number(metrics.occupancyRate) || 0,
+});
+
+const normalizeAdminDigestMetrics = (metrics = {}) => {
+  const normalized = {
+    totalCollectionsToday: Number(metrics.totalCollectionsToday) || 0,
+    activeOwners: Number(metrics.activeOwners) || 0,
+    activeTenants: Number(metrics.activeTenants) || 0,
+    newRegistrationsToday: Number(metrics.newRegistrationsToday) || 0,
+    failedPaymentsToday: Number(metrics.failedPaymentsToday) || 0,
+    pendingWithdrawals: Number(metrics.pendingWithdrawals) || 0,
+    queueBacklog: Number(metrics.queueBacklog) || 0,
+    deadLetterJobs: Number(metrics.deadLetterJobs) || 0,
+    workerHealth: metrics.workerHealth || 'Healthy',
+  };
+
+  normalized.workerHealthStyle = normalized.workerHealth === 'Healthy' ? 'border-green' : 'border-red';
+  normalized.deadLetterStyle = normalized.deadLetterJobs > 0 ? 'border-red' : 'border-green';
+
+  return normalized;
+};
+
 /**
  * ── PUBLISHERS ─────────────────────────────────────────────────────────────
  */
@@ -49,7 +83,7 @@ const generateOwnerDigests = async () => {
         reportingService.getOwnerAlerts(owner._id, dateStr)
       ]);
 
-      const metrics = { ...financial, ...occupancy, ...collection, ...complaint, ...alerts };
+      const metrics = normalizeOwnerDigestMetrics({ ...financial, ...occupancy, ...collection, ...complaint, ...alerts });
 
       snapshotOps.push({
         updateOne: {
@@ -97,7 +131,7 @@ const generateAdminDigests = async () => {
     reportingService.getAdminSystemMetrics()
   ]);
 
-  const metrics = { ...platform, ...system };
+  const metrics = normalizeAdminDigestMetrics({ ...platform, ...system });
 
   // Cache platform snapshot
   await DailyMetricsSnapshot.updateOne(
@@ -171,7 +205,9 @@ const processDigestQueue = async () => {
       }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const data = { ...snapshot.metrics, date: job.digestDate, ownerName: job.userId.name };
+      const data = job.digestType === 'owner_daily'
+        ? { ...normalizeOwnerDigestMetrics(snapshot.metrics), date: job.digestDate, ownerName: job.userId.name }
+        : { ...normalizeAdminDigestMetrics(snapshot.metrics), date: job.digestDate, ownerName: job.userId.name };
 
       let html = '';
       let subject = '';
@@ -251,6 +287,8 @@ const runDigestWatchdog = async () => {
 };
 
 module.exports = {
+  normalizeOwnerDigestMetrics,
+  normalizeAdminDigestMetrics,
   generateOwnerDigests,
   generateAdminDigests,
   processDigestQueue,

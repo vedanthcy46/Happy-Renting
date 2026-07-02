@@ -40,23 +40,44 @@ const getOwnerFinancialMetrics = async (ownerId) => {
   };
 };
 
+const calculateOccupancyMetrics = ({ totalRooms, occupiedRooms }) => {
+  const safeTotalRooms = Math.max(0, Number(totalRooms) || 0);
+  const safeOccupiedRooms = Math.min(Math.max(0, Number(occupiedRooms) || 0), safeTotalRooms);
+  const vacantRooms = Math.max(safeTotalRooms - safeOccupiedRooms, 0);
+  const occupancyRate = safeTotalRooms > 0
+    ? Number(((safeOccupiedRooms / safeTotalRooms) * 100).toFixed(1))
+    : 0;
+
+  return {
+    totalRooms: safeTotalRooms,
+    occupiedRooms: safeOccupiedRooms,
+    vacantRooms,
+    occupancyRate,
+  };
+};
+
 const getOwnerOccupancyMetrics = async (ownerId) => {
-  // We need to count rooms for properties owned by this owner
   const Property = require('../models/Property');
   const properties = await Property.find({ ownerId }).select('_id');
   const propertyIds = properties.map(p => p._id);
 
-  const totalRooms = await Room.countDocuments({ propertyId: { $in: propertyIds } });
-  const occupiedRooms = await Room.countDocuments({ propertyId: { $in: propertyIds }, currentTenant: { $ne: null } });
-  const vacantRooms = totalRooms - occupiedRooms;
-  const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : 0;
+  const occupancyAgg = await Room.aggregate([
+    { $match: { propertyId: { $in: propertyIds }, isActive: true } },
+    {
+      $group: {
+        _id: null,
+        totalRooms: { $sum: 1 },
+        occupiedRooms: {
+          $sum: {
+            $cond: [{ $gt: ['$currentOccupancy', 0] }, 1, 0]
+          }
+        }
+      }
+    }
+  ]);
 
-  return {
-    totalRooms,
-    occupiedRooms,
-    vacantRooms,
-    occupancyRate: parseFloat(occupancyRate)
-  };
+  const { totalRooms = 0, occupiedRooms = 0 } = occupancyAgg[0] || {};
+  return calculateOccupancyMetrics({ totalRooms, occupiedRooms });
 };
 
 const getOwnerCollectionMetrics = async (ownerId, targetDate) => {
@@ -178,6 +199,7 @@ const getAdminSystemMetrics = async () => {
 };
 
 module.exports = {
+  calculateOccupancyMetrics,
   getOwnerFinancialMetrics,
   getOwnerOccupancyMetrics,
   getOwnerCollectionMetrics,
