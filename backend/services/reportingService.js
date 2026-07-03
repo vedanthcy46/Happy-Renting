@@ -87,15 +87,15 @@ const getOwnerCollectionMetrics = async (ownerId, targetDate) => {
 
   const startOfMonth = new Date(tDate.getFullYear(), tDate.getMonth(), 1);
 
-  // Collections Today
+  // Collections Today (only positive collections, exclude negative advance deductions)
   const todayAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfDay, $lt: endOfDay } } },
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
-  // Collections This Month
+  // Collections This Month (only positive collections)
   const monthAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfMonth, $lt: endOfDay } } },
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfMonth, $lt: endOfDay }, amount: { $gt: 0 } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
@@ -167,7 +167,7 @@ const getAdminPlatformMetrics = async (targetDate) => {
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
 
   const totalCollectionsAgg = await PaymentTransaction.aggregate([
-    { $match: { status: 'completed', paymentDate: { $gte: startOfDay, $lt: endOfDay } } },
+    { $match: { status: 'completed', paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 

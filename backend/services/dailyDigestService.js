@@ -21,7 +21,8 @@ const normalizeOwnerDigestMetrics = (metrics = {}) => ({
   unverifiedPayments: Number(metrics.unverifiedPayments) || 0,
   upcomingMoveOuts: Number(metrics.upcomingMoveOuts) || 0,
   openComplaints: Number(metrics.openComplaints) || 0,
-  collectedToday: Number(metrics.collectedToday) || 0,
+  collectedToday: Number(metrics.collectedToday || metrics.collectionsToday) || 0,
+  collectionsToday: Number(metrics.collectionsToday || metrics.collectedToday) || 0,
   walletBalance: Number(metrics.walletBalance) || 0,
   withdrawableAmount: Number(metrics.withdrawableAmount) || 0,
   totalRooms: Number(metrics.totalRooms) || 0,
@@ -32,7 +33,8 @@ const normalizeOwnerDigestMetrics = (metrics = {}) => ({
 
 const normalizeAdminDigestMetrics = (metrics = {}) => {
   const normalized = {
-    totalCollectionsToday: Number(metrics.totalCollectionsToday) || 0,
+    totalCollectionsToday: Number(metrics.totalCollectionsToday || metrics.collectionsToday) || 0,
+    collectionsToday: Number(metrics.collectionsToday || metrics.totalCollectionsToday) || 0,
     activeOwners: Number(metrics.activeOwners) || 0,
     activeTenants: Number(metrics.activeTenants) || 0,
     newRegistrationsToday: Number(metrics.newRegistrationsToday) || 0,

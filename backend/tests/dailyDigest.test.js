@@ -1,7 +1,13 @@
 'use strict';
 
 const mongoose = require('mongoose');
-const { processDigestQueue, runDigestWatchdog, generateOwnerDigests } = require('../services/dailyDigestService');
+const {
+  processDigestQueue,
+  runDigestWatchdog,
+  generateOwnerDigests,
+  normalizeOwnerDigestMetrics,
+  normalizeAdminDigestMetrics
+} = require('../services/dailyDigestService');
 const DailyDigestLog = require('../models/DailyDigestLog');
 const DailyMetricsSnapshot = require('../models/DailyMetricsSnapshot');
 const User = require('../models/User');
@@ -135,5 +141,21 @@ describe('Daily Digest System', () => {
     expect(updatedJob.status).toBe('dead_letter');
     expect(updatedJob.attempts).toBe(5);
     expect(updatedJob.lastError).toBe('SMTP failure');
+  });
+
+  it('6. normalizeOwnerDigestMetrics should support both collectedToday and collectionsToday', () => {
+    const normalizedFromCollected = normalizeOwnerDigestMetrics({ collectedToday: 123 });
+    expect(normalizedFromCollected.collectedToday).toBe(123);
+    expect(normalizedFromCollected.collectionsToday).toBe(123);
+
+    const normalizedFromCollections = normalizeOwnerDigestMetrics({ collectionsToday: 456 });
+    expect(normalizedFromCollections.collectedToday).toBe(456);
+    expect(normalizedFromCollections.collectionsToday).toBe(456);
+  });
+
+  it('7. normalizeAdminDigestMetrics should support totalCollectionsToday aliasing', () => {
+    const normalized = normalizeAdminDigestMetrics({ collectionsToday: 789 });
+    expect(normalized.totalCollectionsToday).toBe(789);
+    expect(normalized.collectionsToday).toBe(789);
   });
 });

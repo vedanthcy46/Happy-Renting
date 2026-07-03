@@ -808,6 +808,10 @@ const sendDailyDigestEmail = async (owner, summary) => {
     ? `Here is the daily operational summary across the entire platform:` 
     : `Here is your daily operational summary across your properties:`;
 
+  const collectionsTodayValue = Number(
+    summary.collectionsToday ?? summary.collectedToday ?? summary.totalCollectionsToday ?? 0
+  );
+
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #2563eb;">${title}</h2>
@@ -817,7 +821,7 @@ const sendDailyDigestEmail = async (owner, summary) => {
       <ul style="line-height: 1.8; font-size: 16px;">
         <li><strong>Overdue Tenants:</strong> <span style="color: #dc2626; font-weight: bold;">${summary.overdueTenants}</span></li>
         <li><strong>Pending Payments:</strong> <span style="color: #f59e0b; font-weight: bold;">${summary.pendingPayments}</span></li>
-        <li><strong>Collections Today:</strong> <span style="color: #16a34a; font-weight: bold;">₹${summary.collectionsToday.toLocaleString()}</span></li>
+        <li><strong>Collections Today:</strong> <span style="color: #16a34a; font-weight: bold;">₹${collectionsTodayValue.toLocaleString()}</span></li>
         <li><strong>Active Move-out Requests:</strong> <strong>${summary.moveOutRequests}</strong></li>
       </ul>
       <hr style="border: 0; border-top: 1px solid #eee;" />

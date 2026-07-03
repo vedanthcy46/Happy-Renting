@@ -475,6 +475,7 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
     const txQuery = { status: 'completed', paymentDate: { $gte: todayStart, $lte: todayEnd } };
     if (ownerId) txQuery.ownerId = ownerId;
     if (filters.propertyId) txQuery.propertyId = filters.propertyId;
+    txQuery.amount = { $gt: 0 };
 
     const PaymentTransaction = require('../models/PaymentTransaction');
     const todayResult = await PaymentTransaction.aggregate([
