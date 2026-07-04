@@ -9,3 +9,5 @@ export { LoadingOverlay } from './LoadingOverlay';
 export { EmptyState } from './EmptyState';
 export { ErrorState } from './ErrorState';
 export { SkeletonLoader, CardSkeleton } from './SkeletonLoader';
+export { RentCard } from './RentCard';
+export { ActivityCard } from './ActivityCard';

@@ -1,8 +1,8 @@
-import { ProfileScreen } from '../src/screens/ProfileScreen';
+import { ProfileScreen } from '../../src/screens/ProfileScreen';
 import { useRouter } from 'expo-router';
-import { useAuthStore } from '../src/store/useAuthStore';
+import { useAuthStore } from '../../src/store/useAuthStore';
 
-export default function ModalScreen() {
+export default function ProfileTab() {
   const { logout } = useAuthStore();
   const router = useRouter();
 

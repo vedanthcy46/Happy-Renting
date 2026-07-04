@@ -1,15 +1,15 @@
-import { useFonts } from 'expo-font';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-
-import { useColorScheme } from '@/components/useColorScheme';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
+import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
 import { colors } from '../src/theme';
 
 const queryClient = new QueryClient({
@@ -21,58 +21,76 @@ const queryClient = new QueryClient({
   },
 });
 
+SplashScreen.preventAutoHideAsync();
+
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
+function AppContent() {
   const { initialize, isLoading: isAuthLoading } = useAuthStore();
-  usePushNotifications();
+  const { colors: themeColors } = useTheme();
 
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+  usePushNotifications();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
   useEffect(() => {
-    if (loaded && !isAuthLoading) {
+    if (!isAuthLoading) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, isAuthLoading]);
+  }, [isAuthLoading]);
 
-  if (!loaded || isAuthLoading) {
+  if (isAuthLoading) {
     return null;
   }
 
   return (
+    <>
+      <StatusBar style="auto" />
+      <Stack screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: themeColors.background },
+        animation: 'slide_from_right',
+      }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="notifications"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="rentDetail/[id]"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="login"
+          options={{ animation: 'slide_from_bottom' }}
+        />
+      </Stack>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <RootLayoutNav />
+        <ThemeProvider>
+          <GestureHandlerRootView style={styles.root}>
+            <AppContent />
+          </GestureHandlerRootView>
+        </ThemeProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
 
-function RootLayoutNav() {
-  return (
-    <>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="login" />
-      </Stack>
-    </>
-  );
-}
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

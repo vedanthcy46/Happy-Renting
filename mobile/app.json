@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Happy Renting",
     "slug": "happy-renting-tenant",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "happyrenting",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -36,7 +36,13 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#2563EB"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Happy Renting needs access to your photos to upload payment proof."
         }
       ]
     ],

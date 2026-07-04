@@ -87,9 +87,9 @@ const getOwnerCollectionMetrics = async (ownerId, targetDate) => {
 
   const startOfMonth = new Date(tDate.getFullYear(), tDate.getMonth(), 1);
 
-  // Collections Today (only positive collections, exclude negative advance deductions)
+  // Collections Today (completed + verifying payments, exclude negative advance deductions)
   const todayAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
@@ -124,11 +124,13 @@ const getOwnerAlerts = async (ownerId, targetDate) => {
   const tDate = new Date(targetDate);
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
 
-  // Overdue tenants
-  const overdueTenants = await MonthlyRentRecord.countDocuments({
-    ownerId,
-    status: 'overdue'
-  });
+  // Overdue tenants (distinct tenants, not records)
+  const overdueAgg = await MonthlyRentRecord.aggregate([
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'overdue' } },
+    { $group: { _id: '$tenantId' } },
+    { $count: 'count' }
+  ]);
+  const overdueTenants = overdueAgg[0]?.count || 0;
 
   // Upcoming move-outs (within next 30 days)
   const next30Days = new Date(endOfDay);
@@ -167,7 +169,7 @@ const getAdminPlatformMetrics = async (targetDate) => {
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
 
   const totalCollectionsAgg = await PaymentTransaction.aggregate([
-    { $match: { status: 'completed', paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
+    { $match: { status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 

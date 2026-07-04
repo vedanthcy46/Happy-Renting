@@ -1,7 +1,6 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { colors, typography, shadows } from '../../src/theme';
 
@@ -36,9 +35,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="rent"
         options={{
-          title: 'Payments',
+          title: 'Rent',
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
               name={focused ? 'card' : 'card-outline'}
@@ -55,6 +54,19 @@ export default function TabLayout() {
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
               name={focused ? 'chatbubble' : 'chatbubble-outline'}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
               size={24}
               color={color}
             />
