@@ -186,7 +186,7 @@ const processDigestQueue = async () => {
           processingStartedAt: new Date() 
         } 
       },
-      { new: true, sort: { createdAt: 1 } }
+      { returnDocument: 'after', sort: { createdAt: 1 } }
     ).populate('userId');
 
     if (!job) break; // Queue empty

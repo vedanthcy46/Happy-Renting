@@ -586,7 +586,7 @@ const rebuildOwnerWallet = async (ownerId, session = null) => {
           totalSubscriptionFees
         }
       },
-      { session: txSession, new: true, upsert: true }
+      { session: txSession, returnDocument: 'after', upsert: true }
     );
 
     logger.info(`[WALLET] Rebuilt owner wallet for ownerId=${ownerId} successfully.`);

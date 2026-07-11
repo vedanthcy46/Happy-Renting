@@ -54,6 +54,20 @@ const complaintSchema = new mongoose.Schema(
     resolvedAt: {
       type: Date,
     },
+    category: {
+      type: String,
+      enum: ['plumbing', 'electrical', 'pest_control', 'cleaning', 'security', 'noise', 'internet', 'other'],
+      default: 'other',
+    },
+    images: [{
+      type: String
+    }],
+    comments: [{
+      message: { type: String, required: true },
+      authorName: { type: String, required: true },
+      authorRole: { type: String, enum: ['tenant', 'owner', 'superadmin'], required: true },
+      createdAt: { type: Date, default: Date.now }
+    }],
   },
   {
     timestamps: true,

@@ -327,8 +327,8 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
         shouldSend = true;
         emailType = 'due_today';
       } else if (diffDays > 0 && (record.status === 'overdue' || record.status === 'partial' || record.status === 'pending')) {
-        // Milestones: 1, 7, 15, 21, 30 days
-        const milestones = [1, 7, 15, 21, 30];
+        // Milestones: 1, 5, 10, 15, 20, 25 days
+        const milestones = [1, 5, 10, 15, 20, 25, 30];
         
         // Find the highest milestone currently reached
         const currentHighestMilestone = [...milestones].reverse().find(m => diffDays >= m);

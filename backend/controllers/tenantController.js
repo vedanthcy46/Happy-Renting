@@ -6,6 +6,8 @@ const User          = require('../models/User');
 const logger        = require('../config/logger');
 const tenantService = require('../services/tenantService');
 const emailService  = require('../services/emailService');
+const MoveOutRequest = require('../models/MoveOutRequest');
+const logActivity   = require('../utils/activityLogger');
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const addTenantValidation = [
@@ -424,6 +426,62 @@ const markRefundSettled = async (req, res, next) => {
   }
 };
 
+// ── POST /api/tenants/:id/moveout-request ────────────────────────────────────
+const submitMoveOutRequest = async (req, res, next) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    }
+
+    // Security check
+    if (req.user.role === 'tenant' && String(tenant.userId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    const { requestedDate, reason } = req.body;
+    if (!requestedDate) {
+      return res.status(400).json({ success: false, message: 'Requested vacate date is required.' });
+    }
+
+    // Create a new moveout request
+    const request = await MoveOutRequest.create({
+      tenantId: tenant._id,
+      userId: req.user._id,
+      requestedDate: new Date(requestedDate),
+      reason: reason || '',
+      status: 'pending',
+    });
+
+    await logActivity(req.user._id, 'MOVEOUT_REQUESTED', tenant._id, 'Tenant', `Requested moveout on ${requestedDate}`, req.ip);
+
+    res.status(201).json({ success: true, message: 'Move-out request submitted successfully.', request });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── GET /api/tenants/:id/moveout-request ─────────────────────────────────────
+const getMoveOutRequest = async (req, res, next) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    }
+
+    // Security check
+    if (req.user.role === 'tenant' && String(tenant.userId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    const request = await MoveOutRequest.findOne({ tenantId: tenant._id }).sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, request });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getTenants,
   getTenant,
@@ -437,4 +495,6 @@ module.exports = {
   addTenantValidation,
   moveOutValidation,
   markRefundSettled,
+  submitMoveOutRequest,
+  getMoveOutRequest,
 };

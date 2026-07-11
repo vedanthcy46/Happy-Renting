@@ -420,7 +420,7 @@ exports.handleCashfreeWebhook = async (req, res) => {
           webhookPayload: event,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     // ── Credit Owner Wallet ───────────────────────────────────────────────

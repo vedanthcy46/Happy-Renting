@@ -38,7 +38,7 @@ const getComplaints = async (req, res, next) => {
 // ── POST /api/complaints ───────────────────────────────────────────────────
 const createComplaint = async (req, res, next) => {
   try {
-    const { title, description, priority } = req.body;
+    const { title, description, priority, category } = req.body;
 
     // Find active tenancy for the user
     const tenant = await Tenant.findOne({ userId: req.user._id, status: 'active' });
@@ -46,15 +46,22 @@ const createComplaint = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'You must be an active tenant to raise a complaint.' });
     }
 
-    const complaint = await Complaint.create({
+    const complaintData = {
       title,
       description,
       priority: priority || 'medium',
+      category: category || 'other',
       tenantId: tenant._id,
       ownerId: tenant.ownerId,
       propertyId: tenant.propertyId,
       roomId: tenant.roomId,
-    });
+    };
+
+    if (req.file) {
+      complaintData.images = [req.file.path];
+    }
+
+    const complaint = await Complaint.create(complaintData);
 
     // Send Notification to Owner
     try {
@@ -133,4 +140,73 @@ const updateComplaint = async (req, res, next) => {
   }
 };
 
-module.exports = { getComplaints, createComplaint, updateComplaint };
+// ── GET /api/complaints/:id ─────────────────────────────────────────────────
+const getComplaintById = async (req, res, next) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id)
+      .populate({
+        path: 'tenantId',
+        populate: { path: 'userId', select: 'name email phone' }
+      })
+      .populate('roomId', 'roomNumber')
+      .populate('propertyId', 'name address')
+      .populate('ownerId', 'name email phone');
+
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: 'Complaint not found.' });
+    }
+
+    // Security check
+    if (req.user.role === 'owner' && String(complaint.ownerId._id) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+    if (req.user.role === 'tenant' && String(complaint.tenantId.userId._id) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    res.status(200).json({ success: true, complaint });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/complaints/:id/comments ───────────────────────────────────────
+const addComplaintComment = async (req, res, next) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'Comment message is required.' });
+    }
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: 'Complaint not found.' });
+    }
+
+    // Security check
+    if (req.user.role === 'owner' && String(complaint.ownerId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+    if (req.user.role === 'tenant') {
+      const tenant = await Tenant.findOne({ userId: req.user._id, status: 'active' });
+      if (!tenant || String(complaint.tenantId) !== String(tenant._id)) {
+        return res.status(403).json({ success: false, message: 'Access denied.' });
+      }
+    }
+
+    complaint.comments.push({
+      message: message.trim(),
+      authorName: req.user.name,
+      authorRole: req.user.role,
+      createdAt: Date.now()
+    });
+
+    await complaint.save();
+
+    res.status(200).json({ success: true, message: 'Comment added successfully.', comments: complaint.comments });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getComplaints, createComplaint, updateComplaint, getComplaintById, addComplaintComment };
