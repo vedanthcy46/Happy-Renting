@@ -248,6 +248,7 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
       .populate('ownerId');
 
     let overdueMarked = 0;
+    const ownerAlertMap = new Map();
 
     for (const record of records) {
       if (!record.dueDate) continue;
@@ -369,12 +370,25 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
       }
 
       if (shouldSend) {
+        let ownerAlertData = null;
+        if (record.ownerId) {
+          const ownerKey = String(record.ownerId._id || record.ownerId);
+          ownerAlertData = ownerAlertMap.get(ownerKey) || { owner: record.ownerId, dueTomorrow: 0, dueToday: 0, overdue: 0 };
+        }
+
         if (emailType === 'due_tomorrow' && record.userId) {
           await emailService.sendDueSoonReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
+          if (ownerAlertData) ownerAlertData.dueTomorrow++;
         } else if (emailType === 'due_today' && record.userId) {
           await emailService.sendDueTodayReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
+          if (ownerAlertData) ownerAlertData.dueToday++;
         } else if (emailType === 'overdue' && record.userId) {
           await emailService.sendOverdueAlert(record.userId, record, record.propertyId, record.roomId, record.ownerId).catch(() => null);
+          if (ownerAlertData) ownerAlertData.overdue++;
+        }
+
+        if (ownerAlertData && record.ownerId) {
+          ownerAlertMap.set(String(record.ownerId._id || record.ownerId), ownerAlertData);
         }
         try {
           await MonthlyRentRecord.updateOne(
@@ -396,6 +410,15 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
 
     if (overdueMarked > 0) {
       logger.info(`[BILLING] Marked ${overdueMarked} records as overdue${ownerId ? ` for owner=${ownerId}` : ' globally'}`);
+    }
+
+    // Send global alert summary to owners
+    for (const [ownerIdKey, data] of ownerAlertMap.entries()) {
+      if (data.dueTomorrow > 0 || data.dueToday > 0 || data.overdue > 0) {
+        await emailService.sendOwnerAlertSummaryEmail(data.owner, data).catch((err) => {
+          logger.error(`[BILLING SUMMARY ERROR] Failed to send alert summary to owner ${ownerIdKey}: ${err.message}`);
+        });
+      }
     }
 
     return overdueMarked;

@@ -284,21 +284,6 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
     </div>
   `;
   await queueEmail(tenantUser.email, subject, html, 'alert');
-
-  if (owner && owner.notificationPreferences?.overdueEmails !== false) {
-    const ownerSubject = `Tenant Overdue: ${tenantUser.name} - Room ${room.roomNumber}`;
-    const ownerHtml = `
-      <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #dc2626;">
-        <h2 style="color: #dc2626;">Tenant Rent Overdue</h2>
-        <p>Hello <strong>${owner.name}</strong>,</p>
-        <p>Your tenant <strong>${tenantUser.name}</strong> in Room <strong>${room.roomNumber}</strong> is now OVERDUE for <strong>${payment.month}</strong>.</p>
-        <p><strong>Amount Due:</strong> ₹${(payment.remainingAmount || payment.totalRent).toLocaleString()}</p>
-        <p><strong>Property:</strong> ${property.name}</p>
-        ${getFooter()}
-      </div>
-    `;
-    await queueEmail(owner.email, ownerSubject, ownerHtml, 'alert');
-  }
 };
 
 // ── 6. Password Change Notification ──────────────────────────────────────────
@@ -634,6 +619,36 @@ const sendOwnerBillingSummaryEmail = async (owner, count, month) => {
   }).catch(() => null);
 };
 
+const sendOwnerAlertSummaryEmail = async (owner, data) => {
+  if (!owner.isActive || owner.notificationPreferences?.overdueEmails === false) return;
+
+  const totalAlerts = data.dueTomorrow + data.dueToday + data.overdue;
+  const subject = `Daily Rent Alerts Summary - ${totalAlerts} Tenants`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #f59e0b;">
+      <h2 style="color: #f59e0b;">Tenant Alert Summary</h2>
+      <p>Hello <strong>${owner.name}</strong>,</p>
+      <p>Here is your daily summary of rent reminders sent to your tenants today.</p>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+        ${data.dueTomorrow > 0 ? `<p style="margin: 5px 0;">Due Tomorrow: <strong>${data.dueTomorrow}</strong></p>` : ''}
+        ${data.dueToday > 0 ? `<p style="margin: 5px 0;">Due Today: <strong>${data.dueToday}</strong></p>` : ''}
+        ${data.overdue > 0 ? `<p style="margin: 5px 0; color: #dc2626;">Overdue: <strong>${data.overdue}</strong></p>` : ''}
+      </div>
+      <p>Individual email reminders have been sent automatically to the respective tenants.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('View Tenant Balances')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(owner.email, subject, html, 'alert');
+  await Notification.create({ 
+    userId: owner._id, 
+    title: 'Daily Alert Summary', 
+    message: `Sent ${totalAlerts} rent reminders to your tenants today.`, 
+    type: 'billing' 
+  }).catch(() => null);
+};
+
 const sendBillGeneratedEmail = async ({ user, role, rentRecord, property, room, tenantUser }) => {
   const isOwner = role === 'owner' || role === 'superadmin' || user.role === 'owner' || user.role === 'superadmin';
   const subject = isOwner 
@@ -892,6 +907,7 @@ module.exports = {
   sendMoveOutInitiatedEmail,
   sendFinalSettlementEmail,
   sendOwnerBillingSummaryEmail,
+  sendOwnerAlertSummaryEmail,
   sendSystemFailureAlert,
   sendDailyDigestEmail,
   sendEmail, // Exported for custom queue processors like dailyDigestService

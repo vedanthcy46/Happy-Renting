@@ -616,18 +616,23 @@ const chargeMonthlySubscriptions = async () => {
     if (subscriptionFee <= 0) return;
 
     // Find all active wallets
-    const wallets = await OwnerWallet.find({ status: 'active' }).session(session);
+    const wallets = await OwnerWallet.find({ status: 'active' }).populate('ownerId').session(session);
     const systemId = new mongoose.Types.ObjectId(); // Mock system user ID
 
     let chargeCount = 0;
     for (const wallet of wallets) {
+      // Only charge if owner is active
+      if (wallet.ownerId && wallet.ownerId.isActive === false) continue;
+      
+      const actualOwnerId = wallet.ownerId._id || wallet.ownerId;
+
       // Check if already charged for current calendar month
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
       const alreadyCharged = await WalletTransaction.findOne({
-        ownerId: wallet.ownerId,
+        ownerId: actualOwnerId,
         type: 'subscription_fee',
         createdAt: { $gte: startOfMonth }
       }).session(session);
@@ -646,7 +651,7 @@ const chargeMonthlySubscriptions = async () => {
         await WalletTransaction.create(
           [
             {
-              ownerId: wallet.ownerId,
+              ownerId: actualOwnerId,
               grossAmount: subscriptionFee,
               gatewayFee: 0,
               platformFee: 0,
@@ -663,7 +668,7 @@ const chargeMonthlySubscriptions = async () => {
         chargeCount++;
       } else {
         logger.warn(
-          `[WALLET] Skipped subscription charge for owner=${wallet.ownerId} due to insufficient balance (₹${wallet.availableBalance})`
+          `[WALLET] Skipped subscription charge for owner=${actualOwnerId} due to insufficient balance (₹${wallet.availableBalance})`
         );
       }
     }
