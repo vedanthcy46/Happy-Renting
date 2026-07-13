@@ -9,7 +9,7 @@ import {
   Animated,
   View,
 } from 'react-native';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 type AppButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -149,24 +149,6 @@ const styles = StyleSheet.create({
   iconWrapper: {
     marginRight: spacing.sm,
   },
-  // Variants
-  variant_primary: {
-    backgroundColor: colors.primary,
-  },
-  variant_secondary: {
-    backgroundColor: colors.secondary,
-  },
-  variant_outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  variant_ghost: {
-    backgroundColor: 'transparent',
-  },
-  variant_danger: {
-    backgroundColor: colors.error,
-  },
   // Sizes
   size_sm: {
     paddingVertical: spacing.sm + 2,
@@ -183,21 +165,6 @@ const styles = StyleSheet.create({
   // Labels
   label: {
     ...typography.button,
-  },
-  label_primary: {
-    color: colors.text.inverse,
-  },
-  label_secondary: {
-    color: colors.text.inverse,
-  },
-  label_outline: {
-    color: colors.primary,
-  },
-  label_ghost: {
-    color: colors.primary,
-  },
-  label_danger: {
-    color: colors.text.inverse,
   },
   labelDisabled: {
     opacity: 0.8,

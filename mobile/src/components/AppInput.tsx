@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   TextInput,
@@ -8,7 +8,8 @@ import {
   TextInputProps,
   Animated,
 } from 'react-native';
-import { colors, typography, spacing, radius } from '../theme';
+import { typography, spacing, radius } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface AppInputProps extends TextInputProps {
   label?: string;
@@ -27,6 +28,8 @@ export const AppInput: React.FC<AppInputProps> = ({
   onBlur,
   ...rest
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [isFocused, setIsFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
 
@@ -82,7 +85,7 @@ export const AppInput: React.FC<AppInputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
   },

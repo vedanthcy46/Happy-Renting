@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   ActivityIndicator,
@@ -6,7 +6,8 @@ import {
   StyleSheet,
   Animated,
 } from 'react-native';
-import { colors, typography, spacing } from '../theme';
+import { typography, spacing } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -17,6 +18,8 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   visible,
   message,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.overlay,

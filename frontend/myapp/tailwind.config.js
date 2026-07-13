@@ -31,7 +31,7 @@ module.exports = {
         danger : { light: '#fee2e2', DEFAULT: '#ef4444', dark: '#991b1b' },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         glass: '0 4px 30px rgba(0,0,0,0.3)',
@@ -42,10 +42,12 @@ module.exports = {
         'fade-in'     : 'fadeIn 0.3s ease-out',
         'slide-up'    : 'slideUp 0.3s ease-out',
         'pulse-glow'  : 'pulseGlow 2s infinite',
+        'fade-in-up'  : 'fadeInUp 0.5s ease-out',
       },
       keyframes: {
         fadeIn   : { from: { opacity: 0 }, to: { opacity: 1 } },
         slideUp  : { from: { opacity: 0, transform: 'translateY(16px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+        fadeInUp : { from: { opacity: 0, transform: 'translateY(24px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
         pulseGlow: { '0%,100%': { boxShadow: '0 0 0 0 rgba(59,130,246,0.4)' }, '50%': { boxShadow: '0 0 0 8px rgba(59,130,246,0)' } },
       },
       backdropBlur: { xs: '2px' },
@@ -53,4 +55,3 @@ module.exports = {
   },
   plugins: [],
 };
-

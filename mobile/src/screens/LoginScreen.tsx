@@ -226,7 +226,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <Animated.View style={[styles.heroContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
               <View style={styles.logoContainer}>
                 <Image
-                  source={require('../../assets/images/main-app-icon.png')}
+                  source={require('../../assets/images/icon.png')}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />

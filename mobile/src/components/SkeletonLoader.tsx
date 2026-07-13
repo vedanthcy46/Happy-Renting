@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
-import { colors, spacing, radius } from '../theme';
+import { spacing, radius } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface SkeletonLoaderProps {
   width?: number | string;
@@ -15,6 +16,8 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   borderRadius = radius.sm,
   style,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -52,19 +55,23 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   );
 };
 
-export const CardSkeleton: React.FC = () => (
-  <View style={styles.cardSkeleton}>
-    <SkeletonLoader height={24} width="60%" />
-    <View style={{ height: spacing.sm }} />
-    <SkeletonLoader height={40} width="40%" />
-    <View style={{ height: spacing.md }} />
-    <SkeletonLoader height={16} width="80%" />
-    <View style={{ height: spacing.sm }} />
-    <SkeletonLoader height={16} width="50%" />
-  </View>
-);
+export const CardSkeleton: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.cardSkeleton}>
+      <SkeletonLoader height={24} width="60%" />
+      <View style={{ height: spacing.sm }} />
+      <SkeletonLoader height={40} width="40%" />
+      <View style={{ height: spacing.md }} />
+      <SkeletonLoader height={16} width="80%" />
+      <View style={{ height: spacing.sm }} />
+      <SkeletonLoader height={16} width="50%" />
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   skeleton: {
     backgroundColor: colors.skeleton,
   },

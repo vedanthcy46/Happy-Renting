@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -23,9 +23,9 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { updateProfile, changePassword as apiChangePassword, getProfile } from '../api/user';
 import { AppCard, AppButton, AppInput } from '../components';
-import { colors, typography, spacing, radius, shadows } from '../theme';
-import { getInitials } from '../utils';
+import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
+import { getInitials } from '../utils';
 
 interface ProfileScreenProps {
   onLogout: () => void;
@@ -33,10 +33,11 @@ interface ProfileScreenProps {
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNavigate }) => {
-  const { colors: themeColors } = useTheme();
+  const { colors } = useTheme();
   const { user, setAuth, token } = useAuthStore();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [loading, setLoading] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -232,7 +233,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
 
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="shield-checkmark-outline" size={18} color={themeColors.text.primary} />
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.text.primary} />
             <Text style={styles.sectionTitle}>Security</Text>
           </View>
           <AppButton
@@ -241,19 +242,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             variant="outline"
             fullWidth
             style={biometricSupported ? { marginBottom: spacing.md } : undefined}
-            icon={<Ionicons name="lock-closed-outline" size={18} color={themeColors.text.secondary} />}
+            icon={<Ionicons name="lock-closed-outline" size={18} color={colors.text.secondary} />}
           />
           {biometricSupported && (
             <View style={styles.biometricRow}>
               <View style={styles.biometricLabelCol}>
-                <Ionicons name="finger-print-outline" size={18} color={themeColors.text.secondary} style={{ marginRight: spacing.sm }} />
+                <Ionicons name="finger-print-outline" size={18} color={colors.text.secondary} style={{ marginRight: spacing.sm }} />
                 <Text style={styles.biometricText}>Biometric Login</Text>
               </View>
               <Switch
                 value={biometricActive}
                 onValueChange={handleBiometricToggle}
-                trackColor={{ false: themeColors.border, true: themeColors.primaryLight }}
-                thumbColor={biometricActive ? themeColors.primary : '#ccc'}
+                trackColor={{ false: colors.border, true: colors.primaryLight }}
+                thumbColor={biometricActive ? colors.primary : '#ccc'}
               />
             </View>
           )}
@@ -261,7 +262,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
 
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="apps-outline" size={18} color={themeColors.text.primary} />
+            <Ionicons name="apps-outline" size={18} color={colors.text.primary} />
             <Text style={styles.sectionTitle}>Quick Links</Text>
           </View>
           <AppButton
@@ -270,7 +271,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             variant="outline"
             fullWidth
             style={{ marginBottom: spacing.md }}
-            icon={<Ionicons name="settings-outline" size={18} color={themeColors.text.secondary} />}
+            icon={<Ionicons name="settings-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
             title="Help Center & FAQ"
@@ -278,7 +279,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             variant="outline"
             fullWidth
             style={{ marginBottom: spacing.md }}
-            icon={<Ionicons name="help-circle-outline" size={18} color={themeColors.text.secondary} />}
+            icon={<Ionicons name="help-circle-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
             title="About Happy Renting"
@@ -286,20 +287,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             variant="outline"
             fullWidth
             style={{ marginBottom: spacing.md }}
-            icon={<Ionicons name="information-circle-outline" size={18} color={themeColors.text.secondary} />}
+            icon={<Ionicons name="information-circle-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
             title="Visit Website"
             onPress={() => Linking.openURL('https://happyrenting.netlify.app')}
             variant="outline"
             fullWidth
-            icon={<Ionicons name="globe-outline" size={18} color={themeColors.text.secondary} />}
+            icon={<Ionicons name="globe-outline" size={18} color={colors.text.secondary} />}
           />
         </AppCard>
 
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="information-circle-outline" size={18} color={themeColors.text.primary} />
+            <Ionicons name="information-circle-outline" size={18} color={colors.text.primary} />
             <Text style={styles.sectionTitle}>Legal</Text>
           </View>
           <AppButton
@@ -308,14 +309,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             variant="outline"
             fullWidth
             style={{ marginBottom: spacing.md }}
-            icon={<Ionicons name="shield-outline" size={18} color={themeColors.text.secondary} />}
+            icon={<Ionicons name="shield-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
             title="Terms of Service"
             onPress={() => router.push('/terms-of-service')}
             variant="outline"
             fullWidth
-            icon={<Ionicons name="document-text-outline" size={18} color={themeColors.text.secondary} />}
+            icon={<Ionicons name="document-text-outline" size={18} color={colors.text.secondary} />}
           />
         </AppCard>
 
@@ -426,7 +427,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

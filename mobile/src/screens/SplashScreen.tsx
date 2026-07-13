@@ -113,7 +113,7 @@ export const SplashScreen: React.FC = () => {
         >
           <View style={styles.logoCard}>
             <Image
-              source={require('../../assets/images/main-app-icon.png')}
+              source={require('../../assets/images/icon.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />

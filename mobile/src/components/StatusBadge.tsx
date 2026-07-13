@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, typography, spacing, radius } from '../theme';
+import { typography, spacing, radius } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 type StatusType = 'paid' | 'pending' | 'overdue' | 'partial' | 'overpaid' | 'verifying' | 'completed' | 'rejected' | 'reversed' | 'open' | 'in_progress' | 'resolved' | 'closed' | 'failed' | 'sent' | string;
 
@@ -10,31 +11,34 @@ interface StatusBadgeProps {
   style?: ViewStyle;
 }
 
-const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
-  paid: { bg: colors.successLight, text: colors.success, label: 'Paid' },
-  completed: { bg: colors.successLight, text: colors.success, label: 'Completed' },
-  verified: { bg: colors.successLight, text: colors.success, label: 'Verified' },
-  pending: { bg: colors.warningLight, text: colors.warning, label: 'Pending' },
-  overdue: { bg: colors.errorLight, text: colors.error, label: 'Overdue' },
-  partial: { bg: colors.warningLight, text: '#D97706', label: 'Partial' },
-  overpaid: { bg: colors.infoLight, text: colors.info, label: 'Overpaid' },
-  verifying: { bg: colors.warningLight, text: '#D97706', label: 'Verifying' },
-  rejected: { bg: colors.errorLight, text: colors.error, label: 'Rejected' },
-  reversed: { bg: '#F3F4F6', text: '#6B7280', label: 'Reversed' },
-  open: { bg: colors.infoLight, text: colors.info, label: 'Open' },
-  in_progress: { bg: colors.warningLight, text: '#D97706', label: 'In Progress' },
-  resolved: { bg: colors.successLight, text: colors.success, label: 'Resolved' },
-  closed: { bg: '#F3F4F6', text: '#6B7280', label: 'Closed' },
-  failed: { bg: colors.errorLight, text: colors.error, label: 'Failed' },
-  sent: { bg: colors.successLight, text: colors.success, label: 'Sent' },
-};
+const fallbackConfig = { bg: '#F3F4F6', text: '#6B7280' };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
   size = 'md',
   style,
 }) => {
-  const config = statusConfig[status] || { bg: '#F3F4F6', text: '#6B7280', label: status };
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
+    paid: { bg: colors.successLight, text: colors.success, label: 'Paid' },
+    completed: { bg: colors.successLight, text: colors.success, label: 'Completed' },
+    verified: { bg: colors.successLight, text: colors.success, label: 'Verified' },
+    pending: { bg: colors.warningLight, text: colors.warning, label: 'Pending' },
+    overdue: { bg: colors.errorLight, text: colors.error, label: 'Overdue' },
+    partial: { bg: colors.warningLight, text: '#D97706', label: 'Partial' },
+    overpaid: { bg: colors.infoLight, text: colors.info, label: 'Overpaid' },
+    verifying: { bg: colors.warningLight, text: '#D97706', label: 'Verifying' },
+    rejected: { bg: colors.errorLight, text: colors.error, label: 'Rejected' },
+    reversed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Reversed' },
+    open: { bg: colors.infoLight, text: colors.info, label: 'Open' },
+    in_progress: { bg: colors.warningLight, text: '#D97706', label: 'In Progress' },
+    resolved: { bg: colors.successLight, text: colors.success, label: 'Resolved' },
+    closed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Closed' },
+    failed: { bg: colors.errorLight, text: colors.error, label: 'Failed' },
+    sent: { bg: colors.successLight, text: colors.success, label: 'Sent' },
+  };
+  const config = statusConfig[status] || { ...fallbackConfig, label: status };
   const isSm = size === 'sm';
 
   return (
@@ -56,7 +60,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',

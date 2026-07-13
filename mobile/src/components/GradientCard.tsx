@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, ViewStyle, Platform, ColorValue } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, radius } from '../theme';
+import { spacing, radius } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface GradientCardProps {
   children: React.ReactNode;
@@ -11,13 +12,16 @@ interface GradientCardProps {
 
 export const GradientCard: React.FC<GradientCardProps> = ({
   children,
-  gradient = colors.gradient.card,
+  gradient,
   style,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const g = gradient || colors.gradient.card;
   return (
     <View style={[styles.shadow, style]}>
       <LinearGradient
-        colors={gradient}
+        colors={g}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.card}
@@ -28,7 +32,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   shadow: {
     borderRadius: radius.xl,
     ...Platform.select({

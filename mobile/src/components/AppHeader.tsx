@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing } from '../theme';
+import { typography, spacing } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface AppHeaderProps {
   title: string;
@@ -28,6 +29,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onRightPress,
   style,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.container, style]}>
       <View style={styles.left}>
@@ -53,7 +56,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

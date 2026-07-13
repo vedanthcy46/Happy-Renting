@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, Dimensions } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { StyleSheet, View, Text } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -9,9 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme';
-
-const { width, height } = Dimensions.get('window');
+import { useTheme } from '../theme/ThemeProvider';
 
 interface SuccessAnimationProps {
   visible: boolean;
@@ -26,6 +24,8 @@ export const SuccessAnimation: React.FC<SuccessAnimationProps> = ({
   subtitle,
   onAnimationEnd,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
   const textOpacity = useSharedValue(0);
@@ -152,7 +152,7 @@ export const SuccessAnimation: React.FC<SuccessAnimationProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

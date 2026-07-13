@@ -146,7 +146,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
       {/* Logo at top */}
       <View style={[styles.logoRow, { paddingTop: insets.top + 16 }]}>
         <Image
-          source={require('../../assets/images/main-app-icon.png')}
+          source={require('../../assets/images/icon.png')}
           style={styles.topLogo}
           resizeMode="contain"
         />

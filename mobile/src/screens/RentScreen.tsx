@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   RefreshControl,
@@ -15,15 +15,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRentRecords, triggerBillingSync } from '../api/payment';
 import { RentRecord } from '../types/payment';
 import { RentCard, EmptyState } from '../components';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface RentScreenProps {
   onNavigate: (screen: string, params?: any) => void;
 }
 
 export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['rentRecords'],
@@ -115,7 +118,7 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

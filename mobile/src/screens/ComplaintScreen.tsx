@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   TouchableOpacity,
@@ -21,14 +21,9 @@ import { useRouter } from 'expo-router';
 import { getComplaints, createComplaint } from '../api/complaint';
 import { Complaint } from '../types/complaint';
 import { AppCard, AppButton, AppInput, StatusBadge, EmptyState } from '../components';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { formatRelativeTime } from '../utils';
-
-const priorityColors: Record<string, string> = {
-  low: colors.success,
-  medium: colors.warning,
-  high: colors.error,
-};
 
 const COMPLAINT_CATEGORIES = [
   { id: 'plumbing', label: 'Plumbing', icon: 'water-outline' },
@@ -42,9 +37,16 @@ const COMPLAINT_CATEGORIES = [
 ];
 
 export const ComplaintScreen: React.FC = () => {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const priorityColors: Record<string, string> = {
+    low: colors.success,
+    medium: colors.warning,
+    high: colors.error,
+  };
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium', category: 'other' });
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -250,7 +252,7 @@ export const ComplaintScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -22,7 +22,8 @@ import { getRentRecords } from '../api/payment';
 import { getNotifications } from '../api/notifications';
 import { useAuthStore } from '../store/useAuthStore';
 import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard } from '../components';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatDate, getInitials, formatMonth } from '../utils';
 import { appEvents, OPEN_DRAWER_EVENT } from '../utils/events';
 
@@ -32,9 +33,11 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { user } = useAuthStore();
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [showRoommateModal, setShowRoommateModal] = useState(false);
   const [editingRoommate, setEditingRoommate] = useState<any>(null);
@@ -481,7 +484,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -556,7 +559,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#2563EB', // header primary background color to blend in
+    borderColor: '#2563EB',
   },
   badgeText: {
     color: '#FFFFFF',

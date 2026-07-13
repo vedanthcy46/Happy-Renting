@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -7,7 +7,8 @@ import {
   Animated,
   StyleProp,
 } from 'react-native';
-import { colors, spacing, radius, shadows } from '../theme';
+import { spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface AppCardProps {
   children: React.ReactNode;
@@ -26,6 +27,8 @@ export const AppCard: React.FC<AppCardProps> = ({
   padding = spacing.lg,
   animate = true,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -75,7 +78,7 @@ export const AppCard: React.FC<AppCardProps> = ({
   return <Wrapper {...wrapperProps}>{children}</Wrapper>;
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   base: {
     backgroundColor: colors.card,
     borderRadius: radius.xl,

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, radius } from '../theme';
+import { typography, spacing, radius } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { formatRelativeTime } from '../utils';
 
 interface ActivityCardProps {
@@ -13,14 +14,6 @@ interface ActivityCardProps {
   status?: string;
 }
 
-const config: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  payment: { icon: 'card', color: colors.success },
-  complaint: { icon: 'chatbubble-ellipses', color: colors.warning },
-  bill: { icon: 'document-text', color: colors.primary },
-  notification: { icon: 'notifications', color: colors.info },
-  system: { icon: 'settings', color: colors.text.secondary },
-};
-
 export const ActivityCard: React.FC<ActivityCardProps> = ({
   title,
   description,
@@ -29,6 +22,15 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   timestamp,
   status,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const config: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+    payment: { icon: 'card', color: colors.success },
+    complaint: { icon: 'chatbubble-ellipses', color: colors.warning },
+    bill: { icon: 'document-text', color: colors.primary },
+    notification: { icon: 'notifications', color: colors.info },
+    system: { icon: 'settings', color: colors.text.secondary },
+  };
   const { icon, color } = config[type] || config.system;
 
   return (
@@ -53,7 +55,7 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     paddingVertical: spacing.md,

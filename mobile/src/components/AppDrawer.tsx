@@ -107,7 +107,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
         >
           <View style={styles.drawerLogoRow}>
             <Image
-              source={require('../../assets/images/vertical-logo.png')}
+              source={require('../../assets/images/icon.png')}
               style={styles.drawerLogo}
               resizeMode="contain"
             />
@@ -145,7 +145,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
                 <View style={[styles.drawerItemIcon, { backgroundColor: themeColors.primaryLight + '30' }]}>
                   <Ionicons
                     name={item.icon}
-                    size={20}
+                    size={24}
                     color={item.color || themeColors.primary}
                   />
                 </View>
@@ -198,11 +198,12 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   drawerLogoRow: {
+    alignItems: 'center',
     marginBottom: 20,
   },
   drawerLogo: {
-    width: 120,
-    height: 40,
+    width: 72,
+    height: 72,
   },
   drawerUserInfo: {
     flexDirection: 'row',
@@ -240,9 +241,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   drawerItemIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, radius } from '../theme';
+import { typography, spacing, radius } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface StatCardProps {
   label: string;
@@ -19,9 +20,12 @@ export const StatCard: React.FC<StatCardProps> = ({
   icon,
   trend,
   trendValue,
-  color = colors.primary,
+  color: propColor,
   style,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const color = propColor || colors.primary;
   const trendColors = {
     up: colors.success,
     down: colors.error,
@@ -51,7 +55,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,

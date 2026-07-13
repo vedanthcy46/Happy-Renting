@@ -192,7 +192,7 @@ export const AboutScreen: React.FC = () => {
           <View style={styles.heroCircleBottomLeft} />
 
           <Image
-            source={require('../../assets/images/main-app-icon.png')}
+            source={require('../../assets/images/icon.png')}
             style={styles.heroLogo}
           />
           <Text style={styles.heroTitle}>Happy Renting</Text>

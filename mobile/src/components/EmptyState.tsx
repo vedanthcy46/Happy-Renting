@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing } from '../theme';
+import { typography, spacing } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { AppButton } from './AppButton';
 
 interface EmptyStateProps {
@@ -19,6 +20,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   actionLabel,
   onAction,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
@@ -39,7 +42,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',

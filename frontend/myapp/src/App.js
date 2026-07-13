@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import Navbar from './components/common/Navbar';
+import SplashScreen from './components/SplashScreen';
 
 // Pages
 import LoginPage       from './pages/LoginPage';
@@ -43,12 +44,9 @@ const AppLayout = () => (
   </div>
 );
 
-const App = () => (
-  <BrowserRouter>
-    <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <Routes>
+const AppContent = () => (
+  <SplashScreen>
+    <Routes>
           {/* Public */}
           <Route path="/"             element={<LandingPage />} />
           <Route path="/login"        element={<LoginPage />} />
@@ -96,8 +94,17 @@ const App = () => (
           {/* Root redirect (fallback) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </ToastProvider>
-    </AuthProvider>
+  </SplashScreen>
+);
+
+const App = () => (
+  <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
+      </AuthProvider>
     </ThemeProvider>
   </BrowserRouter>
 );

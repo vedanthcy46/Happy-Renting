@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { StatusBadge } from './StatusBadge';
 import { formatCurrency, formatMonth } from '../utils';
 
@@ -29,6 +30,8 @@ export const RentCard: React.FC<RentCardProps> = ({
   onPayPress,
   index = 0,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const isPaid = status === 'paid' || status === 'overpaid';
   const progress = totalRent > 0 ? totalPaid / totalRent : 0;
 
@@ -80,7 +83,7 @@ export const RentCard: React.FC<RentCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.xl,

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -19,10 +19,12 @@ import * as ImagePicker from 'expo-image-picker';
 import * as AuthSession from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getRentRecordDetail, createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment } from '../api/payment';
 import { PaymentTransaction } from '../types/payment';
 import { AppCard, AppButton, AppInput, StatusBadge, GradientCard } from '../components';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatMonth, formatDate, generateAndShareReceipt } from '../utils';
 
 interface RentDetailScreenProps {
@@ -31,6 +33,8 @@ interface RentDetailScreenProps {
 }
 
 export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId, onBack }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
@@ -259,10 +263,6 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
 
         {!isPaid ? (
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.payOnlineButton} onPress={handlePayOnline} disabled={polling || paying} activeOpacity={0.8}>
-              <Ionicons name="globe-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.payOnlineText}>{paying ? 'Initiating...' : polling ? 'Checking...' : 'Pay Online'}</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={styles.payManualButton}
               onPress={() => {
@@ -271,8 +271,20 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="wallet-outline" size={20} color={colors.primary} />
-              <Text style={styles.payManualText}>Manual Payment</Text>
+              <LinearGradient colors={['#22C55E', '#16A34A']} style={styles.payManualGradient}>
+                <View style={styles.payManualContent}>
+                  <Ionicons name="wallet-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.payManualText}>Pay via UPI / Bank</Text>
+                  <View style={styles.savingsBadge}>
+                    <Ionicons name="leaf" size={12} color="#16A34A" />
+                    <Text style={styles.savingsText}>Save charges</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.payOnlineButton} onPress={handlePayOnline} disabled={polling || paying} activeOpacity={0.8}>
+              <Ionicons name="globe-outline" size={20} color={colors.text.secondary} />
+              <Text style={styles.payOnlineText}>{paying ? 'Initiating...' : polling ? 'Checking...' : 'Pay Online (Gateway)'}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -359,6 +371,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               {manualForm.paymentMethod === 'upi' && record.ownerId && (
                 <View style={styles.upiBox}>
                   <Text style={styles.upiTitle}>Pay to Owner via UPI</Text>
+                  <Text selectable style={styles.upiText}>UPI Name: {(record.ownerId as any)?.upiDetails?.upiName || 'N/A'}</Text>
                   {(record.ownerId as any)?.upiId && (
                     <Text selectable style={styles.upiText}>ID: {(record.ownerId as any).upiId}</Text>
                   )}
@@ -417,7 +430,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -536,7 +549,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   actionButtons: {
-    flexDirection: 'row',
     gap: spacing.md,
     marginBottom: spacing.xxl,
   },
@@ -556,38 +568,54 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  payOnlineButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
+  payManualButton: {
     borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
+    overflow: 'hidden',
+    ...shadows.md,
+  },
+  payManualGradient: {
+    paddingVertical: spacing.lg + 4,
+    paddingHorizontal: spacing.xl,
+  },
+  payManualContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    ...shadows.md,
   },
-  payOnlineText: {
-    fontSize: 15,
+  payManualText: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  payManualButton: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
+  savingsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    gap: 3,
+  },
+  savingsText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  payOnlineButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: spacing.md + 2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     gap: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
   },
-  payManualText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.primary,
+  payOnlineText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text.secondary,
   },
   sectionTitle: {
     fontSize: 13,
@@ -723,7 +751,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   upiText: {
     fontSize: 13,
