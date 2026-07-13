@@ -12,14 +12,25 @@ import {
   Text,
   ActivityIndicator,
   View,
+  Modal,
+  Alert,
+  Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/useAuthStore';
-import { login as apiLogin } from '../api/auth';
+import { login as apiLogin, forgotPassword } from '../api/auth';
 import { AppInput, AppButton } from '../components';
 import { colors, typography, spacing, radius, shadows } from '../theme';
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  authenticateWithBiometric,
+  getBiometricCredentials,
+  saveBiometricCredentials,
+} from '../hooks/useBiometric';
 
 const { width } = Dimensions.get('window');
 
@@ -32,8 +43,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   const { setAuth } = useAuthStore();
   const insets = useSafeAreaInsets();
+
+  const handleForgotPassword = async () => {
+    Keyboard.dismiss();
+    if (!forgotEmail.trim()) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await forgotPassword(forgotEmail.trim().toLowerCase());
+      if (res.success) {
+        setForgotSuccess(true);
+      } else {
+        Alert.alert('Error', res.message || 'Failed to send reset email');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to send reset email');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -50,7 +88,69 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Check biometric support & try auto-login
+    const checkBiometric = async () => {
+      const isAvailable = await isBiometricAvailable();
+      const isEnabled = await isBiometricEnabled();
+      setBiometricSupported(isAvailable);
+      setBiometricActive(isEnabled);
+
+      if (isAvailable && isEnabled) {
+        const creds = await getBiometricCredentials();
+        if (creds) {
+          // Auto-trigger biometric prompt
+          const success = await authenticateWithBiometric();
+          if (success) {
+            setLoading(true);
+            try {
+              const response = await apiLogin(creds.email, creds.password);
+              if (response.success && response.user.role === 'tenant') {
+                await setAuth(response.user, response.token);
+                onLoginSuccess();
+              } else {
+                setError('Biometric login failed. Please sign in with password.');
+              }
+            } catch (err: any) {
+              setError(err.response?.data?.message || 'Biometric login failed. Use password.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      }
+    };
+    checkBiometric();
   }, []);
+
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricActive, setBiometricActive] = useState(false);
+
+  const handleBiometricLogin = async () => {
+    if (!biometricSupported || !biometricActive) return;
+    const creds = await getBiometricCredentials();
+    if (!creds) {
+      Alert.alert('Error', 'No biometric credentials found. Please sign in with password first.');
+      return;
+    }
+    const success = await authenticateWithBiometric();
+    if (success) {
+      setLoading(true);
+      try {
+        const response = await apiLogin(creds.email, creds.password);
+        if (response.success && response.user.role === 'tenant') {
+          await setAuth(response.user, response.token);
+          onLoginSuccess();
+        } else {
+          Alert.alert('Error', 'Biometric login failed. Please use password.');
+        }
+      } catch (err: any) {
+        Alert.alert('Error', err.response?.data?.message || 'Biometric login failed. Use password.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const handleLogin = async () => {
     Keyboard.dismiss();
@@ -64,7 +164,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       const response = await apiLogin(email.trim().toLowerCase(), password);
       if (response.success && response.user.role === 'tenant') {
         await setAuth(response.user, response.token);
-        onLoginSuccess();
+        
+        // Prompt for biometric enrollment
+        if (biometricSupported && !biometricActive) {
+          Alert.alert(
+            'Enable Biometric Login',
+            'Would you like to enable fingerprint/face ID login for quicker access next time?',
+            [
+              {
+                text: 'Maybe Later',
+                style: 'cancel',
+                onPress: () => onLoginSuccess(),
+              },
+              {
+                text: 'Enable',
+                onPress: async () => {
+                  try {
+                    await saveBiometricCredentials(email.trim().toLowerCase(), password);
+                    Alert.alert('Success', 'Biometric login enabled successfully!');
+                  } catch {
+                    Alert.alert('Error', 'Failed to save biometric credentials.');
+                  } finally {
+                    onLoginSuccess();
+                  }
+                },
+              },
+            ]
+          );
+        } else {
+          onLoginSuccess();
+        }
       } else if (response.user.role !== 'tenant') {
         setError('This app is only for tenants. Please use the web portal.');
       } else {
@@ -96,7 +225,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           >
             <Animated.View style={[styles.heroContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
               <View style={styles.logoContainer}>
-                <Ionicons name="home" size={44} color="#FFFFFF" />
+                <Image
+                  source={require('../../assets/images/main-app-icon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.appName}>Happy Renting</Text>
               <Text style={styles.tagline}>Tenant Portal</Text>
@@ -146,37 +279,139 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     placeholderTextColor={colors.text.tertiary}
                     value={password}
                     onChangeText={setPassword}
-                    secureTextEntry
+                    secureTextEntry={!showPassword}
                     autoComplete="password"
                   />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
+                    <Ionicons
+                      name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={20}
+                      color={colors.text.tertiary}
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
 
-            <TouchableOpacity style={styles.signInButton} onPress={handleLogin} disabled={loading} activeOpacity={0.9}>
-              <LinearGradient
-                colors={['#2563EB', '#1D4ED8']}
-                style={styles.signInGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.signInText}>Sign In</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={[styles.signInButton, biometricActive ? { flex: 1 } : { width: '100%' }]} onPress={handleLogin} disabled={loading} activeOpacity={0.9}>
+                <LinearGradient
+                  colors={['#2563EB', '#1D4ED8']}
+                  style={styles.signInGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.signInText}>Sign In</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {biometricSupported && biometricActive && (
+                <TouchableOpacity style={styles.biometricButton} onPress={handleBiometricLogin} disabled={loading} activeOpacity={0.8}>
+                  <Ionicons name="finger-print" size={28} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
 
             <TouchableOpacity
-              onPress={() => setError('Please contact your property owner or use the web portal to reset your password.')}
+              onPress={() => {
+                setForgotSuccess(false);
+                setForgotEmail('');
+                setShowForgotModal(true);
+              }}
               activeOpacity={0.7}
             >
               <Text style={styles.forgotPassword}>Forgot Password?</Text>
             </TouchableOpacity>
+
+            {/* Professional Footer */}
+            <View style={styles.loginFooter}>
+              <TouchableOpacity
+                onPress={() => Linking.openURL('https://happyrenting.netlify.app')}
+                activeOpacity={0.7}
+                style={styles.websiteBtn}
+              >
+                <Ionicons name="globe-outline" size={14} color={colors.primary} />
+                <Text style={styles.websiteBtnText}>happyrenting.netlify.app</Text>
+              </TouchableOpacity>
+              <View style={styles.footerLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://happy-renting.onrender.com/privacy')}>
+                  <Text style={styles.footerLink}>Privacy Policy</Text>
+                </TouchableOpacity>
+                <Text style={styles.footerDot}>·</Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://happy-renting.onrender.com/terms')}>
+                  <Text style={styles.footerLink}>Terms</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.footerVersion}>v1.0.0 · Made with ❤️ in India 🇮🇳</Text>
+            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={showForgotModal} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.forgotModal}>
+            {forgotSuccess ? (
+              <View style={styles.forgotSuccessContent}>
+                <Ionicons name="mail-open-outline" size={48} color={colors.success} />
+                <Text style={styles.forgotTitle}>Email Sent!</Text>
+                <Text style={styles.forgotBody}>
+                  If that email exists, a password reset link has been sent to your inbox.
+                </Text>
+                <AppButton
+                  title="Done"
+                  onPress={() => {
+                    setShowForgotModal(false);
+                    setForgotSuccess(false);
+                    setForgotEmail('');
+                  }}
+                  fullWidth
+                />
+              </View>
+            ) : (
+              <View>
+                <Text style={styles.forgotTitle}>Reset Password</Text>
+                <Text style={styles.forgotBody}>
+                  Enter your registered email to receive a password reset link.
+                </Text>
+                <AppInput
+                  label="Email Address"
+                  placeholder="your@email.com"
+                  value={forgotEmail}
+                  onChangeText={setForgotEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leftIcon={
+                    <Ionicons name="mail-outline" size={20} color={colors.text.tertiary} />
+                  }
+                />
+                <View style={styles.modalButtons}>
+                  <View style={{ flex: 1 }}>
+                    <AppButton
+                      title="Cancel"
+                      variant="ghost"
+                      onPress={() => setShowForgotModal(false)}
+                      fullWidth
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppButton
+                      title="Send Link"
+                      onPress={handleForgotPassword}
+                      loading={forgotLoading}
+                      fullWidth
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -204,13 +439,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 90,
+    height: 90,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  logoImage: {
+    width: 70,
+    height: 70,
   },
   appName: {
     fontSize: 34,
@@ -304,11 +545,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     paddingVertical: 0,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
   signInButton: {
     borderRadius: radius.lg,
     overflow: 'hidden',
     height: 54,
     ...shadows.md,
+  },
+  biometricButton: {
+    width: 54,
+    height: 54,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    ...shadows.sm,
   },
   signInGradient: {
     flex: 1,
@@ -327,5 +583,85 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xl,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  forgotModal: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xxl,
+    width: '100%',
+    maxWidth: 400,
+    ...shadows.xl,
+  },
+  forgotSuccessContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forgotTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  forgotBody: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 20,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  modalBtnHalf: {
+    flex: 1,
+  },
+  loginFooter: {
+    alignItems: 'center',
+    marginTop: 32,
+    marginBottom: 24,
+    gap: 10,
+  },
+  websiteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: colors.primaryLight,
+  },
+  websiteBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerLink: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  footerDot: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+  },
+  footerVersion: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    textAlign: 'center',
   },
 });

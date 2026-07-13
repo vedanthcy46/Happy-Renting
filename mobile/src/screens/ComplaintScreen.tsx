@@ -10,11 +10,14 @@ import {
   Platform,
   Text,
   View,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { getComplaints, createComplaint } from '../api/complaint';
 import { Complaint } from '../types/complaint';
 import { AppCard, AppButton, AppInput, StatusBadge, EmptyState } from '../components';
@@ -27,11 +30,24 @@ const priorityColors: Record<string, string> = {
   high: colors.error,
 };
 
+const COMPLAINT_CATEGORIES = [
+  { id: 'plumbing', label: 'Plumbing', icon: 'water-outline' },
+  { id: 'electrical', label: 'Electrical', icon: 'flash-outline' },
+  { id: 'pest_control', label: 'Pest Control', icon: 'bug-outline' },
+  { id: 'cleaning', label: 'Cleaning', icon: 'brush-outline' },
+  { id: 'security', label: 'Security', icon: 'shield-outline' },
+  { id: 'noise', label: 'Noise', icon: 'volume-high-outline' },
+  { id: 'internet', label: 'Internet/Wifi', icon: 'wifi-outline' },
+  { id: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline' },
+];
+
 export const ComplaintScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', priority: 'medium' });
+  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', category: 'other' });
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['complaints'],
@@ -43,40 +59,75 @@ export const ComplaintScreen: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['complaints'] });
       setShowAddModal(false);
-              setForm({ title: '', description: '', priority: 'medium' as string });
+      setForm({ title: '', description: '', priority: 'medium', category: 'other' });
+      setImageUri(null);
     },
     onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to submit complaint'),
   });
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
 
   const handleCreate = () => {
     if (!form.title.trim() || !form.description.trim()) {
       Alert.alert('Error', 'Title and description are required');
       return;
     }
-    mutation.mutate(form);
+
+    const formData = new FormData();
+    formData.append('title', form.title.trim());
+    formData.append('description', form.description.trim());
+    formData.append('priority', form.priority);
+    formData.append('category', form.category);
+
+    if (imageUri) {
+      const filename = imageUri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      formData.append('image', {
+        uri: Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri,
+        name: filename,
+        type,
+      } as any);
+    }
+
+    mutation.mutate(formData as any);
   };
 
   const renderItem = ({ item }: { item: Complaint }) => (
-    <AppCard variant="elevated" style={styles.complaintCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderLeft}>
-          <StatusBadge status={item.status} />
-          <View style={[styles.priorityDot, { backgroundColor: priorityColors[item.priority] || colors.text.tertiary }]} />
-        </View>
-        <Text style={styles.dateText}>{formatRelativeTime(item.createdAt)}</Text>
-      </View>
-      <Text style={styles.complaintTitle}>{item.title}</Text>
-      <Text style={styles.complaintDesc} numberOfLines={3}>{item.description}</Text>
-      {item.resolutionNotes && (
-        <View style={styles.resolutionBox}>
-          <View style={styles.resolutionHeader}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-            <Text style={styles.resolutionLabel}>Resolution</Text>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() => router.push({ pathname: '/complaintDetail/[id]', params: { id: item._id } })}
+    >
+      <AppCard variant="elevated" style={styles.complaintCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <StatusBadge status={item.status} />
+            <View style={[styles.priorityDot, { backgroundColor: priorityColors[item.priority] || colors.text.tertiary }]} />
           </View>
-          <Text style={styles.resolutionText}>{item.resolutionNotes}</Text>
+          <Text style={styles.dateText}>{formatRelativeTime(item.createdAt)}</Text>
         </View>
-      )}
-    </AppCard>
+        <Text style={styles.complaintTitle}>{item.title}</Text>
+        <Text style={styles.complaintDesc} numberOfLines={3}>{item.description}</Text>
+        {item.resolutionNotes && (
+          <View style={styles.resolutionBox}>
+            <View style={styles.resolutionHeader}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={styles.resolutionLabel}>Resolution</Text>
+            </View>
+            <Text style={styles.resolutionText}>{item.resolutionNotes}</Text>
+          </View>
+        )}
+      </AppCard>
+    </TouchableOpacity>
   );
 
   return (
@@ -154,6 +205,38 @@ export const ComplaintScreen: React.FC = () => {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={styles.fieldLabel}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+                {COMPLAINT_CATEGORIES.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.categoryChip, form.category === c.id && styles.categoryChipActive]}
+                    onPress={() => setForm({ ...form, category: c.id })}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={c.icon as any} size={16} color={form.category === c.id ? '#FFFFFF' : colors.text.secondary} />
+                    <Text style={[styles.categoryChipText, form.category === c.id && { color: '#FFFFFF' }]}>
+                      {c.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.fieldLabel}>Photo Attachment</Text>
+              {imageUri ? (
+                <View style={styles.imageContainer}>
+                  <Image source={{ uri: imageUri }} style={styles.attachedImage} />
+                  <TouchableOpacity style={styles.removeImageBtn} onPress={() => setImageUri(null)}>
+                    <Ionicons name="close-circle" size={24} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.attachBtn} onPress={pickImage} activeOpacity={0.7}>
+                  <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                  <Text style={styles.attachBtnText}>Add Photo Proof</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.modalButtons}>
                 <AppButton title="Cancel" onPress={() => setShowAddModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
@@ -345,5 +428,68 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     marginTop: spacing.md,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.xxl,
+    paddingVertical: spacing.xs,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginRight: spacing.sm,
+    backgroundColor: colors.surface,
+    gap: spacing.xs,
+  },
+  categoryChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text.secondary,
+  },
+  imageContainer: {
+    position: 'relative',
+    marginBottom: spacing.xxl,
+    width: 120,
+    height: 120,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  attachedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: spacing.xs,
+    right: spacing.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 12,
+  },
+  attachBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    marginBottom: spacing.xxl,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  attachBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

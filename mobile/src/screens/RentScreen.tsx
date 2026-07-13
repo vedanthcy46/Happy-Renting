@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Text,
   View,
+  TouchableOpacity,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -75,8 +76,19 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
-        <Text style={styles.headerTitle}>Rent Payments</Text>
-        <Text style={styles.headerSubtitle}>Track and manage your rent</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={styles.headerTitle}>Rent Payments</Text>
+            <Text style={styles.headerSubtitle}>Track and manage your rent</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => onNavigate('transaction-history')}
+            style={{ padding: spacing.xs }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="time-outline" size={26} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlashList
@@ -92,7 +104,7 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
             <EmptyState
               icon="card-outline"
               title="No Payments Yet"
-              description="Bills are generated on the 5th of each month. If you just joined, sync your billing."
+              description="Bills are generated on the 1st of each month. If you just joined, sync your billing."
               actionLabel="Sync My Billing"
               onAction={() => mutationSync.mutate()}
             />

@@ -8,22 +8,35 @@ import {
   ActivityIndicator,
   Text,
   View,
+  Switch,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  clearBiometricCredentials,
+  saveBiometricCredentials,
+} from '../hooks/useBiometric';
 import { useAuthStore } from '../store/useAuthStore';
 import { updateProfile, changePassword as apiChangePassword, getProfile } from '../api/user';
 import { AppCard, AppButton, AppInput } from '../components';
 import { colors, typography, spacing, radius, shadows } from '../theme';
 import { getInitials } from '../utils';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface ProfileScreenProps {
   onLogout: () => void;
+  onNavigate?: (screen: string, params?: any) => void;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNavigate }) => {
+  const { colors: themeColors } = useTheme();
   const { user, setAuth, token } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -36,6 +49,57 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const [showPassModal, setShowPassModal] = useState(false);
   const [passData, setPassData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [passLoading, setPassLoading] = useState(false);
+
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricActive, setBiometricActive] = useState(false);
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
+  const [biometricPassword, setBiometricPassword] = useState('');
+
+  useEffect(() => {
+    const checkBiometric = async () => {
+      const isAvailable = await isBiometricAvailable();
+      const isEnabled = await isBiometricEnabled();
+      setBiometricSupported(isAvailable);
+      setBiometricActive(isEnabled);
+    };
+    checkBiometric();
+  }, []);
+
+  const handleBiometricToggle = async (value: boolean) => {
+    if (value) {
+      setBiometricPassword('');
+      setShowBiometricModal(true);
+    } else {
+      await clearBiometricCredentials();
+      setBiometricActive(false);
+      Alert.alert('Success', 'Biometric login disabled.');
+    }
+  };
+
+  const handleConfirmBiometric = async () => {
+    if (!biometricPassword) {
+      Alert.alert('Error', 'Please enter your password');
+      return;
+    }
+    try {
+      if (user?.email) {
+        await saveBiometricCredentials(user.email, biometricPassword);
+        setBiometricActive(true);
+        setShowBiometricModal(false);
+        setBiometricPassword('');
+        Alert.alert('Success', 'Biometric login enabled successfully.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to save biometric credentials.');
+      setBiometricActive(false);
+    }
+  };
+
+  const handleCancelBiometric = () => {
+    setShowBiometricModal(false);
+    setBiometricPassword('');
+    setBiometricActive(false);
+  };
 
   useEffect(() => {
     const fetchLatestProfile = async () => {
@@ -107,8 +171,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <Text style={styles.headerSubtitle}>Manage your account</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={styles.headerTitle}>Profile</Text>
+            <Text style={styles.headerSubtitle}>Manage your account</Text>
+          </View>
+          <TouchableOpacity onPress={() => onNavigate?.('settings')} style={{ padding: spacing.xs }}>
+            <Ionicons name="settings-outline" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -161,7 +232,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="shield-checkmark-outline" size={18} color={colors.text.primary} />
+            <Ionicons name="shield-checkmark-outline" size={18} color={themeColors.text.primary} />
             <Text style={styles.sectionTitle}>Security</Text>
           </View>
           <AppButton
@@ -169,7 +240,82 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
             onPress={() => setShowPassModal(true)}
             variant="outline"
             fullWidth
-            icon={<Ionicons name="lock-closed-outline" size={18} color={colors.primary} />}
+            style={biometricSupported ? { marginBottom: spacing.md } : undefined}
+            icon={<Ionicons name="lock-closed-outline" size={18} color={themeColors.text.secondary} />}
+          />
+          {biometricSupported && (
+            <View style={styles.biometricRow}>
+              <View style={styles.biometricLabelCol}>
+                <Ionicons name="finger-print-outline" size={18} color={themeColors.text.secondary} style={{ marginRight: spacing.sm }} />
+                <Text style={styles.biometricText}>Biometric Login</Text>
+              </View>
+              <Switch
+                value={biometricActive}
+                onValueChange={handleBiometricToggle}
+                trackColor={{ false: themeColors.border, true: themeColors.primaryLight }}
+                thumbColor={biometricActive ? themeColors.primary : '#ccc'}
+              />
+            </View>
+          )}
+        </AppCard>
+
+        <AppCard variant="elevated" style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="apps-outline" size={18} color={themeColors.text.primary} />
+            <Text style={styles.sectionTitle}>Quick Links</Text>
+          </View>
+          <AppButton
+            title="App Settings"
+            onPress={() => router.push('/settings')}
+            variant="outline"
+            fullWidth
+            style={{ marginBottom: spacing.md }}
+            icon={<Ionicons name="settings-outline" size={18} color={themeColors.text.secondary} />}
+          />
+          <AppButton
+            title="Help Center & FAQ"
+            onPress={() => router.push('/help')}
+            variant="outline"
+            fullWidth
+            style={{ marginBottom: spacing.md }}
+            icon={<Ionicons name="help-circle-outline" size={18} color={themeColors.text.secondary} />}
+          />
+          <AppButton
+            title="About Happy Renting"
+            onPress={() => router.push('/about')}
+            variant="outline"
+            fullWidth
+            style={{ marginBottom: spacing.md }}
+            icon={<Ionicons name="information-circle-outline" size={18} color={themeColors.text.secondary} />}
+          />
+          <AppButton
+            title="Visit Website"
+            onPress={() => Linking.openURL('https://happyrenting.netlify.app')}
+            variant="outline"
+            fullWidth
+            icon={<Ionicons name="globe-outline" size={18} color={themeColors.text.secondary} />}
+          />
+        </AppCard>
+
+        <AppCard variant="elevated" style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="information-circle-outline" size={18} color={themeColors.text.primary} />
+            <Text style={styles.sectionTitle}>Legal</Text>
+          </View>
+          <AppButton
+            title="Privacy Policy"
+            onPress={() => router.push('/privacy-policy')}
+            variant="outline"
+            fullWidth
+            style={{ marginBottom: spacing.md }}
+            icon={<Ionicons name="shield-outline" size={18} color={themeColors.text.secondary} />}
+          />
+          <AppButton
+            title="Terms of Service"
+            onPress={() => router.push('/terms-of-service')}
+            variant="outline"
+            fullWidth
+            icon={<Ionicons name="document-text-outline" size={18} color={themeColors.text.secondary} />}
           />
         </AppCard>
 
@@ -180,7 +326,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>Happy Renting v1.0.0</Text>
+        <Text style={styles.versionText}>Happy Renting v1.0.0 · Made with ❤️ in India</Text>
       </ScrollView>
 
       <Modal visible={showPassModal} transparent animationType="fade">
@@ -232,6 +378,45 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 ) : (
                   <Text style={styles.passChangeText}>Change Password</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showBiometricModal} transparent animationType="fade">
+        <View style={styles.passOverlay}>
+          <View style={styles.passModal}>
+            <View style={styles.passHeader}>
+              <Text style={styles.passTitle}>Confirm Biometrics</Text>
+              <TouchableOpacity onPress={handleCancelBiometric}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 14, color: colors.text.secondary, marginBottom: spacing.lg, lineHeight: 20 }}>
+              Please enter your password to confirm and securely save your login credentials on this device.
+            </Text>
+            <AppInput
+              label="Account Password"
+              placeholder="Enter your password"
+              value={biometricPassword}
+              onChangeText={setBiometricPassword}
+              secureTextEntry
+            />
+            <View style={styles.passButtons}>
+              <TouchableOpacity
+                style={styles.passCancelBtn}
+                onPress={handleCancelBiometric}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.passCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.passChangeBtn}
+                onPress={handleConfirmBiometric}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.passChangeText}>Confirm</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -407,5 +592,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  biometricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    marginTop: spacing.md,
+  },
+  biometricLabelCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  biometricText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text.primary,
   },
 });

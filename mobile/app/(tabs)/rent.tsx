@@ -8,6 +8,8 @@ export default function RentTab() {
       onNavigate={(screen, params) => {
         if (screen === 'rentDetail') {
           router.navigate(`/rentDetail/${params?.rentRecordId}` as any);
+        } else if (screen === 'transaction-history') {
+          router.navigate('/transaction-history' as any);
         }
       }}
     />

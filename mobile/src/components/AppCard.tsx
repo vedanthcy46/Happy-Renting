@@ -5,13 +5,14 @@ import {
   StyleSheet,
   ViewStyle,
   Animated,
+  StyleProp,
 } from 'react-native';
 import { colors, spacing, radius, shadows } from '../theme';
 
 interface AppCardProps {
   children: React.ReactNode;
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   variant?: 'default' | 'elevated' | 'bordered';
   padding?: number;
   animate?: boolean;

@@ -250,11 +250,17 @@ const Navbar = () => {
         )}
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-glow">
-              <span className="text-white text-sm font-bold">HR</span>
-            </div>
-            <span className="text-lg font-bold text-white hidden sm:block">
+          <Link to="/" className="flex items-center">
+            <img 
+              src="/web-landscape-logo.png" 
+              alt="Happy Renting Logo" 
+              className="h-11 w-auto object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'block';
+              }}
+            />
+            <span className="text-lg font-bold text-white hidden sm:block" style={{ display: 'none' }}>
               Happy<span className="text-brand-400">Rent</span>
             </span>
           </Link>

@@ -10,6 +10,7 @@ import { formatRelativeTime } from '../utils';
 
 interface NotificationsScreenProps {
   onBack: () => void;
+  onNavigate?: (screen: string, params?: any) => void;
 }
 
 const notificationIcons: Record<string, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
@@ -18,7 +19,7 @@ const notificationIcons: Record<string, { name: keyof typeof Ionicons.glyphMap; 
   bill_generated: { name: 'document-text', color: colors.primary },
 };
 
-export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack }) => {
+export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack, onNavigate }) => {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
@@ -40,6 +41,22 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.isRead) {
       mutationMarkRead.mutate(notification._id);
+    }
+    const rentRecordId = notification.data?.rentRecordId;
+    switch (notification.type) {
+      case 'bill_generated':
+      case 'payment_verified':
+      case 'payment_rejected':
+      case 'overdue_reminder':
+        if (rentRecordId) {
+          onNavigate?.('rentDetail', { rentRecordId });
+        }
+        break;
+      case 'complaint_update':
+        onNavigate?.('complaints');
+        break;
+      default:
+        break;
     }
   };
 

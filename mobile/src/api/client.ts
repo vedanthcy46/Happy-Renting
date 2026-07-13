@@ -1,6 +1,7 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../store/useAuthStore';
+import { appEvents, SESSION_EXPIRED_EVENT } from '../utils/events';
 
 const PRODUCTION_API = 'https://happy-renting.onrender.com/api';
 
@@ -18,7 +19,9 @@ const getBaseUrl = () => {
     }
   }
 
-  console.log('[API] Using Base URL:', url);
+  if (__DEV__) {
+    console.log('[API] Using Base URL:', url);
+  }
   return url;
 };
 
@@ -72,7 +75,10 @@ client.interceptors.response.use(
     // Skip auto-logout for the login endpoint itself
     if (error.response?.status === 401 && !originalRequest.url?.includes('/auth/login') && !originalRequest._retry) {
       originalRequest._retry = true;
-      console.log('[API] 401 detected, logging out...');
+      if (__DEV__) {
+        console.log('[API] 401 detected, logging out...');
+      }
+      appEvents.emit(SESSION_EXPIRED_EVENT);
       await useAuthStore.getState().logout();
     }
     

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { clearBiometricCredentials } from '../hooks/useBiometric';
 
 interface User {
   _id: string;
@@ -39,11 +40,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await SecureStore.deleteItemAsync('userToken');
       await SecureStore.deleteItemAsync('userData');
+      await clearBiometricCredentials();
       set({ user: null, token: null, isLoading: false });
       if (__DEV__) console.log('[Auth] Logged out and storage cleared');
     } catch (error) {
       console.error('[Auth] Failed to clear session', error);
       // Still clear the state
+      await clearBiometricCredentials().catch(() => {});
       set({ user: null, token: null, isLoading: false });
     }
   },

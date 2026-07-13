@@ -12,6 +12,15 @@ export default function ProfileTab() {
         await logout();
         router.replace('/login');
       }}
+      onNavigate={(screen, params) => {
+        if (screen === 'privacy-policy') {
+          router.navigate('/privacy-policy' as any);
+        } else if (screen === 'terms-of-service') {
+          router.navigate('/terms-of-service' as any);
+        } else if (screen === 'settings') {
+          router.navigate('/settings' as any);
+        }
+      }}
     />
   );
 }

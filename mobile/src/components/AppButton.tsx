@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { colors, typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 
 type AppButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type AppButtonSize = 'sm' | 'md' | 'lg';
@@ -39,6 +40,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   style,
   textStyle,
 }) => {
+  const { colors: themeColors } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = useCallback(() => {
@@ -61,9 +63,31 @@ export const AppButton: React.FC<AppButtonProps> = ({
 
   const isDisabled = disabled || loading;
 
+  const themeContainerOverrides: Record<AppButtonVariant, ViewStyle> = {
+    primary: { backgroundColor: themeColors.primary },
+    secondary: { backgroundColor: themeColors.secondary },
+    outline: { 
+      backgroundColor: themeColors.borderLight, 
+      borderWidth: 1, 
+      borderColor: themeColors.border,
+      elevation: 0,
+      shadowOpacity: 0
+    },
+    ghost: { backgroundColor: 'transparent', elevation: 0, shadowOpacity: 0 },
+    danger: { backgroundColor: themeColors.error },
+  };
+
+  const themeLabelOverrides: Record<AppButtonVariant, TextStyle> = {
+    primary: { color: themeColors.text.inverse },
+    secondary: { color: themeColors.text.inverse },
+    outline: { color: themeColors.text.primary },
+    ghost: { color: themeColors.primary },
+    danger: { color: themeColors.text.inverse },
+  };
+
   const containerStyle: ViewStyle[] = [
     styles.base,
-    styles[`variant_${variant}`],
+    themeContainerOverrides[variant],
     styles[`size_${size}`],
     ...(fullWidth ? [styles.fullWidth] : []),
     ...(isDisabled ? [styles.disabled] : []),
@@ -72,7 +96,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
 
   const labelStyle: TextStyle[] = [
     styles.label,
-    styles[`label_${variant}`],
+    themeLabelOverrides[variant],
     styles[`labelSize_${size}`],
     ...(isDisabled ? [styles.labelDisabled] : []),
     ...(textStyle ? [textStyle as TextStyle] : []),
@@ -90,7 +114,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
       >
         {loading ? (
           <ActivityIndicator
-            color={variant === 'primary' || variant === 'danger' ? '#FFFFFF' : colors.primary}
+            color={variant === 'primary' || variant === 'danger' ? '#FFFFFF' : themeColors.primary}
             size="small"
           />
         ) : (

@@ -51,3 +51,9 @@ export interface CashfreeStatusResponse {
   status: 'PAID' | 'PENDING' | 'FAILED' | 'CANCELLED';
   orderId: string;
 }
+
+export interface TransactionHistoryResponse {
+  success: boolean;
+  transactions: PaymentTransaction[];
+}
+

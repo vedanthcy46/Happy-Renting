@@ -23,7 +23,7 @@ import { getRentRecordDetail, createCashfreeOrder, getCashfreePaymentStatus, sub
 import { PaymentTransaction } from '../types/payment';
 import { AppCard, AppButton, AppInput, StatusBadge, GradientCard } from '../components';
 import { colors, typography, spacing, radius, shadows } from '../theme';
-import { formatCurrency, formatMonth, formatDate } from '../utils';
+import { formatCurrency, formatMonth, formatDate, generateAndShareReceipt } from '../utils';
 
 interface RentDetailScreenProps {
   rentRecordId: string;
@@ -137,6 +137,26 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
     }
   };
 
+  const handleDownloadReceipt = async () => {
+    if (!record) return;
+    try {
+      await generateAndShareReceipt({
+        tenantName: (data as any)?.rentRecord?.userId?.name || (data as any)?.rentRecord?.tenantId?.userId?.name || 'Tenant',
+        propertyName: (data as any)?.rentRecord?.propertyId?.name || 'Property',
+        roomNumber: (data as any)?.rentRecord?.roomId?.roomNumber || '',
+        month: formatMonth(record.month),
+        totalRent: record.totalRent || 0,
+        totalPaid: record.totalPaid || 0,
+        paidDate: formatDate(transactions[0]?.paymentDate || record.dueDate || new Date()),
+        ownerName: (record.ownerId as any)?.name || 'Property Owner',
+        transactionId: transactions[0]?._id || transactions[0]?.referenceId,
+      });
+    } catch (e: any) {
+      console.error('Failed to generate receipt:', e);
+      Alert.alert('Error', `Failed to generate receipt: ${e?.message || String(e)}`);
+    }
+  };
+
   const handleManualSubmit = () => {
     if (!manualForm.amount || isNaN(Number(manualForm.amount))) {
       Alert.alert('Error', 'Enter a valid amount');
@@ -237,7 +257,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
           </View>
         </GradientCard>
 
-        {!isPaid && (
+        {!isPaid ? (
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.payOnlineButton} onPress={handlePayOnline} disabled={polling || paying} activeOpacity={0.8}>
               <Ionicons name="globe-outline" size={20} color="#FFFFFF" />
@@ -255,6 +275,11 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               <Text style={styles.payManualText}>Manual Payment</Text>
             </TouchableOpacity>
           </View>
+        ) : (
+          <TouchableOpacity style={styles.downloadReceiptButton} onPress={handleDownloadReceipt} activeOpacity={0.8}>
+            <Ionicons name="download-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.downloadReceiptText}>Download Receipt</Text>
+          </TouchableOpacity>
         )}
 
         <Text style={styles.sectionTitle}>Transaction History</Text>
@@ -514,6 +539,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     marginBottom: spacing.xxl,
+  },
+  downloadReceiptButton: {
+    backgroundColor: colors.success,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xxl,
+    ...shadows.md,
+  },
+  downloadReceiptText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   payOnlineButton: {
     flex: 1,

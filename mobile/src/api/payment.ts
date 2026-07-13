@@ -4,7 +4,8 @@ import {
   RentRecordDetailResponse, 
   CashfreeOrderResponse, 
   CashfreeStatusResponse,
-  PaymentTransaction
+  PaymentTransaction,
+  TransactionHistoryResponse
 } from '../types/payment';
 
 export const getRentRecords = async (): Promise<RentRecordsResponse> => {
@@ -41,5 +42,10 @@ export const getCashfreePaymentStatus = async (orderId: string): Promise<Cashfre
 
 export const triggerBillingSync = async (): Promise<{ success: boolean; details: any }> => {
   const { data } = await client.post('/v2/payments/sync');
+  return data;
+};
+
+export const getTransactionHistory = async (): Promise<TransactionHistoryResponse> => {
+  const { data } = await client.get<TransactionHistoryResponse>('/v2/payments/history/transactions');
   return data;
 };

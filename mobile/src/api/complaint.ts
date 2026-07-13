@@ -6,11 +6,21 @@ export const getComplaints = async (): Promise<ComplaintsResponse> => {
   return data;
 };
 
-export const createComplaint = async (complaintData: {
-  title: string;
-  description: string;
-  priority: string;
-}): Promise<ComplaintDetailResponse> => {
-  const { data } = await client.post<ComplaintDetailResponse>('/complaints', complaintData);
+export const getComplaintDetail = async (id: string): Promise<ComplaintDetailResponse> => {
+  const { data } = await client.get<ComplaintDetailResponse>(`/complaints/${id}`);
+  return data;
+};
+
+export const createComplaint = async (formData: FormData): Promise<ComplaintDetailResponse> => {
+  const { data } = await client.post<ComplaintDetailResponse>('/complaints', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return data;
+};
+
+export const addComplaintComment = async (id: string, message: string): Promise<{ success: boolean, comments: any[] }> => {
+  const { data } = await client.post(`/complaints/${id}/comments`, { message });
   return data;
 };

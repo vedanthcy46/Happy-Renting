@@ -19,10 +19,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMyTenancy, addRoommate, updateRoommate, deleteRoommate } from '../api/tenant';
 import { getRentRecords } from '../api/payment';
+import { getNotifications } from '../api/notifications';
 import { useAuthStore } from '../store/useAuthStore';
 import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard } from '../components';
 import { colors, typography, spacing, radius, shadows } from '../theme';
 import { formatCurrency, formatDate, getInitials, formatMonth } from '../utils';
+import { appEvents, OPEN_DRAWER_EVENT } from '../utils/events';
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -47,6 +49,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     queryKey: ['rentRecords'],
     queryFn: getRentRecords,
   });
+
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications', 'unread'],
+    queryFn: () => getNotifications(1, 1),
+    refetchInterval: 30 * 1000,
+  });
+  const unreadCount = notifData?.unreadCount || 0;
 
   const tenant = data?.tenant;
   const records = rentData?.rentRecords || [];
@@ -168,9 +177,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         >
           <Animated.View style={[styles.headerContent, { opacity: headerOpacity }]}>
             <View style={styles.headerRow}>
+              <TouchableOpacity
+                style={[styles.iconButton, { marginRight: spacing.sm }]}
+                onPress={() => appEvents.emit(OPEN_DRAWER_EVENT)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="menu-outline" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
               <View style={styles.headerTextBlock}>
                 <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</Text>
-                <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'Tenant'}</Text>
+                <Text style={styles.userName}>{user?.name || 'Tenant'}</Text>
               </View>
               <View style={styles.headerRight}>
                 <TouchableOpacity
@@ -179,6 +195,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                   activeOpacity={0.7}
                 >
                   <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+                  {unreadCount > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -246,7 +267,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             <View style={styles.noBillContent}>
               <Ionicons name="document-text-outline" size={32} color={colors.text.tertiary} />
               <Text style={styles.noBillTitle}>No Bills Yet</Text>
-              <Text style={styles.noBillDesc}>Bills are generated on the 5th of each month.</Text>
+              <Text style={styles.noBillDesc}>Bills are generated on the 1st of each month.</Text>
             </View>
           </AppCard>
         )}
@@ -436,18 +457,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               onChangeText={(text) => setRoommateForm({ ...roommateForm, idProof: text })}
             />
             <View style={styles.modalButtons}>
-              <AppButton
-                title="Cancel"
-                onPress={() => setShowRoommateModal(false)}
-                variant="ghost"
-                style={styles.modalBtnHalf}
-              />
-              <AppButton
-                title={editingRoommate ? 'Update' : 'Add'}
-                onPress={handleSaveRoommate}
-                loading={mutationAdd.isPending || mutationUpdate.isPending}
-                style={styles.modalBtnHalf}
-              />
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  title="Cancel"
+                  onPress={() => setShowRoommateModal(false)}
+                  variant="ghost"
+                  fullWidth
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  title={editingRoommate ? 'Update' : 'Add'}
+                  onPress={handleSaveRoommate}
+                  loading={mutationAdd.isPending || mutationUpdate.isPending}
+                  fullWidth
+                />
+              </View>
             </View>
           </View>
         </View>
@@ -517,6 +542,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#2563EB', // header primary background color to blend in
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   propertyRow: {
     flexDirection: 'row',
