@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -44,6 +44,7 @@ function AppContent() {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   const router = useRouter();
+  const pathname = usePathname();
 
   usePushNotifications();
 
@@ -55,14 +56,17 @@ function AppContent() {
   useEffect(() => {
     const checkOnboarding = async () => {
       if (isAuthLoading) return;
+      const isPasswordResetPath = pathname?.startsWith('/reset-password');
+      if (isPasswordResetPath) {
+        setOnboardingChecked(true);
+        return;
+      }
       try {
         const completed = await SecureStore.getItemAsync(ONBOARDING_KEY);
         if (!completed && !token) {
-          // First time user who is not logged in → show onboarding
           router.replace('/onboarding');
         }
       } catch {
-        // If SecureStore fails, skip onboarding check
       } finally {
         setOnboardingChecked(true);
       }
@@ -187,6 +191,7 @@ function AppContent() {
         <Stack.Screen name="terms-of-service" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="transaction-history" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="login" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="reset-password" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </>
   );

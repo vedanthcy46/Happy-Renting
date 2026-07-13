@@ -29,10 +29,7 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ]
@@ -74,6 +71,7 @@
       "eas": {
         "projectId": "4c66fc8a-93a0-4b25-a211-41a3b4bc9e99"
       },
+      "apiUrl": "https://happy-renting.onrender.com/api",
       "privacyPolicyUrl": "https://happy-renting.onrender.com/privacy",
       "termsOfServiceUrl": "https://happy-renting.onrender.com/terms"
     },

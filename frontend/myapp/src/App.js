@@ -31,6 +31,16 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage    from './pages/NotFoundPage';
 import ForceChangePassword from './pages/ForceChangePassword';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import FeaturesPage from './pages/FeaturesPage';
+import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
+import FAQPage from './pages/FAQPage';
+import SupportPage from './pages/SupportPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsConditionsPage from './pages/TermsConditionsPage';
+import RefundPolicyPage from './pages/RefundPolicyPage';
+import DataDeletionPage from './pages/DataDeletionPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 /**
  * AppLayout — wraps all authenticated pages with Navbar + padded main area
@@ -53,7 +63,17 @@ const AppContent = () => (
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/setup-password" element={<ForceChangePassword />} />
           <Route path="/request-access" element={<OwnerRequestPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/support" element={<SupportPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsConditionsPage />} />
+          <Route path="/refund" element={<RefundPolicyPage />} />
+          <Route path="/data-deletion" element={<DataDeletionPage />} />
 
           {/* Protected — all authenticated roles */}
           <Route

@@ -35,31 +35,35 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ onBack
 const SECTIONS = [
   {
     title: '1. Information We Collect',
-    body: 'We collect your name, email address, phone number, and payment proof images (screenshots/receipts) that you voluntarily provide. We also collect device information (device model, OS version) for push notification delivery.',
+    body: 'We collect your name, email address, phone number, payment proof images, and ID proof documents that you voluntarily provide. We also collect device information (model, OS version) for push notification delivery, and IP address for security logging. If you enable biometric authentication (Face ID / Fingerprint), biometric data is stored locally on your device and never sent to our servers.',
   },
   {
     title: '2. How We Use Your Information',
-    body: 'Your information is used solely to manage your tenancy, process rent payments, send billing notifications, and communicate maintenance requests to your property owner. We do not sell your data to third parties.',
+    body: 'Your information is used to manage your tenancy, process rent payments (including UPI and bank details for owner payouts), send billing notifications, communicate maintenance requests, and detect fraud. We do not sell your data to third parties.',
   },
   {
-    title: '3. Data Storage and Security',
-    body: 'Your authentication token is stored securely using expo-secure-store on your device. Payment proof images are stored on Cloudinary with private access controls. All API communication is over HTTPS.',
+    title: '3. Data Sharing',
+    body: 'Your tenancy details and payment history are shared with your property owner. We use third-party services: Cashfree Payments (PCI-DSS compliant) for online rent collection, Expo for push notifications, Cloudinary for image storage, Resend for emails, and MongoDB Atlas for database hosting.',
   },
   {
-    title: '4. Third-Party Services',
-    body: 'We use Cashfree Payments for online rent collection. Cashfree is PCI-DSS compliant. We use Expo Push Notifications for in-app alerts. We use Cloudinary for image storage.',
+    title: '4. Data Storage and Security',
+    body: 'Passwords are hashed with bcrypt (12 rounds). Auth tokens are stored in SecureStore (mobile) or HTTP-only cookies (web). All API communication is over HTTPS. Uploaded images are stored on Cloudinary with private access controls.',
   },
   {
     title: '5. Data Retention',
-    body: 'Your data is retained for the duration of your tenancy and up to 30 days after vacating. Payment records are retained for 7 years for legal compliance.',
+    body: 'Personal data is retained for the duration of your tenancy plus 30 days. Payment records are retained for 7 years as required by law. Server logs are retained for 14 days.',
   },
   {
     title: '6. Your Rights',
-    body: 'You may request deletion of your account and associated data by contacting support@happyrenting.in. We will fulfill requests within 30 days.',
+    body: 'You may request access, correction, deletion, or portability of your data by contacting support@happyrenting.in. We will respond within 30 days. You may also withdraw consent for push notifications or biometric login at any time via app settings.',
   },
   {
-    title: '7. Contact Us',
-    body: 'For privacy questions, contact: support@happyrenting.in',
+    title: '7. Children & International Transfers',
+    body: 'Our Platform is not intended for users under 18. Your data may be processed in India and the United States with appropriate safeguards. We do not use cookies for advertising or tracking.',
+  },
+  {
+    title: '8. Contact Us',
+    body: 'For privacy questions or requests, contact: support@happyrenting.in. Website: happyrenting.netlify.app',
   },
 ];
 

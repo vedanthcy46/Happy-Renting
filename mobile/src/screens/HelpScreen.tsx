@@ -92,10 +92,6 @@ export const HelpScreen: React.FC = () => {
     Linking.openURL(url).catch(() => {});
   };
 
-  const openWhatsApp = () => {
-    Linking.openURL('https://wa.me/919999999999?text=Hi%2C%20I%20need%20help%20with%20Happy%20Renting').catch(() => {});
-  };
-
   const openPlayStore = () => {
     Linking.openURL('market://details?id=com.happyrenting.app').catch(() =>
       Linking.openURL('https://play.google.com/store/apps/details?id=com.happyrenting.app').catch(() => {})
@@ -110,14 +106,6 @@ export const HelpScreen: React.FC = () => {
       label: 'Email Support',
       subtitle: 'support@happyrenting.co.in',
       onPress: () => openEmail(),
-    },
-    {
-      icon: 'logo-whatsapp',
-      iconColor: '#25D366',
-      iconBg: '#25D36618',
-      label: 'WhatsApp Support',
-      subtitle: 'Chat with us',
-      onPress: openWhatsApp,
     },
     {
       icon: 'bug',

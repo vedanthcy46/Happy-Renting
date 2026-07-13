@@ -189,7 +189,12 @@ app.use('/api/system', systemRoutes);
 app.use('/api/owner-requests', ownerRequestRoutes);
 app.use('/api/v2/notifications', notificationRoutes);
 
-// ── 10. 404 + Global error handler ────────────────────────────────────────
+// ── 10. Public pages (privacy policy, terms) ─────────────────────────────
+const privacyRoutes = require('./routes/privacyRoutes');
+app.use('/privacy', privacyRoutes);
+app.use('/terms', privacyRoutes); // Same route for now
+
+// ── 11. 404 + Global error handler ────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 

@@ -9,7 +9,7 @@ let Notifications: typeof NotificationsType | null = null;
 try {
   Notifications = require('expo-notifications');
 } catch (error) {
-  console.log('expo-notifications not available in this environment');
+  if (__DEV__) console.log('expo-notifications not available in this environment');
 }
 
 if (Notifications) {
@@ -24,7 +24,7 @@ if (Notifications) {
       }),
     });
   } catch (error) {
-    console.log('Push notifications not supported in this environment (e.g. Expo Go).');
+    if (__DEV__) console.log('Push notifications not supported in this environment (e.g. Expo Go).');
   }
 }
 
@@ -48,8 +48,8 @@ export function usePushNotifications() {
         setNotification(notification);
       });
 
-      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-        console.log(response);
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(_response => {
+        // Notification tap handled by navigation
       });
     }
 
@@ -88,17 +88,17 @@ async function registerForPushNotificationsAsync() {
         finalStatus = status;
       }
       if (finalStatus !== 'granted') {
-        console.log('Failed to get push token for push notification!');
+        if (__DEV__) console.log('Push notification permission denied');
         return;
       }
       token = (await Notifications.getExpoPushTokenAsync({
         projectId: Constants.expoConfig?.extra?.eas?.projectId,
       })).data;
     } else {
-      console.log('Must use physical device for Push Notifications');
+      if (__DEV__) console.log('Push notifications require a physical device');
     }
   } catch (error) {
-    console.log('Error registering for push notifications. Note: Expo Go does not support remote push notifications.', error);
+    if (__DEV__) console.log('Push notification registration failed', error);
   }
 
   return token;

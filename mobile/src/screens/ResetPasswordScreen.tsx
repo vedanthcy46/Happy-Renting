@@ -40,8 +40,13 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
       Alert.alert('Error', 'Please fill in both fields');
       return;
     }
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/;
     if (newPassword.length < 8) {
       Alert.alert('Error', 'Password must be at least 8 characters long');
+      return;
+    }
+    if (!passwordRegex.test(newPassword)) {
+      Alert.alert('Error', 'Password must include uppercase, lowercase, number, and a special character (@$!%*?&)');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -101,7 +106,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
           <View style={styles.formSection}>
             <Text style={styles.welcomeTitle}>Create new password</Text>
             <Text style={styles.welcomeSubtitle}>
-              Please enter your new password below. Ensure it is at least 8 characters.
+              Password must be at least 8 characters with uppercase, lowercase, a number, and a special character (@$!%*?&).
             </Text>
 
             <View style={styles.formFields}>
