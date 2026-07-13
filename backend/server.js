@@ -189,7 +189,11 @@ app.use('/api/system', systemRoutes);
 app.use('/api/owner-requests', ownerRequestRoutes);
 app.use('/api/v2/notifications', notificationRoutes);
 
-// ── 10. Public pages (privacy policy, terms) ─────────────────────────────
+// ── 10. Contact form ────────────────────────────────────────────────────
+const contactRoutes = require('./routes/contactRoutes');
+app.use('/api/contact', contactRoutes);
+
+// ── 11. Public pages (privacy policy, terms) ─────────────────────────────
 const privacyRoutes = require('./routes/privacyRoutes');
 app.use('/privacy', privacyRoutes);
 app.use('/terms', privacyRoutes); // Same route for now

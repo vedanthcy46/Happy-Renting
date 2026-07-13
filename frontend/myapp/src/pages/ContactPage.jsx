@@ -1,14 +1,33 @@
 import React, { useState } from 'react';
-import { Mail, MessageSquare, Globe, Send, CheckCircle } from 'lucide-react';
+import { Mail, MessageSquare, Globe, Send, CheckCircle, AlertTriangle } from 'lucide-react';
+import api from '../api/axios';
 import Navbar from '../components/landing/Navbar';
 import Footer from '../components/landing/Footer';
 
 const ContactPage = () => {
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleChange = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSent(true);
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await api.post('/contact', form);
+      if (data.success) {
+        setSent(true);
+      } else {
+        setError(data.message || 'Failed to send message');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send message. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,28 +52,36 @@ const ContactPage = () => {
                   <p className="text-sm text-slate-500">We will get back to you within 24 hours.</p>
                 </div>
               ) : (
+                <>
+                {error && (
+                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl p-4 mb-4">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Name</label>
-                    <input type="text" required className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Your name" />
+                    <input type="text" required value={form.name} onChange={handleChange('name')} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Your name" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
-                    <input type="email" required className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="your@email.com" />
+                    <input type="email" required value={form.email} onChange={handleChange('email')} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="your@email.com" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Subject</label>
-                    <input type="text" required className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="How can we help?" />
+                    <input type="text" required value={form.subject} onChange={handleChange('subject')} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="How can we help?" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Message</label>
-                    <textarea required rows={4} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none" placeholder="Describe your query..." />
+                    <textarea required rows={4} value={form.message} onChange={handleChange('message')} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none" placeholder="Describe your query..." />
                   </div>
-                  <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
-                    <Send className="w-4 h-4" />
-                    Send Message
+                  <button type="submit" disabled={loading} className="w-full bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50">
+                    {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
+                    {loading ? 'Sending...' : 'Send Message'}
                   </button>
                 </form>
+                </>
               )}
             </div>
 
