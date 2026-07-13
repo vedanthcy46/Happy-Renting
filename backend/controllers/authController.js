@@ -300,8 +300,7 @@ const forgotPassword = async (req, res, next) => {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
-      // Return 200 to prevent email enumeration
-      return res.status(200).json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+      return res.status(404).json({ success: false, message: 'No account found with that email address.' });
     }
 
     const resetToken = require('crypto').randomBytes(32).toString('hex');

@@ -4,8 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getNotifications, markAsRead, markAllAsRead, Notification } from '../api/notifications';
-import { AppCard, EmptyState } from '../components';
-import { colors, typography, spacing, radius } from '../theme';
+import { AppCard, EmptyState, ErrorState } from '../components';
+import { typography, spacing, radius } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { formatRelativeTime } from '../utils';
 
 interface NotificationsScreenProps {
@@ -13,17 +14,25 @@ interface NotificationsScreenProps {
   onNavigate?: (screen: string, params?: any) => void;
 }
 
-const notificationIcons: Record<string, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
-  payment_verified: { name: 'checkmark-circle', color: colors.success },
-  payment_rejected: { name: 'close-circle', color: colors.error },
-  bill_generated: { name: 'document-text', color: colors.primary },
+const notificationIcons: Record<string, { name: keyof typeof Ionicons.glyphMap; colorKey: string }> = {
+  payment_verified: { name: 'checkmark-circle', colorKey: 'success' },
+  payment_rejected: { name: 'close-circle', colorKey: 'error' },
+  bill_generated: { name: 'document-text', colorKey: 'primary' },
+  overdue_reminder: { name: 'alert-circle', colorKey: 'warning' },
+  rent_due: { name: 'calendar', colorKey: 'warning' },
+  complaint_update: { name: 'clipboard', colorKey: 'info' },
+  complaint_resolved: { name: 'checkmark-done', colorKey: 'success' },
+  move_out: { name: 'exit', colorKey: 'warning' },
+  settlement: { name: 'cash', colorKey: 'primary' },
+  system: { name: 'settings', colorKey: 'text' },
 };
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack, onNavigate }) => {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => getNotifications(1, 50),
   });
@@ -60,17 +69,28 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
     }
   };
 
+  const getIconConfig = (type: string) => {
+    const mapping = notificationIcons[type];
+    if (mapping) {
+      const colorKey = mapping.colorKey as keyof typeof colors;
+      return { name: mapping.name, color: colorKey === 'text' ? colors.text.tertiary : (colors[colorKey] as string) };
+    }
+    return { name: 'notifications-outline' as const, color: colors.text.tertiary };
+  };
+
   const renderItem = ({ item }: { item: Notification }) => {
-    const iconConfig = notificationIcons[item.type] || { name: 'notifications' as const, color: colors.text.tertiary };
+    const iconConfig = getIconConfig(item.type);
+    const styles = createStyles(colors);
     return (
       <TouchableOpacity onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
         <AppCard
           style={[styles.notificationCard, !item.read && styles.unreadCard] as any}
           variant={item.read ? 'bordered' : 'elevated'}
           padding={spacing.lg}
+          animate={false}
         >
           <View style={styles.notifRow}>
-            <View style={[styles.notifIcon, { backgroundColor: iconConfig.color + '15' }]}>
+            <View style={[styles.notifIcon, { backgroundColor: iconConfig.color + '18' }]}>
               <Ionicons name={iconConfig.name} size={22} color={iconConfig.color} />
             </View>
             <View style={styles.notifContent}>
@@ -87,33 +107,42 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
     );
   };
 
+  const styles = createStyles(colors);
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md, backgroundColor: colors.background, borderBottomColor: colors.borderLight }]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Notifications</Text>
+        <Text style={[styles.topBarTitle, { color: colors.text.primary }]}>Notifications</Text>
         {data?.unreadCount ? (
-          <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()} activeOpacity={0.7}>
-            <Text style={styles.markAllText}>Mark all read</Text>
+          <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()} activeOpacity={0.7} style={styles.markAllButton}>
+            <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all read</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 80 }} />
+          <View style={styles.markAllButton} />
         )}
       </View>
 
       {isLoading ? (
-        <View style={styles.center}>
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <ErrorState
+            message="Could not load notifications. Pull down to try again."
+            onRetry={() => refetch()}
+          />
         </View>
       ) : (
         <FlatList
           data={data?.notifications || []}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          refreshing={isLoading}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + spacing.lg }]}
+          refreshing={isFetching}
           onRefresh={refetch}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -129,10 +158,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
@@ -145,9 +173,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   backButton: {
     width: 44,
@@ -159,12 +185,14 @@ const styles = StyleSheet.create({
   topBarTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: colors.text.primary,
+  },
+  markAllButton: {
+    width: 80,
+    alignItems: 'flex-end',
   },
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
   },
   listContent: {
     padding: spacing.lg,
@@ -174,7 +202,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   unreadCard: {
-    backgroundColor: '#F0F7FF',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
   },
   notifRow: {
     flexDirection: 'row',
@@ -211,11 +240,11 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
   },
   unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: colors.primary,
-    marginTop: 4,
+    marginTop: 6,
     marginLeft: spacing.sm,
   },
 });

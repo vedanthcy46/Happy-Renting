@@ -67,7 +67,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         Alert.alert('Error', res.message || 'Failed to send reset email');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to send reset email');
+      const message = err.response?.data?.message || 'Failed to send reset email';
+      Alert.alert('Error', message);
     } finally {
       setForgotLoading(false);
     }

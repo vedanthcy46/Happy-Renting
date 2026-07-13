@@ -56,11 +56,7 @@ function AppContent() {
   useEffect(() => {
     const checkOnboarding = async () => {
       if (isAuthLoading) return;
-      const isPasswordResetPath = pathname?.startsWith('/reset-password');
-      if (isPasswordResetPath) {
-        setOnboardingChecked(true);
-        return;
-      }
+
       try {
         const completed = await SecureStore.getItemAsync(ONBOARDING_KEY);
         if (!completed && !token) {
@@ -191,7 +187,6 @@ function AppContent() {
         <Stack.Screen name="terms-of-service" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="transaction-history" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="login" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="reset-password" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </>
   );

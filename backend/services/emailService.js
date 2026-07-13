@@ -537,22 +537,10 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
 const sendPasswordResetEmail = async (user, token) => {
   const subject = 'Password Reset Request';
   const resetUrl = `${WEBSITE_URL}/reset-password?token=${token}`;
-  const isTenant = user.role === 'tenant';
 
-  let actionSection = '';
-  if (isTenant) {
-    actionSection = `
-      <div style="text-align: center; margin: 24px 0;">
-        <a href="happyrenting://reset-password?token=${token}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);">Reset in Mobile App</a>
-      </div>
-      <p style="text-align: center; color: #64748b; font-size: 13px; margin: 16px 0 8px 0;">Or if you are on a computer, reset on web:</p>
-      ${getButton('Reset on Web', resetUrl)}
-    `;
-  } else {
-    actionSection = `
-      ${getButton('Reset Password', resetUrl)}
-    `;
-  }
+  const actionSection = `
+    ${getButton('Reset Password', resetUrl)}
+  `;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
