@@ -305,7 +305,7 @@ const forgotPassword = async (req, res, next) => {
 
     const resetToken = require('crypto').randomBytes(32).toString('hex');
     user.passwordResetToken = require('crypto').createHash('sha256').update(resetToken).digest('hex');
-    user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await user.save({ validateBeforeSave: false });
 
@@ -325,7 +325,7 @@ const resetPassword = async (req, res, next) => {
 
     const user = await User.findOne({
       passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: Date.now() },
+      passwordResetExpires: { $gt: new Date() },
     });
 
     if (!user) {
