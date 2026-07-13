@@ -6,7 +6,7 @@ export interface Notification {
   body: string;
   type: string;
   data: any;
-  isRead: boolean;
+  read: boolean;
   createdAt: string;
 }
 

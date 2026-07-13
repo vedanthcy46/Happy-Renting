@@ -28,6 +28,10 @@ const notificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    data: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     link: {
       type: String,
       default: null

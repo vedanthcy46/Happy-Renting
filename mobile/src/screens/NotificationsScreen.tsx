@@ -39,7 +39,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
   });
 
   const handleNotificationPress = (notification: Notification) => {
-    if (!notification.isRead) {
+    if (!notification.read) {
       mutationMarkRead.mutate(notification._id);
     }
     const rentRecordId = notification.data?.rentRecordId;
@@ -65,8 +65,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
     return (
       <TouchableOpacity onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
         <AppCard
-          style={[styles.notificationCard, !item.isRead && styles.unreadCard] as any}
-          variant={item.isRead ? 'bordered' : 'elevated'}
+          style={[styles.notificationCard, !item.read && styles.unreadCard] as any}
+          variant={item.read ? 'bordered' : 'elevated'}
           padding={spacing.lg}
         >
           <View style={styles.notifRow}>
@@ -74,13 +74,13 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
               <Ionicons name={iconConfig.name} size={22} color={iconConfig.color} />
             </View>
             <View style={styles.notifContent}>
-              <Text style={[styles.notifTitle, !item.isRead && styles.notifTitleUnread]}>
+              <Text style={[styles.notifTitle, !item.read && styles.notifTitleUnread]}>
                 {item.title}
               </Text>
               <Text style={styles.notifBody} numberOfLines={2}>{item.body}</Text>
               <Text style={styles.notifDate}>{formatRelativeTime(item.createdAt)}</Text>
             </View>
-            {!item.isRead && <View style={styles.unreadDot} />}
+            {!item.read && <View style={styles.unreadDot} />}
           </View>
         </AppCard>
       </TouchableOpacity>

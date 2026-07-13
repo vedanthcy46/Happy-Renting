@@ -34,7 +34,7 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
       message: finalMessage,
       type,
       data,
-      isRead: false
+      read: false
     });
 
     // 2. Fetch user to get push tokens

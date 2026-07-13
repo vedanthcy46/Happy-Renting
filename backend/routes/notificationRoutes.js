@@ -18,7 +18,7 @@ router.get('/', authenticate, async (req, res, next) => {
       .lean();
 
     const total = await Notification.countDocuments({ userId: req.user._id });
-    const unreadCount = await Notification.countDocuments({ userId: req.user._id, isRead: false });
+    const unreadCount = await Notification.countDocuments({ userId: req.user._id, read: false });
 
     res.status(200).json({
       success: true,
@@ -38,7 +38,7 @@ router.patch('/:id/read', authenticate, async (req, res, next) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
-      { isRead: true },
+      { read: true },
       { returnDocument: 'after' }
     );
 
@@ -57,8 +57,8 @@ router.patch('/:id/read', authenticate, async (req, res, next) => {
 router.patch('/read-all', authenticate, async (req, res, next) => {
   try {
     await Notification.updateMany(
-      { userId: req.user._id, isRead: false },
-      { isRead: true }
+      { userId: req.user._id, read: false },
+      { read: true }
     );
 
     res.status(200).json({ success: true, message: 'All notifications marked as read' });
