@@ -59,7 +59,7 @@ function AppContent() {
 
       try {
         const completed = await SecureStore.getItemAsync(ONBOARDING_KEY);
-        if (!completed && !token) {
+        if (!completed) {
           router.replace('/onboarding');
         }
       } catch {
@@ -68,7 +68,7 @@ function AppContent() {
       }
     };
     checkOnboarding();
-  }, [isAuthLoading]);
+  }, [isAuthLoading, router]);
 
   useEffect(() => {
     if (!isAuthLoading && onboardingChecked) {
