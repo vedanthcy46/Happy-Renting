@@ -381,7 +381,7 @@ const getMonthlyRentRecordWithTransactions = async (rentRecordId) => {
     .populate('userId', 'name email phone')
     .populate('roomId', 'roomNumber floor monthlyRent')
     .populate('propertyId', 'name address')
-    .populate('ownerId', 'name email upiId upiNumber bankDetails qrCodeImage')
+    .populate('ownerId', 'name email upiId upiNumber bankDetails qrCodeImage upiDetails')
     .lean();
 
   if (!rentRecord) {
