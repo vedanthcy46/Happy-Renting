@@ -5,6 +5,7 @@ const {
   login, register, getMe, changePassword, 
   verifyEmail, resendVerification,
   forgotPassword, resetPassword,
+  sendOtp, verifyOtp,
   loginValidation, registerValidation 
 } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
@@ -17,6 +18,8 @@ router.post('/verify-email', verifyEmail);
 router.post('/resend-verification', resendVerification);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password', authLimiter, resetPassword);
+router.post('/send-otp', authLimiter, sendOtp);
+router.post('/verify-otp', verifyOtp);
 
 // Protected — requires auth token to create new users
 router.post('/register', authenticate, registerValidation, validate, register);

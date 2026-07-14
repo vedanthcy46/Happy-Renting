@@ -1,10 +1,13 @@
 'use strict';
 
 const jwt    = require('jsonwebtoken');
+const crypto = require('crypto');
 const { body } = require('express-validator');
 const User   = require('../models/User');
 const emailService = require('../services/emailService');
 const logger = require('../config/logger');
+
+const otpStore = new Map();
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const loginValidation = [
@@ -99,7 +102,7 @@ const login = async (req, res, next) => {
 // Only superadmin can create owners; owners can create tenants
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, role, ownerId } = req.body;
+    const { name, email, password, role, ownerId, verificationToken } = req.body;
 
     const callerRole = req.user?.role;
 
@@ -125,11 +128,27 @@ const register = async (req, res, next) => {
       });
     }
 
+    // Verify email OTP if verificationToken is provided
+    if (verificationToken) {
+      const verifiedEntry = otpStore.get(`verified:${email}`);
+      if (!verifiedEntry || verifiedEntry.token !== verificationToken) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired verification. Please verify your email again.' });
+      }
+      if (Date.now() > verifiedEntry.expiresAt) {
+        otpStore.delete(`verified:${email}`);
+        return res.status(400).json({ success: false, message: 'Verification expired. Please verify your email again.' });
+      }
+      otpStore.delete(`verified:${email}`);
+    } else {
+      return res.status(400).json({ success: false, message: 'Email verification is required.' });
+    }
+
     const userData = {
       name,
       email,
       password,
       role: role || 'tenant',
+      emailVerified: true,
     };
 
     // Tenants created by an owner are scoped to that owner
@@ -144,22 +163,9 @@ const register = async (req, res, next) => {
       userData.mustChangePassword = true;
     }
 
-    // Verification Token
-    const verificationToken = require('crypto').randomBytes(32).toString('hex');
-    userData.emailVerificationToken = verificationToken;
-    userData.emailVerificationExpires = Date.now() + 15 * 60 * 1000; // 15 mins
-    userData.emailVerified = false;
-
     const user = await User.create(userData);
-    
-    // Send Verification Email + Credentials
-    try {
-      await emailService.sendVerificationEmail(user, verificationToken);
-    } catch (e) {
-      logger.error(`Registration verification email failed: ${e.message}`);
-    }
 
-    // Send login credentials separately so the user knows their password
+    // Send login credentials so the user knows their password
     if (role === 'tenant') {
       try {
         const ownerName = req.user?.name || 'Your landlord';
@@ -175,7 +181,7 @@ const register = async (req, res, next) => {
               <p style="margin: 0; font-weight: bold; color: #1e293b;">Your Login Credentials:</p>
               <p style="margin: 5px 0 0; color: #475569;"><strong>Email:</strong> ${user.email}</p>
               <p style="margin: 5px 0 0; color: #475569;"><strong>Password:</strong> <code style="background: #e2e8f0; padding: 2px 5px; border-radius: 4px;">${password}</code></p>
-              <p style="margin: 10px 0 0; font-size: 12px; color: #ef4444;">* You will be asked to change this password on your first login. Please also check your email for the verification link.</p>
+              <p style="margin: 10px 0 0; font-size: 12px; color: #ef4444;">* You will be asked to change this password on your first login.</p>
             </div>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
@@ -316,7 +322,7 @@ const resendVerification = async (req, res, next) => {
     if (user.emailVerified) return res.status(400).json({ success: false, message: 'Email is already verified.' });
 
     // Generate new token
-    const verificationToken = require('crypto').randomBytes(32).toString('hex');
+    const verificationToken = crypto.randomBytes(32).toString('hex');
     user.emailVerificationToken = verificationToken;
     user.emailVerificationExpires = Date.now() + 15 * 60 * 1000; // 15 mins
     await user.save({ validateBeforeSave: false });
@@ -338,8 +344,8 @@ const forgotPassword = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'No account found with that email address.' });
     }
 
-    const resetToken = require('crypto').randomBytes(32).toString('hex');
-    user.passwordResetToken = require('crypto').createHash('sha256').update(resetToken).digest('hex');
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await user.save({ validateBeforeSave: false });
@@ -356,7 +362,7 @@ const forgotPassword = async (req, res, next) => {
 const resetPassword = async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
-    const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await User.findOne({
       passwordResetToken: hashedToken,
@@ -380,9 +386,74 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+// ── POST /api/auth/send-otp ────────────────────────────────────────────────
+const sendOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email is required.' });
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    otpStore.set(email, { otp, expiresAt });
+
+    setTimeout(() => otpStore.delete(email), 5 * 60 * 1000);
+
+    await emailService.sendEmail(
+      email,
+      'Your Email Verification OTP',
+      `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+        <h2 style="color: #1e293b;">Email Verification</h2>
+        <p>Use the OTP below to verify your email address:</p>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; border-left: 4px solid #2563eb;">
+          <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #2563eb; margin: 0;">${otp}</p>
+        </div>
+        <p style="color: #64748b;">This OTP expires in <strong>5 minutes</strong>.</p>
+        <hr style="border: 0; border-top: 1px solid #eee;" />
+        <p style="color: #94a3b8; font-size: 12px; text-align: center;">This is an automated message from Happy Renting.</p>
+      </div>
+      `
+    );
+
+    logger.info(`[OTP] Sent verification code to ${email}`);
+    res.status(200).json({ success: true, message: 'OTP sent to email.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/auth/verify-otp ──────────────────────────────────────────────
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
+
+    const entry = otpStore.get(email);
+    if (!entry) return res.status(400).json({ success: false, message: 'No OTP found. Request a new one.' });
+    if (Date.now() > entry.expiresAt) {
+      otpStore.delete(email);
+      return res.status(400).json({ success: false, message: 'OTP has expired. Request a new one.' });
+    }
+    if (entry.otp !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP.' });
+
+    otpStore.delete(email);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    otpStore.set(`verified:${email}`, { token: verificationToken, expiresAt: Date.now() + 15 * 60 * 1000 });
+
+    logger.info(`[OTP] Email verified: ${email}`);
+    res.status(200).json({ success: true, message: 'Email verified successfully.', verificationToken });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = { 
   login, register, getMe, changePassword, 
   verifyEmail, resendVerification,
   forgotPassword, resetPassword,
+  sendOtp, verifyOtp,
   loginValidation, registerValidation 
 };

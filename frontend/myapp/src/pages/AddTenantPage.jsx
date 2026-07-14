@@ -32,6 +32,10 @@ const AddTenantPage = () => {
     password    : 'Tenant@123',
   });
   const [errors, setErrors] = useState({});
+  const [otpStatus, setOtpStatus] = useState('idle'); // idle | sent | verified | error
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [otpInput, setOtpInput] = useState('');
+  const [verificationToken, setVerificationToken] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +130,42 @@ const AddTenantPage = () => {
     return errs;
   };
 
+  const handleSendOtp = async () => {
+    if (!form.email) { toast.error('Enter an email first'); return; }
+    if (otpTimer > 0) return;
+    try {
+      setOtpStatus('sending');
+      await api.post('/auth/send-otp', { email: form.email.trim().toLowerCase() });
+      setOtpStatus('sent');
+      toast.success('OTP sent to email');
+      setOtpTimer(60);
+      const interval = setInterval(() => {
+        setOtpTimer(prev => {
+          if (prev <= 1) { clearInterval(interval); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setOtpStatus('error');
+      toast.error(err.response?.data?.message || err.message || 'Failed to send OTP');
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpInput) { toast.error('Enter the OTP'); return; }
+    try {
+      const { data } = await api.post('/auth/verify-otp', {
+        email: form.email.trim().toLowerCase(),
+        otp: otpInput,
+      });
+      setVerificationToken(data.verificationToken);
+      setOtpStatus('verified');
+      toast.success('Email verified successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Invalid OTP');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
@@ -138,11 +178,17 @@ const AddTenantPage = () => {
 
       // Create user account first if requested
       if (form.createUser) {
+        if (!verificationToken) {
+          toast.error('Please verify the email with OTP first');
+          setSubmitting(false);
+          return;
+        }
         const { data } = await api.post('/auth/register', {
           name    : form.name.trim(),
           email   : form.email.trim().toLowerCase(),
           password: form.password,
           role    : 'tenant',
+          verificationToken,
         });
         userId = data.user._id;
       }
@@ -292,7 +338,13 @@ const AddTenantPage = () => {
                 <div>
                   <label className="form-label">Email *</label>
                   <input type="email" className={`form-input ${errors.email ? 'border-danger' : ''}`}
-                    value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    value={form.email} onChange={e => {
+                      setForm(f => ({ ...f, email: e.target.value }));
+                      setOtpStatus('idle');
+                      setOtpInput('');
+                      setOtpTimer(0);
+                      setVerificationToken('');
+                    }}
                     placeholder="tenant@email.com" maxLength={100} />
                   {errors.email && <p className="form-error">{errors.email}</p>}
                 </div>
@@ -304,6 +356,45 @@ const AddTenantPage = () => {
                   placeholder="min 8 chars" maxLength={128} />
                 <p className="text-[10px] text-slate-500 mt-1">Default: <span className="text-brand-400 font-mono">Tenant@123</span>. Tenant will be forced to change this on login.</p>
                 {errors.password && <p className="form-error">{errors.password}</p>}
+              </div>
+
+              {/* Email OTP Verification */}
+              <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                <p className="text-sm font-semibold text-slate-300 mb-3">Email Verification</p>
+                {otpStatus === 'verified' ? (
+                  <div className="flex items-center gap-2 text-emerald-400 text-sm">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Email verified
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <button type="button" onClick={handleSendOtp} disabled={otpTimer > 0 || otpStatus === 'sending'}
+                      className="bg-brand-600 hover:bg-brand-700 disabled:bg-slate-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
+                      {otpStatus === 'sending' ? 'Sending...' : otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
+                    </button>
+                    {otpStatus === 'sent' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input className="form-input flex-1" placeholder="Enter OTP" value={otpInput}
+                            onChange={e => setOtpInput(e.target.value)} maxLength={6} />
+                          <button type="button" onClick={handleVerifyOtp}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap">
+                            Verify
+                          </button>
+                        </div>
+                        <button type="button" onClick={handleSendOtp} disabled={otpTimer > 0}
+                          className="text-xs text-brand-400 hover:text-brand-300 transition-colors">
+                          {otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Resend OTP'}
+                        </button>
+                      </div>
+                    )}
+                    {otpStatus === 'error' && (
+                      <p className="text-xs text-red-400">Failed to send OTP. Try again.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
