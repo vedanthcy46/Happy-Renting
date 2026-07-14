@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { ArrowLeft, Home, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -146,6 +147,15 @@ const LoginPage = () => {
                 </button>
               </div>
               {errors.password && <p className="form-error">{errors.password}</p>}
+            </div>
+
+            <div className="flex items-center justify-end mb-6">
+              <Link
+                to="/reset-password"
+                className="text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             <button

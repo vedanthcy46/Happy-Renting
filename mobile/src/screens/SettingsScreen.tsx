@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -26,6 +26,8 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { AppCard, AppButton, AppInput } from '../components';
 import { useRouter } from 'expo-router';
+import { requestDeletion, getMyDeletionStatus, cancelDeletion, DeletionStatusData } from '../api/deletion';
+import { login } from '../api/auth';
 
 export const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -42,6 +44,32 @@ export const SettingsScreen: React.FC = () => {
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [password, setPassword] = useState('');
   const [submittingBiometric, setSubmittingBiometric] = useState(false);
+
+  // Account deletion
+  const [deletionStatus, setDeletionStatus] = useState<DeletionStatusData | null>(null);
+  const [showDeletionModal, setShowDeletionModal] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
+  const [deletionLoading, setDeletionLoading] = useState(false);
+  const [deletionStatusLoading, setDeletionStatusLoading] = useState(false);
+
+  const fetchDeletionStatus = useCallback(async () => {
+    if (!user) return;
+    setDeletionStatusLoading(true);
+    try {
+      const res = await getMyDeletionStatus();
+      if (res.success && res.data && 'status' in res.data) {
+        setDeletionStatus(res.data as DeletionStatusData);
+      } else {
+        setDeletionStatus(null);
+      }
+    } catch {
+      setDeletionStatus(null);
+    } finally {
+      setDeletionStatusLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchDeletionStatus(); }, [fetchDeletionStatus]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -83,17 +111,18 @@ export const SettingsScreen: React.FC = () => {
 
     setSubmittingBiometric(true);
     try {
-      if (user?.email) {
-        await saveBiometricCredentials(user.email, password);
-        setBiometricActive(true);
-        setShowBiometricModal(false);
-        setPassword('');
-        Alert.alert('Success', 'Biometric login enabled successfully.');
-      } else {
+      if (!user?.email) {
         Alert.alert('Error', 'User email not found. Please log in again.');
+        return;
       }
+      await login(user.email, password);
+      await saveBiometricCredentials(user.email, password);
+      setBiometricActive(true);
+      setShowBiometricModal(false);
+      setPassword('');
+      Alert.alert('Success', 'Biometric login enabled successfully.');
     } catch {
-      Alert.alert('Error', 'Failed to save biometric credentials.');
+      Alert.alert('Error', 'Invalid password. Biometric login was not enabled.');
       setBiometricActive(false);
     } finally {
       setSubmittingBiometric(false);
@@ -133,12 +162,60 @@ export const SettingsScreen: React.FC = () => {
     );
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'To delete your account, please send an email to support@happyrenting.in from your registered email address requesting account deletion.',
-      [{ text: 'OK' }]
-    );
+  const handleDeleteAccountPress = () => {
+    if (!deletionStatus) {
+      setDeletionReason('');
+      setShowDeletionModal(true);
+    }
+  };
+
+  const submitDeletionRequest = async () => {
+    setDeletionLoading(true);
+    try {
+      const res = await requestDeletion({ reason: deletionReason || undefined });
+      if (res.success) {
+        Alert.alert('Request Submitted', 'Your deletion request has been sent to your owner for review.');
+        setShowDeletionModal(false);
+        await fetchDeletionStatus();
+      } else {
+        Alert.alert('Error', res.message || 'Failed to submit request.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message || err.message || 'Something went wrong.');
+    } finally {
+      setDeletionLoading(false);
+    }
+  };
+
+  const handleCancelDeletion = () => {
+    Alert.alert('Cancel Deletion', 'Are you sure you want to cancel your deletion request?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, Cancel', style: 'destructive',
+        onPress: async () => {
+          try {
+            await cancelDeletion();
+            await fetchDeletionStatus();
+            Alert.alert('Cancelled', 'Your deletion request has been cancelled.');
+          } catch (err: any) {
+            Alert.alert('Error', err?.response?.data?.message || err.message || 'Failed to cancel.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleReRequestDeletion = () => {
+    setDeletionReason('');
+    setShowDeletionModal(true);
+  };
+
+  const deletionStatusLabels: Record<string, { label: string; color: string }> = {
+    pending_owner: { label: 'Awaiting Owner Review', color: '#F59E0B' },
+    owner_approved: { label: 'Approved — 30 Day Grace', color: '#3B82F6' },
+    owner_rejected: { label: 'Not Approved', color: '#EF4444' },
+    cancelled: { label: 'Cancelled', color: '#94A3B8' },
+    completed: { label: 'Completed', color: '#10B981' },
   };
 
   return (
@@ -240,19 +317,101 @@ export const SettingsScreen: React.FC = () => {
 
           <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
-          {/* Delete Account */}
-          <TouchableOpacity style={styles.row} onPress={handleDeleteAccount} activeOpacity={0.7}>
+          {/* Delete Account (Tenant Only) */}
+          {user?.role === 'tenant' && !deletionStatus && (
+          <TouchableOpacity style={styles.row} onPress={handleDeleteAccountPress} activeOpacity={0.7}>
             <View style={styles.rowLeft}>
               <View style={[styles.iconBox, { backgroundColor: '#EF444415' }]}>
                 <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: '#EF4444' }]}>Delete Account</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>Permanently remove all data</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>
+                  Permanently remove all data
+                </Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.text.tertiary} />
           </TouchableOpacity>
+          )}
+
+          {/* Deletion Status Card */}
+          {user?.role === 'tenant' && deletionStatus && (
+            <View style={{ paddingVertical: spacing.md }}>
+              <View style={{
+                backgroundColor: deletionStatus.status === 'owner_rejected' ? '#EF444415' : deletionStatus.status === 'owner_approved' ? '#3B82F615' : deletionStatus.status === 'completed' ? '#10B98115' : '#F59E0B15',
+                borderRadius: radius.lg,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: deletionStatus.status === 'owner_rejected' ? '#EF444430' : deletionStatus.status === 'owner_approved' ? '#3B82F630' : deletionStatus.status === 'completed' ? '#10B98130' : '#F59E0B30',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: deletionStatusLabels[deletionStatus.status]?.color || '#94A3B8' }} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: deletionStatusLabels[deletionStatus.status]?.color || '#94A3B8' }}>
+                      {deletionStatusLabels[deletionStatus.status]?.label || deletionStatus.status}
+                    </Text>
+                  </View>
+                  {(deletionStatus.status === 'pending_owner' || deletionStatus.status === 'owner_approved') && (
+                    <TouchableOpacity onPress={handleCancelDeletion} activeOpacity={0.7}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#EF4444' }}>Cancel</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {deletionStatus.referenceId && (
+                  <Text style={{ fontSize: 11, color: themeColors.text.tertiary, fontFamily: 'monospace' }}>
+                    Ref: {deletionStatus.referenceId}
+                  </Text>
+                )}
+
+                {deletionStatus.scheduledDeletionAt && (
+                  <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 4 }}>
+                    Scheduled for: {new Date(deletionStatus.scheduledDeletionAt).toLocaleDateString()}
+                  </Text>
+                )}
+
+                {deletionStatus.status === 'owner_rejected' && (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>Previous request was not approved.</Text>
+                    {deletionStatus.deletionRejectedReason && (
+                      <Text style={{ fontSize: 11, color: '#EF4444AA', marginTop: 2 }}>Reason: {deletionStatus.deletionRejectedReason}</Text>
+                    )}
+                    <TouchableOpacity
+                      onPress={handleReRequestDeletion}
+                      style={{
+                        marginTop: spacing.sm, backgroundColor: '#EF4444', borderRadius: radius.lg,
+                        paddingVertical: 10, alignItems: 'center',
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Re-request Deletion</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {deletionStatus.status === 'cancelled' && (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <Text style={{ fontSize: 12, color: '#94A3B8' }}>Previous request was cancelled.</Text>
+                    <TouchableOpacity
+                      onPress={handleReRequestDeletion}
+                      style={{
+                        marginTop: spacing.sm, backgroundColor: '#EF4444', borderRadius: radius.lg,
+                        paddingVertical: 10, alignItems: 'center',
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Request Deletion</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {deletionStatus.status === 'completed' && (
+                  <Text style={{ fontSize: 12, color: '#10B981', marginTop: 4 }}>Account deletion has been processed.</Text>
+                )}
+              </View>
+            </View>
+          )}
         </AppCard>
 
         {/* Support & Legal Section */}
@@ -355,6 +514,52 @@ export const SettingsScreen: React.FC = () => {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalConfirmText}>Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Account Deletion Request Modal */}
+      <Modal visible={showDeletionModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Delete Account</Text>
+              <TouchableOpacity onPress={() => setShowDeletionModal(false)}>
+                <Ionicons name="close" size={24} color={themeColors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.modalDesc, { color: themeColors.text.secondary }]}>
+              This sends a deletion request to your property owner for review. After owner approval, your account will be deleted after a 30-day grace period. Payment records will be retained for compliance.
+            </Text>
+            <AppInput
+              label="Reason (optional)"
+              placeholder="Let your owner know why you're leaving..."
+              value={deletionReason}
+              onChangeText={setDeletionReason}
+              multiline
+              numberOfLines={3}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalCancelBtn, { borderColor: themeColors.border }]}
+                onPress={() => setShowDeletionModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.modalCancelText, { color: themeColors.text.secondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalConfirmBtn, { backgroundColor: '#EF4444' }]}
+                onPress={submitDeletionRequest}
+                activeOpacity={0.8}
+                disabled={deletionLoading}
+              >
+                {deletionLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Request Deletion</Text>
                 )}
               </TouchableOpacity>
             </View>

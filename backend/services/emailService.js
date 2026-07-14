@@ -870,6 +870,125 @@ const sendWithdrawalSettledEmail = async (owner, amount, utrNumber, date) => {
   await queueEmail(owner.email, subject, html, 'receipt');
 };
 
+// ── Account Deletion Emails ──────────────────────────────────────────────────
+
+const sendDeletionRequestConfirmation = async (user, referenceId) => {
+  const subject = `Account Deletion Request Submitted - ${referenceId}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #f59e0b;">
+      <h2 style="color: #f59e0b;">Deletion Request Submitted</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>Your request to delete your Happy Renting account has been submitted.</p>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+        <p style="margin: 0; font-size: 14px;"><strong>Reference ID:</strong> ${referenceId}</p>
+      </div>
+      <p>Your request has been sent to your property owner for review. You will be notified once a decision is made.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(user.email, subject, html);
+};
+
+const sendDeletionRequestToOwner = async (owner, tenantUser, tenantRecord, referenceId) => {
+  const subject = `Tenant Deletion Request - ${tenantUser.name}`;
+  const roomNumber = tenantRecord.roomId?.roomNumber || 'N/A';
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #f59e0b;">
+      <h2 style="color: #f59e0b;">Tenant Deletion Request</h2>
+      <p>Hello <strong>${owner.name}</strong>,</p>
+      <p>Your tenant <strong>${tenantUser.name}</strong> has requested account deletion.</p>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+        <p style="margin: 0;"><strong>Tenant:</strong> ${tenantUser.name}</p>
+        <p style="margin: 5px 0 0;"><strong>Room:</strong> ${roomNumber}</p>
+        <p style="margin: 5px 0 0;"><strong>Email:</strong> ${tenantUser.email}</p>
+        <p style="margin: 5px 0 0;"><strong>Requested:</strong> ${formatDateOnly(new Date())}</p>
+        ${tenantRecord.deletionReason ? `<p style="margin: 5px 0 0;"><strong>Reason:</strong> ${tenantRecord.deletionReason}</p>` : ''}
+        <p style="margin: 5px 0 0;"><strong>Reference:</strong> ${referenceId}</p>
+      </div>
+      <p>Please review this request in your owner dashboard. The deletion will only be processed after your approval and a 30-day grace period.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('Review Deletion Request')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(owner.email, subject, html, 'alert');
+};
+
+const sendDeletionApprovedTenant = async (user, referenceId, deletionDate) => {
+  const subject = `Deletion Request Approved - ${referenceId}`;
+  const formattedDate = formatDateOnly(deletionDate);
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+      <h2 style="color: #2563eb;">Deletion Request Approved</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>Your account deletion request (<strong>${referenceId}</strong>) has been approved by your owner.</p>
+      <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+        <p style="margin: 0;"><strong>Scheduled Deletion:</strong> ${formattedDate}</p>
+      </div>
+      <p>Your account will be permanently deleted on <strong>${formattedDate}</strong> unless you cancel the request.</p>
+      <p>During this 30-day period, you can cancel the deletion by visiting your account settings.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('View Deletion Status')}
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(user.email, subject, html);
+};
+
+const sendDeletionRejectedTenant = async (user, referenceId, reason) => {
+  const subject = `Deletion Request Update - ${referenceId}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #dc2626;">
+      <h2 style="color: #dc2626;">Deletion Request Not Approved</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>Your account deletion request (<strong>${referenceId}</strong>) was not approved by your owner.</p>
+      ${reason ? `
+        <div style="background: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+          <p style="margin: 0; color: #dc2626; font-size: 14px;"><strong>Reason:</strong> ${reason}</p>
+        </div>
+      ` : ''}
+      <p>Please resolve any outstanding issues and try again.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(user.email, subject, html);
+};
+
+const sendDeletionCompleteEmail = async (email, referenceId) => {
+  const subject = `Account Deletion Completed - ${referenceId}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #16a34a;">
+      <h2 style="color: #16a34a;">Account Deletion Completed</h2>
+      <p>Hello,</p>
+      <p>Your account deletion request (<strong>${referenceId}</strong>) has been processed successfully.</p>
+      <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
+        <p style="margin: 0; color: #166534; font-size: 14px;">
+          <strong>What was deleted:</strong><br/>
+          - Personal profile information<br/>
+          - Authentication credentials<br/>
+          - Session data and tokens<br/>
+          - Push notification tokens<br/>
+          - Notification history
+        </p>
+      </div>
+      <div style="background: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+        <p style="margin: 0; color: #dc2626; font-size: 14px;">
+          <strong>What was retained (legal requirement):</strong><br/>
+          - Payment transaction records<br/>
+          - Financial audit logs<br/>
+          - Invoice and receipt records
+        </p>
+      </div>
+      <p style="color: #64748b; font-size: 14px;">You will no longer be able to access your Happy Renting account.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(email, subject, html);
+};
+
 module.exports = {
   sendWithdrawalSettledEmail,
   sendComplaintNotification,
@@ -898,6 +1017,11 @@ module.exports = {
   sendOwnerAlertSummaryEmail,
   sendSystemFailureAlert,
   sendDailyDigestEmail,
+  sendDeletionRequestConfirmation,
+  sendDeletionRequestToOwner,
+  sendDeletionApprovedTenant,
+  sendDeletionRejectedTenant,
+  sendDeletionCompleteEmail,
   sendEmail, // Exported for custom queue processors like dailyDigestService
 };
 

@@ -29,6 +29,9 @@
   ::-webkit-scrollbar-track { @apply bg-surface; }
   ::-webkit-scrollbar-thumb { @apply bg-surface-hover rounded-full; }
 
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;

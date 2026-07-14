@@ -374,13 +374,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 />
               </View>
             ) : (
-              <View>
-                <Text style={styles.forgotTitle}>Reset Password</Text>
+              <View style={styles.forgotFormContent}>
+                <View style={styles.forgotIconWrap}>
+                  <Ionicons name="key-outline" size={28} color={colors.primary} />
+                </View>
+                <Text style={styles.forgotTitle}>Forgot Password</Text>
                 <Text style={styles.forgotBody}>
-                  Enter your registered email to receive a password reset link.
+                  Enter your registered email and we'll send you a reset link.
                 </Text>
                 <AppInput
-                  label="Email Address"
                   placeholder="your@email.com"
                   value={forgotEmail}
                   onChangeText={setForgotEmail}
@@ -391,22 +393,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   }
                 />
                 <View style={styles.modalButtons}>
-                  <View style={{ flex: 1 }}>
-                    <AppButton
-                      title="Cancel"
-                      variant="ghost"
-                      onPress={() => setShowForgotModal(false)}
-                      fullWidth
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AppButton
-                      title="Send Link"
-                      onPress={handleForgotPassword}
-                      loading={forgotLoading}
-                      fullWidth
-                    />
-                  </View>
+                  <AppButton
+                    title="Cancel"
+                    variant="ghost"
+                    onPress={() => setShowForgotModal(false)}
+                    fullWidth
+                  />
+                  <View style={styles.modalBtnSpacer} />
+                  <AppButton
+                    title="Send Link"
+                    onPress={handleForgotPassword}
+                    loading={forgotLoading}
+                    fullWidth
+                  />
                 </View>
               </View>
             )}
@@ -593,38 +592,51 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   forgotModal: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderRadius: radius.xl,
     padding: spacing.xxl,
     width: '100%',
     maxWidth: 400,
     ...shadows.xl,
   },
+  forgotFormContent: {
+    alignItems: 'center',
+  },
+  forgotIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
   forgotSuccessContent: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: spacing.md,
   },
   forgotTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
   forgotBody: {
     fontSize: 14,
     color: colors.text.secondary,
     lineHeight: 20,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xxl,
     textAlign: 'center',
+    paddingHorizontal: spacing.sm,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
+    width: '100%',
   },
-  modalBtnHalf: {
-    flex: 1,
+  modalBtnSpacer: {
+    width: spacing.md,
   },
   loginFooter: {
     alignItems: 'center',

@@ -235,13 +235,17 @@ const moveIn = async (params, performedBy) => {
       ]);
 
       if (owner && property) {
-        // tempPassword should be passed in params or retrieved
         try {
-          await emailService.sendWelcomeEmail(user._id, {
-            tenantName: user.name,
-            loginUrl: `${process.env.FRONTEND_URL}/login`,
-            tempPassword: params.tempPassword || '********',
-          });
+          const hasVerified = user.emailVerified;
+          const verificationToken = hasVerified ? null : (user.emailVerificationToken || null);
+          await emailService.sendTenantWelcome(
+            user,
+            params.tempPassword || '********',
+            property,
+            room,
+            owner.name,
+            verificationToken
+          );
         } catch (emailErr) {
           logger.error(`[TENANT CREATE] Failed to send welcome email: ${emailErr.message}`);
         }

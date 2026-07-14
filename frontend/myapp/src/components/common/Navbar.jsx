@@ -3,21 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 
-const navLinks = [
-  { path: '/dashboard', label: 'Dashboard', icon: 'grid', roles: ['superadmin', 'owner', 'tenant'] },
-  { path: '/properties', label: 'Properties', icon: 'home', roles: ['superadmin', 'owner'] },
-  { path: '/rooms', label: 'Rooms', icon: 'door', roles: ['superadmin', 'owner'] },
-  { path: '/tenants', label: 'Tenants', icon: 'users', roles: ['superadmin', 'owner'] },
-  { path: '/payments', label: 'Payments', icon: 'coin', roles: ['superadmin', 'owner', 'tenant'] },
-  { path: '/wallet', label: 'Wallet', icon: 'wallet', roles: ['owner'] },
-  { path: '/wallet-admin', label: 'Wallet Admin', icon: 'wallet', roles: ['superadmin'] },
-  { path: '/users', label: 'Owners', icon: 'shield', roles: ['superadmin'] },
-  { path: '/requests', label: 'Requests', icon: 'clock', roles: ['superadmin'] },
-  { path: '/my-room', label: 'My Room', icon: 'home', roles: ['tenant'] },
-  { path: '/complaints', label: 'Complaints', icon: 'chat', roles: ['owner', 'tenant'] },
-  { path: '/profile', label: 'Profile', icon: 'user', roles: ['superadmin', 'owner', 'tenant'] },
-];
-
 const Icon = ({ name }) => {
   const icons = {
     grid: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />,
@@ -34,6 +19,9 @@ const Icon = ({ name }) => {
     chat: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />,
     user: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />,
     bell: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />,
+    trash: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />,
+    chart: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm12 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />,
+    'chevron-down': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />,
   };
   return (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -223,6 +211,103 @@ const NotificationBell = () => {
   );
 };
 
+// ── NavDropdown ────────────────────────────────────────────────────────────
+const NavDropdown = ({ label, icon, children, isActive }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
+          ${isActive
+            ? 'bg-brand-600/20 text-brand-400'
+            : 'text-slate-400 hover:text-white hover:bg-surface-hover'
+          }`}
+      >
+        <Icon name={icon} />
+        <span className="hidden lg:inline">{label}</span>
+        <Icon name="chevron-down" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-52 bg-surface-card border border-surface-border rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Nav Structure ──────────────────────────────────────────────────────────
+const navGroups = [
+  {
+    label: 'Manage', icon: 'grid',
+    roles: ['superadmin', 'owner'],
+    children: [
+      { path: '/properties', label: 'Properties', icon: 'home', roles: ['superadmin', 'owner'] },
+      { path: '/rooms', label: 'Rooms', icon: 'door', roles: ['superadmin', 'owner'] },
+      { path: '/tenants', label: 'Tenants', icon: 'users', roles: ['superadmin', 'owner'] },
+      { path: '/owner/deletion-requests', label: 'Deletions', icon: 'trash', roles: ['owner'] },
+    ],
+  },
+  {
+    label: 'Finance', icon: 'coin',
+    roles: ['superadmin', 'owner', 'tenant'],
+    children: [
+      { path: '/payments', label: 'Payments', icon: 'coin', roles: ['superadmin', 'owner', 'tenant'] },
+      { path: '/wallet', label: 'Wallet', icon: 'wallet', roles: ['owner'] },
+      { path: '/wallet-admin', label: 'Wallet Admin', icon: 'wallet', roles: ['superadmin'] },
+    ],
+  },
+  {
+    label: 'Admin', icon: 'shield',
+    roles: ['superadmin'],
+    children: [
+      { path: '/users', label: 'Owners', icon: 'shield' },
+      { path: '/requests', label: 'Requests', icon: 'clock' },
+      { path: '/deletion-requests', label: 'Deletions', icon: 'trash' },
+    ],
+  },
+  {
+    label: 'Tenant', icon: 'home',
+    roles: ['tenant'],
+    children: [
+      { path: '/my-room', label: 'My Room', icon: 'door' },
+      { path: '/complaints', label: 'Complaints', icon: 'chat' },
+    ],
+  },
+];
+
+const standaloneLinks = [
+  { path: '/dashboard', label: 'Dashboard', icon: 'chart', roles: ['superadmin', 'owner', 'tenant'] },
+  { path: '/profile', label: 'Profile', icon: 'user', roles: ['superadmin', 'owner', 'tenant'] },
+];
+
+// All links flat (for mobile drawer)
+const navLinks = [
+  ...standaloneLinks,
+  { path: '/properties', label: 'Properties', icon: 'home', roles: ['superadmin', 'owner'] },
+  { path: '/rooms', label: 'Rooms', icon: 'door', roles: ['superadmin', 'owner'] },
+  { path: '/tenants', label: 'Tenants', icon: 'users', roles: ['superadmin', 'owner'] },
+  { path: '/payments', label: 'Payments', icon: 'coin', roles: ['superadmin', 'owner', 'tenant'] },
+  { path: '/wallet', label: 'Wallet', icon: 'wallet', roles: ['owner'] },
+  { path: '/wallet-admin', label: 'Wallet Admin', icon: 'wallet', roles: ['superadmin'] },
+  { path: '/users', label: 'Owners', icon: 'shield', roles: ['superadmin'] },
+  { path: '/requests', label: 'Requests', icon: 'clock', roles: ['superadmin'] },
+  { path: '/my-room', label: 'My Room', icon: 'home', roles: ['tenant'] },
+  { path: '/complaints', label: 'Complaints', icon: 'chat', roles: ['owner', 'tenant'] },
+  { path: '/owner/deletion-requests', label: 'Deletions', icon: 'trash', roles: ['owner', 'superadmin'] },
+];
+
 
 const Navbar = () => {
   const { user, role, logout } = useAuth();
@@ -232,6 +317,17 @@ const Navbar = () => {
   const [resending, setResending] = useState(false);
 
   const visibleLinks = navLinks.filter(l => l.roles.includes(role));
+
+  // Filter groups and their children by user role
+  const visibleGroups = navGroups
+    .filter(g => g.roles.includes(role))
+    .map(g => ({
+      ...g,
+      children: g.children.filter(c => !c.roles || c.roles.includes(role)),
+    }))
+    .filter(g => g.children.length > 0);
+
+  const visibleStandalone = standaloneLinks.filter(l => l.roles.includes(role));
 
   const handleLogout = () => {
     logout();
@@ -254,11 +350,14 @@ const Navbar = () => {
   const isActive = (path) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
+  const anyGroupActive = (group) =>
+    group.children.some(c => isActive(c.path));
+
   const showVerificationBanner = user && !user.emailVerified;
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-40 h-16 bg-surface-card/80 backdrop-blur-md border-b border-surface-border">
+      <nav className="fixed top-0  left-0 right-0 z-40 h-16 bg-surface-card/80 backdrop-blur-md border-b border-surface-border">
         {showVerificationBanner && (
           <div className="absolute top-16 left-0 right-0 bg-yellow-500/10 border-b border-yellow-500/20 text-yellow-500 text-xs text-center py-2 px-4">
             Your email is not verified. Please check your inbox or{' '}
@@ -269,30 +368,56 @@ const Navbar = () => {
         )}
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2" aria-label="Happy Renting Home">
-              <img src="/main-app-icon.png" alt="" className="h-12 object-contain" />
+          <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Happy Renting Home">
+            <img
+              src="/main-app-icon.png"
+              alt=""
+              className="h-9 sm:h-10 w-auto block"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <span className="text-base sm:text-lg font-extrabold text-white tracking-tight leading-none whitespace-nowrap">
+              Happy<span className="text-brand-400"> Renting</span>
+            </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-1">
-            {visibleLinks.map(link => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                  ${isActive(link.path)
-                    ? 'bg-brand-600/20 text-brand-400'
-                    : 'text-slate-400 hover:text-white hover:bg-surface-hover'
-                  }`}
-              >
-                <Icon name={link.icon} />
-                {link.label}
-              </Link>
-            ))}
+          {/* Desktop Nav — groups + standalone, hidden on mobile */}
+          <div className="hidden md:flex items-center gap-1 flex-1 mx-4 overflow-y-visible">
+            {visibleGroups.map(group => (
+              <NavDropdown key={group.label} label={group.label} icon={group.icon} isActive={anyGroupActive(group)}>
+                  {group.children.map(child => (
+                    <Link
+                      key={child.path}
+                      to={child.path}
+                      className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors
+                        ${isActive(child.path)
+                          ? 'bg-brand-600/20 text-brand-400'
+                          : 'text-slate-400 hover:bg-surface-hover hover:text-white'
+                        }`}
+                    >
+                      <Icon name={child.icon} />
+                      {child.label}
+                    </Link>
+                  ))}
+                </NavDropdown>
+              ))}
+              {visibleStandalone.map(link => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
+                    ${isActive(link.path)
+                      ? 'bg-brand-600/20 text-brand-400'
+                      : 'text-slate-400 hover:text-white hover:bg-surface-hover'
+                    }`}
+                >
+                  <Icon name={link.icon} />
+                  <span className="hidden lg:inline">{link.label}</span>
+                </Link>
+              ))}
           </div>
 
           {/* Right section */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* User info */}
             <div className="hidden sm:flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
@@ -310,7 +435,7 @@ const Navbar = () => {
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="btn-ghost btn-sm flex items-center gap-1.5"
+              className="btn-ghost btn-sm flex items-center gap-1 p-2"
               title="Logout"
             >
               <Icon name="logout" />

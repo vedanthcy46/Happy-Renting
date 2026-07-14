@@ -193,12 +193,16 @@ app.use('/api/v2/notifications', notificationRoutes);
 const contactRoutes = require('./routes/contactRoutes');
 app.use('/api/contact', contactRoutes);
 
-// ── 11. Public pages (privacy policy, terms) ─────────────────────────────
+// ── 11. Account Deletion ─────────────────────────────────────────────────
+const accountDeletionRoutes = require('./routes/accountDeletionRoutes');
+app.use('/api/account/delete', accountDeletionRoutes);
+
+// ── 12. Public pages (privacy policy, terms) ─────────────────────────────
 const privacyRoutes = require('./routes/privacyRoutes');
 app.use('/privacy', privacyRoutes);
 app.use('/terms', privacyRoutes); // Same route for now
 
-// ── 11. 404 + Global error handler ────────────────────────────────────────
+// ── 12. 404 + Global error handler ────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 

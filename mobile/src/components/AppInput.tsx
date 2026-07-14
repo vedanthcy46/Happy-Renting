@@ -88,6 +88,7 @@ export const AppInput: React.FC<AppInputProps> = ({
 const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
+    width: '100%',
   },
   label: {
     ...typography.caption,
@@ -115,7 +116,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   input: {
     flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.lg,
     ...typography.body,
     color: colors.text.primary,
   },

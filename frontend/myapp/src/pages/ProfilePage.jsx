@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Trash2 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import Modal from '../components/common/Modal';
 
 const ProfilePage = () => {
   const { user, updateUser } = useAuth();
@@ -333,6 +335,11 @@ const ProfilePage = () => {
               </button>
             </div>
           </form>
+
+          {/* ── Tenant: Account Deletion ────────────────────────────────── */}
+          {!isOwner && (
+            <TenantDeletionSection />
+          )}
         </div>
 
         {/* Right Column: QR & Misc */}
@@ -373,6 +380,181 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+const TenantDeletionSection = () => {
+  const toast = useToast();
+  const [request, setRequest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [reason, setReason] = useState('');
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get('/account/delete/my-status');
+      setRequest(data.data);
+    } catch {
+      setRequest(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  const handleRequest = async () => {
+    setSubmitting(true);
+    try {
+      await api.post('/account/delete/request', { reason });
+      toast.success('Deletion request submitted. Your owner will review it.');
+      setShowRequestModal(false);
+      setReason('');
+      fetchStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit deletion request.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!window.confirm('Cancel your deletion request? Your account will remain active.')) return;
+    setSubmitting(true);
+    try {
+      await api.post('/account/delete/cancel');
+      toast.success('Deletion request cancelled.');
+      fetchStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to cancel.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="card p-8 space-y-4">
+        <div className="flex items-center gap-2 text-slate-400 text-sm">
+          <LoadingSpinner size="sm" label="" />
+          Loading deletion status...
+        </div>
+      </div>
+    );
+  }
+
+  const statusConfig = {
+    pending: { label: 'Awaiting Owner Review', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
+    pending_owner: { label: 'Awaiting Owner Review', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
+    owner_approved: { label: 'Approved - 30 Day Grace Period', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
+    owner_rejected: { label: 'Not Approved', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
+    cancelled: { label: 'Cancelled', color: 'text-slate-400', bg: 'bg-slate-500/10', border: 'border-slate-500/30' },
+    completed: { label: 'Completed', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
+  };
+
+  return (
+    <div className="card p-8 space-y-4">
+      <h3 className="text-white font-bold flex items-center gap-2 border-b border-slate-800 pb-4">
+        <Trash2 className="w-5 h-5 text-red-400" />
+        Account Deletion
+      </h3>
+
+      {!request || request.status === 'owner_rejected' || request.status === 'cancelled' ? (
+        <div className="space-y-4">
+          <p className="text-sm text-slate-400">
+            Request permanent deletion of your account and personal data. Your owner must approve before processing.
+          </p>
+          {request?.status === 'owner_rejected' && (
+            <div className="rounded-xl p-3 border border-red-500/30 bg-red-500/10">
+              <p className="text-xs text-red-400 font-semibold">Previous request was not approved.</p>
+              {request.deletionRejectedReason && (
+                <p className="text-xs text-red-400/80 mt-1">Reason: {request.deletionRejectedReason}</p>
+              )}
+            </div>
+          )}
+          {request?.status === 'cancelled' && (
+            <div className="rounded-xl p-3 border border-slate-500/30 bg-slate-500/10">
+              <p className="text-xs text-slate-400">Previous request was cancelled.</p>
+            </div>
+          )}
+          <button
+            onClick={() => setShowRequestModal(true)}
+            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors"
+          >
+            Request Account Deletion
+          </button>
+        </div>
+      ) : (
+        <div className={`rounded-xl p-4 border ${statusConfig[request.status]?.border || 'border-slate-700'} ${statusConfig[request.status]?.bg || 'bg-slate-800/50'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <span className={`text-sm font-bold ${statusConfig[request.status]?.color || 'text-slate-300'}`}>
+              <Trash2 className="w-4 h-4 inline mr-1.5" />
+              {statusConfig[request.status]?.label || request.status}
+            </span>
+            {(request.status === 'pending_owner' || request.status === 'owner_approved') && (
+              <button
+                onClick={handleCancel}
+                disabled={submitting}
+                className="text-xs text-slate-400 hover:text-white underline transition-colors"
+              >
+                {submitting ? 'Cancelling...' : 'Cancel Request'}
+              </button>
+            )}
+          </div>
+          {request.referenceId && (
+            <p className="text-xs text-slate-500 font-mono">Ref: {request.referenceId}</p>
+          )}
+          {request.scheduledDeletionAt && (
+            <p className="text-xs text-blue-400 mt-1">
+              Scheduled for: {new Date(request.scheduledDeletionAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          )}
+          {request.status === 'owner_rejected' && (
+            <p className="text-xs text-red-400 mt-1">
+              {request.deletionRejectedReason ? `Reason: ${request.deletionRejectedReason}` : 'Rejected by owner.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      <Modal isOpen={showRequestModal} onClose={() => setShowRequestModal(false)} title="Request Account Deletion" size="md">
+        <div className="space-y-4">
+          <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/20">
+            <p className="text-sm text-red-300">
+              This will notify your owner. After approval, your account will be permanently deleted after a 30-day grace period. Payment records will be retained for legal compliance.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-1">Reason (optional)</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Let your owner know why you're leaving..."
+              rows={3}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              onClick={() => setShowRequestModal(false)}
+              className="px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRequest}
+              disabled={submitting}
+              className="bg-red-600 hover:bg-red-700 disabled:bg-red-800/50 text-white px-5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+            >
+              {submitting ? <LoadingSpinner size="sm" label="" /> : <Trash2 className="w-4 h-4" />}
+              {submitting ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -152,11 +152,46 @@ const register = async (req, res, next) => {
 
     const user = await User.create(userData);
     
-    // Send Verification Email
+    // Send Verification Email + Credentials
     try {
       await emailService.sendVerificationEmail(user, verificationToken);
     } catch (e) {
       logger.error(`Registration verification email failed: ${e.message}`);
+    }
+
+    // Send login credentials separately so the user knows their password
+    if (role === 'tenant') {
+      try {
+        const ownerName = req.user?.name || 'Your landlord';
+        await emailService.sendEmail(
+          user.email,
+          `Your Happy Renting Login Credentials`,
+          `
+          <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+            <h2 style="color: #1e293b;">Welcome to Happy Renting!</h2>
+            <p>Hello <strong>${user.name}</strong>,</p>
+            <p>${ownerName} has created your account. Use the credentials below to log in.</p>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+              <p style="margin: 0; font-weight: bold; color: #1e293b;">Your Login Credentials:</p>
+              <p style="margin: 5px 0 0; color: #475569;"><strong>Email:</strong> ${user.email}</p>
+              <p style="margin: 5px 0 0; color: #475569;"><strong>Password:</strong> <code style="background: #e2e8f0; padding: 2px 5px; border-radius: 4px;">${password}</code></p>
+              <p style="margin: 10px 0 0; font-size: 12px; color: #ef4444;">* You will be asked to change this password on your first login. Please also check your email for the verification link.</p>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                Login Now
+              </a>
+            </div>
+            <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; text-align: center; margin-top: 30px;">
+              This is an automated message from Happy Renting.<br/>
+              For support, contact us at <a href="mailto:support@happyrenting.co.in" style="color: #2563eb; text-decoration: none;">support@happyrenting.co.in</a>
+            </p>
+          </div>
+          `
+        );
+      } catch (e) {
+        logger.error(`Credentials email failed: ${e.message}`);
+      }
     }
 
     const token = signToken(user._id, user.role);

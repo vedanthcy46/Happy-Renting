@@ -22,6 +22,7 @@ import {
 } from '../hooks/useBiometric';
 import { useAuthStore } from '../store/useAuthStore';
 import { updateProfile, changePassword as apiChangePassword, getProfile } from '../api/user';
+import { login } from '../api/auth';
 import { AppCard, AppButton, AppInput } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
@@ -83,15 +84,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
       return;
     }
     try {
-      if (user?.email) {
-        await saveBiometricCredentials(user.email, biometricPassword);
-        setBiometricActive(true);
-        setShowBiometricModal(false);
-        setBiometricPassword('');
-        Alert.alert('Success', 'Biometric login enabled successfully.');
+      if (!user?.email) {
+        Alert.alert('Error', 'User email not found. Please log in again.');
+        return;
       }
+      await login(user.email, biometricPassword);
+      await saveBiometricCredentials(user.email, biometricPassword);
+      setBiometricActive(true);
+      setShowBiometricModal(false);
+      setBiometricPassword('');
+      Alert.alert('Success', 'Biometric login enabled successfully.');
     } catch {
-      Alert.alert('Error', 'Failed to save biometric credentials.');
+      Alert.alert('Error', 'Invalid password. Biometric login was not enabled.');
       setBiometricActive(false);
     }
   };

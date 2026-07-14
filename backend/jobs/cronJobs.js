@@ -191,6 +191,19 @@ const startCronJobs = () => {
     }
   }, { timezone: 'Asia/Kolkata' });
 
+  // Scheduled Account Deletion Processing (Every 6 hours)
+  const accountDeletionService = require('../services/accountDeletionService');
+  cron.schedule('0 */6 * * *', async () => {
+    try {
+      logger.info('[CRON] Processing scheduled account deletions...');
+      await accountDeletionService.processScheduledDeletions();
+      logger.info('[CRON] Scheduled deletion processing completed.');
+    } catch (err) {
+      logger.error(`[CRON ERROR] processScheduledDeletions failed: ${err.message}`);
+    }
+  });
+  logger.info('[CRON] Scheduled deletion processor initialized (Every 6 hours).');
+
   // Daily Digest Processor (Every 1 minute)
   cron.schedule('* * * * *', async () => {
     try {

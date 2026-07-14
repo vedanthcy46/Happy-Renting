@@ -80,6 +80,7 @@ api.interceptors.response.use(
       return Promise.reject({
         message: data?.message || 'An unexpected error occurred.',
         errors : data?.errors  || [],
+        checks : data?.checks,
         status,
         serverId: error.response.headers['x-server-id']
       });

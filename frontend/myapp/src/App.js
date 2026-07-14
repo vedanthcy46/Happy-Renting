@@ -40,6 +40,8 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsConditionsPage from './pages/TermsConditionsPage';
 import RefundPolicyPage from './pages/RefundPolicyPage';
 import DataDeletionPage from './pages/DataDeletionPage';
+import AdminDeletionRequestsPage from './pages/AdminDeletionRequestsPage';
+import OwnerDeletionRequestsPage from './pages/OwnerDeletionRequestsPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
 /**
@@ -102,10 +104,12 @@ const AppContent = () => (
             <Route path="users" element={<ProtectedRoute roles={['superadmin']}><UsersPage /></ProtectedRoute>} />
             <Route path="requests" element={<ProtectedRoute roles={['superadmin']}><AdminOwnerRequests /></ProtectedRoute>} />
             <Route path="audit-logs" element={<ProtectedRoute roles={['superadmin']}><AuditLogPage /></ProtectedRoute>} />
+            <Route path="deletion-requests" element={<ProtectedRoute roles={['superadmin']}><AdminDeletionRequestsPage /></ProtectedRoute>} />
             <Route path="wallet-admin" element={<ProtectedRoute roles={['superadmin']}><AdminWalletPage /></ProtectedRoute>} />
 
             {/* Owner only */}
             <Route path="wallet" element={<ProtectedRoute roles={['owner']}><WalletPage /></ProtectedRoute>} />
+            <Route path="owner/deletion-requests" element={<ProtectedRoute roles={['owner', 'superadmin']}><OwnerDeletionRequestsPage /></ProtectedRoute>} />
 
             {/* Catch-all → 404 */}
             <Route path="*" element={<NotFoundPage />} />

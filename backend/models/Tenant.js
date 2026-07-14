@@ -56,8 +56,43 @@ const tenantSchema = new mongoose.Schema(
     },
     status: {
       type    : String,
-      enum    : ['active', 'vacated'],
+      enum    : ['active', 'vacated', 'deletion_requested', 'pending_deletion', 'deleted'],
       default : 'active',
+    },
+    deletionRequestedAt: {
+      type: Date,
+      default: null,
+    },
+    deletionApprovedAt: {
+      type: Date,
+      default: null,
+    },
+    deletionApprovedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    deletionReason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    deletionScheduledFor: {
+      type: Date,
+      default: null,
+    },
+    deletionRejectedAt: {
+      type: Date,
+      default: null,
+    },
+    deletionRejectedReason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    deletionCancelledAt: {
+      type: Date,
+      default: null,
     },
     refundSettled: {
       type: Boolean,
