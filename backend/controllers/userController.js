@@ -27,7 +27,7 @@ const createUserValidation = [
 // superadmin: all users | owner: their tenants only
 const getUsers = async (req, res, next) => {
   try {
-    const filter = {};
+    const filter = { isActive: true };
     if (req.user.role === 'owner') {
       filter.ownerId = req.user._id;
       filter.role    = 'tenant';

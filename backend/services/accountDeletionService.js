@@ -123,7 +123,7 @@ const ownerApproveDeletion = async (requestId, ownerId) => {
   }
 
   const deletionDate = new Date();
-  deletionDate.setSeconds(deletionDate.getSeconds() + 30); // TEST: use 30s; revert to +30 days before prod
+  deletionDate.setDate(deletionDate.getDate() + 30);
 
   request.status = 'owner_approved';
   request.ownerActionAt = new Date();
@@ -368,9 +368,8 @@ const adminApproveDeletion = async (requestId, adminId) => {
   const tenantRecord = await Tenant.findById(request.tenantId);
   if (!tenantRecord) throw Object.assign(new Error('Tenant record not found.'), { statusCode: 404 });
 
-  // Schedule deletion in 30 days
   const deletionDate = new Date();
-  deletionDate.setSeconds(deletionDate.getSeconds() + 30); // TEST: use 30s; revert to +30 days before prod
+  deletionDate.setDate(deletionDate.getDate() + 30);
 
   request.status = 'owner_approved';
   request.ownerId = adminId; // admin acts as proxy owner
