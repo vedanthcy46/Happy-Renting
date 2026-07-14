@@ -42,7 +42,6 @@ const requestTenantDeletion = async ({ userId, reason }) => {
     tokenExpiresAt,
   });
 
-  tenantRecord.status = 'deletion_requested';
   tenantRecord.deletionRequestedAt = new Date();
   tenantRecord.deletionReason = reason || '';
   await tenantRecord.save();
@@ -124,7 +123,7 @@ const ownerApproveDeletion = async (requestId, ownerId) => {
   }
 
   const deletionDate = new Date();
-  deletionDate.setDate(deletionDate.getDate() + 30);
+  deletionDate.setSeconds(deletionDate.getSeconds() + 30); // TEST: use 30s; revert to +30 days before prod
 
   request.status = 'owner_approved';
   request.ownerActionAt = new Date();
@@ -224,7 +223,7 @@ const cancelDeletion = async (userId) => {
   request.cancelledAt = new Date();
   await request.save();
 
-  const tenantRecord = await Tenant.findOne({ userId, status: { $in: ['deletion_requested', 'pending_deletion'] } });
+  const tenantRecord = await Tenant.findOne({ userId, deletionRequestedAt: { $ne: null } });
   if (tenantRecord) {
     tenantRecord.status = 'active';
     tenantRecord.deletionCancelledAt = new Date();
@@ -371,7 +370,7 @@ const adminApproveDeletion = async (requestId, adminId) => {
 
   // Schedule deletion in 30 days
   const deletionDate = new Date();
-  deletionDate.setDate(deletionDate.getDate() + 30);
+  deletionDate.setSeconds(deletionDate.getSeconds() + 30); // TEST: use 30s; revert to +30 days before prod
 
   request.status = 'owner_approved';
   request.ownerId = adminId; // admin acts as proxy owner
