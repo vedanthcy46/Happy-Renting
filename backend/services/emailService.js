@@ -989,6 +989,31 @@ const sendDeletionCompleteEmail = async (email, referenceId) => {
   await sendEmail(email, subject, html);
 };
 
+const sendDeletionApprovedToAdmin = async (adminEmail, { tenantName, tenantEmail, ownerName, roomNumber, referenceId, scheduledDeletionAt }) => {
+  const subject = `Owner Approved Tenant Deletion - ${referenceId}`;
+  const formattedDate = formatDateOnly(scheduledDeletionAt);
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #3B82F6;">
+      <h2 style="color: #3B82F6;">Owner Approved Tenant Deletion</h2>
+      <p>Hello Admin,</p>
+      <p>An owner has approved a tenant's account deletion request.</p>
+      <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3B82F6;">
+        <p style="margin: 0;"><strong>Tenant:</strong> ${tenantName}</p>
+        <p style="margin: 5px 0 0;"><strong>Email:</strong> ${tenantEmail}</p>
+        <p style="margin: 5px 0 0;"><strong>Owner:</strong> ${ownerName}</p>
+        <p style="margin: 5px 0 0;"><strong>Room:</strong> ${roomNumber}</p>
+        <p style="margin: 5px 0 0;"><strong>Reference:</strong> ${referenceId}</p>
+        <p style="margin: 5px 0 0;"><strong>Scheduled Deletion:</strong> ${formattedDate}</p>
+      </div>
+      <p>A 30-day grace period has started. The account will be permanently deleted on <strong>${formattedDate}</strong> unless the tenant cancels or an admin intervenes.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('View Admin Dashboard')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(adminEmail, subject, html, 'alert');
+};
+
 module.exports = {
   sendWithdrawalSettledEmail,
   sendComplaintNotification,
@@ -1022,6 +1047,7 @@ module.exports = {
   sendDeletionApprovedTenant,
   sendDeletionRejectedTenant,
   sendDeletionCompleteEmail,
+  sendDeletionApprovedToAdmin,
   sendEmail, // Exported for custom queue processors like dailyDigestService
 };
 

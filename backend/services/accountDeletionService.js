@@ -146,6 +146,27 @@ const ownerApproveDeletion = async (requestId, ownerId) => {
     }
   }
 
+  const ownerUser = await User.findById(ownerId).select('name');
+  const roomRecord = await Room.findById(tenantRecord.roomId).select('roomNumber');
+  try {
+    const admins = await User.find({ role: 'superadmin' }).select('email');
+    const adminEmailPayload = {
+      tenantName: tenantUser?.name || 'Unknown',
+      tenantEmail: request.email,
+      ownerName: ownerUser?.name || 'Owner',
+      roomNumber: roomRecord?.roomNumber || 'N/A',
+      referenceId: request.referenceId,
+      scheduledDeletionAt: deletionDate,
+    };
+    for (const admin of admins) {
+      emailService.sendDeletionApprovedToAdmin(admin.email, adminEmailPayload).catch(err =>
+        logger.error(`[DELETION] Failed to notify admin ${admin.email}: ${err.message}`)
+      );
+    }
+  } catch (err) {
+    logger.error(`[DELETION] Failed to notify admins: ${err.message}`);
+  }
+
   logger.info(`[DELETION] Owner approved deletion: ref=${request.referenceId}, scheduled=${deletionDate}`);
 
   return {
