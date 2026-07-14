@@ -62,7 +62,8 @@
           "faceIDPermission": "Happy Renting uses Face ID for quick and secure login."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

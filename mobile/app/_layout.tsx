@@ -119,7 +119,7 @@ function AppContent() {
     checkLockStatus();
   }, [isAuthLoading, user, token]);
 
-  if (isAuthLoading || checkingBiometric) {
+  if (isAuthLoading || checkingBiometric || !onboardingChecked) {
     return null;
   }
 

@@ -46,7 +46,7 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
 
     // 3. Filter valid tokens
     const validTokens = user.expoPushTokens
-      .filter(t => t.isActive && Expo.isExpoPushToken(t.token))
+      .filter(t => Expo.isExpoPushToken(t.token))
       .map(t => t.token);
 
     if (validTokens.length === 0) {

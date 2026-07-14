@@ -31,6 +31,6 @@ export const markAllAsRead = async (): Promise<void> => {
   await api.patch('/v2/notifications/read-all');
 };
 
-export const updatePushToken = async (token: string, deviceId: string, platform: string): Promise<void> => {
-  await api.patch('/users/profile/push-token', { token, deviceId, platform });
+export const updatePushToken = async (token: string, deviceName: string, platform: string): Promise<void> => {
+  await api.patch('/users/profile/push-token', { token, deviceName, platform });
 };
