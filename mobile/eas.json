@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 7.6.0"
+    "version": ">= 7.6.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -16,6 +17,7 @@
       "android": {
         "buildType": "app-bundle"
       },
+      "channel": "production",
       "env": {
         "NODE_ENV": "production"
       }
@@ -27,8 +29,7 @@
         "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal",
         "releaseStatus": "draft",
-        "rollout": 1.0,
-        "changesNotSentForReview": false
+        "changesNotSentForReview": true
       }
     }
   }

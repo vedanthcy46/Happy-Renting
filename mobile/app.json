@@ -4,7 +4,7 @@
     "slug": "happy-renting-tenant",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/main-app-icon.png",
     "scheme": "happyrenting",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -15,7 +15,7 @@
       }
     },
     "android": {
-      "package": "com.happyrenting.app",
+      "package": "co.in.happyrenting.tenant",
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 24,
