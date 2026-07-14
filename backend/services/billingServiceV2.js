@@ -13,6 +13,7 @@ const paymentServiceV2 = require('./paymentServiceV2');
 const cloudinary = require('../config/cloudinaryConfig');
 const logger = require('../config/logger');
 const emailService = require('./emailService');
+const notificationService = require('./notificationService');
 
 /**
  * generateMonthlyBills(ownerId, tenantId)
@@ -379,12 +380,33 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
         if (emailType === 'due_tomorrow' && record.userId) {
           await emailService.sendDueSoonReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
           if (ownerAlertData) ownerAlertData.dueTomorrow++;
+          notificationService.sendPushNotification({
+            userId: record.userId._id || record.userId,
+            title: 'Rent Due Tomorrow',
+            body: `Your rent of ₹${record.totalRent} is due tomorrow.`,
+            type: 'rent_reminder',
+            data: { rentRecordId: record._id }
+          }).catch(() => null);
         } else if (emailType === 'due_today' && record.userId) {
           await emailService.sendDueTodayReminderEmail(record.userId, record, record.propertyId, record.roomId).catch(() => null);
           if (ownerAlertData) ownerAlertData.dueToday++;
+          notificationService.sendPushNotification({
+            userId: record.userId._id || record.userId,
+            title: 'Rent Due Today',
+            body: `Your rent of ₹${record.totalRent} is due today.`,
+            type: 'rent_reminder',
+            data: { rentRecordId: record._id }
+          }).catch(() => null);
         } else if (emailType === 'overdue' && record.userId) {
           await emailService.sendOverdueAlert(record.userId, record, record.propertyId, record.roomId, record.ownerId).catch(() => null);
           if (ownerAlertData) ownerAlertData.overdue++;
+          notificationService.sendPushNotification({
+            userId: record.userId._id || record.userId,
+            title: 'Rent Overdue',
+            body: `Your rent of ₹${record.totalRent} is overdue. Please pay immediately.`,
+            type: 'rent_overdue',
+            data: { rentRecordId: record._id }
+          }).catch(() => null);
         }
 
         if (ownerAlertData && record.ownerId) {

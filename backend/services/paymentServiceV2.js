@@ -348,6 +348,14 @@ const addPaymentTransaction = async (params, caller) => {
           populated.roomId          // room
         );
       }
+
+      notificationService.sendPushNotification({
+        userId: populated.ownerId._id,
+        title: 'Payment Proof Uploaded',
+        body: `${populated.userId.name} uploaded a payment proof of ₹${transaction.amount}.`,
+        type: 'payment_proof_uploaded',
+        data: { transactionId: transaction._id }
+      }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
     } else {
       // Notify tenant about successful payment record receipt
       if (populated.userId && populated.userId.email) {

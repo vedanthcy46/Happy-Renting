@@ -9,6 +9,7 @@ const Complaint = require('../models/Complaint');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const DataDeletionRequest = require('../models/DataDeletionRequest');
 const emailService = require('./emailService');
+const notificationService = require('./notificationService');
 const logger = require('../config/logger');
 
 const requestTenantDeletion = async ({ userId, reason }) => {
@@ -63,6 +64,14 @@ const requestTenantDeletion = async ({ userId, reason }) => {
   } catch (err) {
     logger.error(`[DELETION] Failed to send confirmation to tenant: ${err.message}`);
   }
+
+  notificationService.sendPushNotification({
+    userId: tenantRecord.ownerId,
+    title: 'Tenant Deletion Request',
+    body: `${user.email} has requested account deletion.`,
+    type: 'deletion_requested',
+    data: { referenceId: deleteRequest.referenceId }
+  }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
 
   logger.info(`[DELETION] Tenant deletion requested: ${user.email}, ref=${deleteRequest.referenceId}`);
 
@@ -166,6 +175,14 @@ const ownerApproveDeletion = async (requestId, ownerId) => {
     logger.error(`[DELETION] Failed to notify admins: ${err.message}`);
   }
 
+  notificationService.sendPushNotification({
+    userId: request.userId,
+    title: 'Deletion Approved',
+    body: `Your account deletion has been approved.`,
+    type: 'deletion_approved',
+    data: { referenceId: request.referenceId, scheduledDeletionAt: deletionDate }
+  }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
+
   logger.info(`[DELETION] Owner approved deletion: ref=${request.referenceId}, scheduled=${deletionDate}`);
 
   return {
@@ -206,6 +223,14 @@ const ownerRejectDeletion = async (requestId, ownerId, reason) => {
       logger.error(`[DELETION] Failed to notify tenant of rejection: ${err.message}`);
     }
   }
+
+  notificationService.sendPushNotification({
+    userId: request.userId,
+    title: 'Deletion Request Rejected',
+    body: `Your deletion request was rejected.`,
+    type: 'deletion_rejected',
+    data: { referenceId: request.referenceId }
+  }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
 
   logger.info(`[DELETION] Owner rejected deletion: ref=${request.referenceId}`);
 
@@ -306,6 +331,14 @@ const performDeletion = async (tenantRecord, request) => {
       logger.error(`[DELETION] Completion email failed: ${err.message}`);
     }
   }
+
+  notificationService.sendPushNotification({
+    userId: tenantRecord.ownerId,
+    title: 'Tenant Account Deleted',
+    body: `A tenant account has been permanently deleted.`,
+    type: 'deletion_completed',
+    data: { tenantId: tenantRecord._id }
+  }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
 
   logger.info(`[DELETION] Completed: tenant=${tenantRecord._id}, user=${userId}`);
 };

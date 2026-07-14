@@ -4,6 +4,7 @@ const Complaint = require('../models/Complaint');
 const Tenant    = require('../models/Tenant');
 const User      = require('../models/User');
 const emailService = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 const logger    = require('../config/logger');
 
 // ── GET /api/complaints ────────────────────────────────────────────────────
@@ -83,6 +84,15 @@ const createComplaint = async (req, res, next) => {
     }
 
     logger.info(`[COMPLAINT RAISED] id=${complaint._id} by_tenant=${tenant._id}`);
+
+    notificationService.sendPushNotification({
+      userId: tenant.ownerId,
+      title: 'New Complaint',
+      body: `New complaint: ${complaint.title}`,
+      type: 'complaint_raised',
+      data: { complaintId: complaint._id }
+    }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
+
     res.status(201).json({ success: true, message: 'Complaint raised successfully.', complaint });
   } catch (err) {
     next(err);
@@ -132,6 +142,14 @@ const updateComplaint = async (req, res, next) => {
       } catch (emailErr) {
         logger.error(`Failed to send resolution email: ${emailErr.message}`);
       }
+
+      notificationService.sendPushNotification({
+        userId: tenant.userId._id,
+        title: 'Complaint Resolved',
+        body: `Your complaint "${complaint.title}" has been resolved.`,
+        type: 'complaint_resolved',
+        data: { complaintId: complaint._id }
+      }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
     }
 
     res.status(200).json({ success: true, message: 'Complaint updated.', complaint });
@@ -202,6 +220,27 @@ const addComplaintComment = async (req, res, next) => {
     });
 
     await complaint.save();
+
+    if (req.user.role === 'tenant') {
+      notificationService.sendPushNotification({
+        userId: complaint.ownerId,
+        title: 'New Comment on Complaint',
+        body: `${req.user.name} commented: ${message}`,
+        type: 'complaint_comment',
+        data: { complaintId: complaint._id }
+      }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
+    } else {
+      const tenantRec = await Tenant.findById(complaint.tenantId).populate('userId');
+      if (tenantRec?.userId) {
+        notificationService.sendPushNotification({
+          userId: tenantRec.userId._id,
+          title: 'New Comment on Your Complaint',
+          body: `${req.user.name} (owner) commented: ${message}`,
+          type: 'complaint_comment',
+          data: { complaintId: complaint._id }
+        }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
+      }
+    }
 
     res.status(200).json({ success: true, message: 'Comment added successfully.', comments: complaint.comments });
   } catch (err) {

@@ -22,9 +22,21 @@ const notificationIcons: Record<string, { name: keyof typeof Ionicons.glyphMap; 
   rent_due: { name: 'calendar', colorKey: 'warning' },
   complaint_update: { name: 'clipboard', colorKey: 'info' },
   complaint_resolved: { name: 'checkmark-done', colorKey: 'success' },
+  complaint_raised: { name: 'megaphone', colorKey: 'warning' },
+  complaint_comment: { name: 'chatbubble', colorKey: 'info' },
   move_out: { name: 'exit', colorKey: 'warning' },
+  tenant_move_out: { name: 'exit', colorKey: 'warning' },
   settlement: { name: 'cash', colorKey: 'primary' },
   system: { name: 'settings', colorKey: 'text' },
+  deletion_requested: { name: 'trash', colorKey: 'warning' },
+  deletion_approved: { name: 'checkmark-circle', colorKey: 'warning' },
+  deletion_rejected: { name: 'close-circle', colorKey: 'error' },
+  deletion_completed: { name: 'trash-bin', colorKey: 'error' },
+  payment_proof_uploaded: { name: 'cloud-upload', colorKey: 'primary' },
+  login_alert: { name: 'log-in', colorKey: 'info' },
+  new_tenant: { name: 'person-add', colorKey: 'success' },
+  rent_reminder: { name: 'calendar', colorKey: 'warning' },
+  rent_overdue: { name: 'alert-circle', colorKey: 'error' },
 };
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack, onNavigate }) => {
@@ -57,11 +69,16 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
       case 'payment_verified':
       case 'payment_rejected':
       case 'overdue_reminder':
+      case 'rent_reminder':
+      case 'rent_overdue':
         if (rentRecordId) {
           onNavigate?.('rentDetail', { rentRecordId });
         }
         break;
       case 'complaint_update':
+      case 'complaint_raised':
+      case 'complaint_resolved':
+      case 'complaint_comment':
         onNavigate?.('complaints');
         break;
       default:

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { body } = require('express-validator');
 const User   = require('../models/User');
 const emailService = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 const logger = require('../config/logger');
 
 const otpStore = new Map();
@@ -74,6 +75,13 @@ const login = async (req, res, next) => {
       const ip = req.ip || req.connection.remoteAddress;
       const device = req.headers['user-agent'];
       await emailService.sendLoginAlertEmail(user, ip, device).catch(() => null);
+      notificationService.sendPushNotification({
+        userId: user._id,
+        title: 'Welcome Back',
+        body: `Logged in as ${user.name}`,
+        type: 'login_alert',
+        data: {}
+      }).catch(() => null);
     }
 
     const token = signToken(user._id, user.role);
