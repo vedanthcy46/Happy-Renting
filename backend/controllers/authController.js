@@ -301,8 +301,6 @@ const verifyEmail = async (req, res, next) => {
 
     // 4. Activate account
     user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
     
     await user.save({ validateBeforeSave: false });
 
