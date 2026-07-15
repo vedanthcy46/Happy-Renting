@@ -385,7 +385,7 @@ export const SettingsScreen: React.FC = () => {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Re-request Deletion</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.text.inverse }}>Re-request Deletion</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -401,7 +401,7 @@ export const SettingsScreen: React.FC = () => {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Request Deletion</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.text.inverse }}>Request Deletion</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modalConfirmText: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontWeight: '600',
   },
 });

@@ -596,7 +596,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   passChangeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text.inverse,
   },
   biometricRow: {
     flexDirection: 'row',

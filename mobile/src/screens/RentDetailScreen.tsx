@@ -566,7 +566,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   downloadReceiptText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text.inverse,
   },
   payManualButton: {
     borderRadius: radius.lg,
@@ -586,7 +586,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   payManualText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text.inverse,
   },
   savingsBadge: {
     flexDirection: 'row',
@@ -739,7 +739,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     color: colors.text.secondary,
   },
   methodChipTextActive: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
   },
   upiBox: {
     backgroundColor: colors.primaryLight,

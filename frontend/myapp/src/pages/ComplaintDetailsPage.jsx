@@ -169,15 +169,15 @@ const ComplaintDetailsPage = () => {
                 name="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="form-input flex-1"
-                disabled={sending}
+                placeholder={['resolved', 'closed', 'rejected'].includes(complaint.status) ? "This complaint is closed. Open a new one if needed." : "Type a message..."}
+                className="form-input flex-1 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-slate-50 dark:disabled:bg-slate-800"
+                disabled={sending || ['resolved', 'closed', 'rejected'].includes(complaint.status)}
                 autoComplete="off"
               />
               <button 
                 type="submit" 
                 className="btn-primary whitespace-nowrap"
-                disabled={!message.trim() || sending}
+                disabled={!message.trim() || sending || ['resolved', 'closed', 'rejected'].includes(complaint.status)}
               >
                 {sending ? 'Sending…' : 'Send'}
               </button>

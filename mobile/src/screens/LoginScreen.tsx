@@ -391,6 +391,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   leftIcon={
                     <Ionicons name="mail-outline" size={20} color={colors.text.tertiary} />
                   }
+                  containerStyle={{ backgroundColor: 'transparent' }}
+                  style={{ backgroundColor: 'transparent' }}
                 />
                 <View style={styles.modalButtons}>
                   <AppButton
@@ -574,7 +576,7 @@ const styles = StyleSheet.create({
   signInText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     letterSpacing: 0.3,
   },
   forgotPassword: {
@@ -592,7 +594,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   forgotModal: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.xl,
     padding: spacing.xxl,
     width: '100%',

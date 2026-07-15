@@ -110,6 +110,8 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
     currentStepIndex = 1; 
   }
 
+  const isClosed = ['resolved', 'closed', 'rejected'].includes(complaint.status);
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -148,10 +150,10 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
                     currentStepIndex === 0
                       ? '0%'
                       : currentStepIndex === 1
-                      ? '33.33%'
+                      ? '25%'
                       : currentStepIndex === 2
-                      ? '66.66%'
-                      : '100%',
+                      ? '50%'
+                      : '75%',
                 },
               ]}
             />
@@ -296,18 +298,19 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
       {/* Comment Input Footer */}
       <View style={[styles.inputFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         <TextInput
-          style={styles.textInput}
-          placeholder="Add a follow-up message..."
+          style={[styles.textInput, isClosed && { opacity: 0.6 }]}
+          placeholder={isClosed ? "This complaint is closed." : "Add a follow-up message..."}
           placeholderTextColor={colors.text.tertiary}
           value={message}
           onChangeText={setMessage}
           multiline
           maxLength={500}
+          editable={!isClosed}
         />
         <TouchableOpacity
-          style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
+          style={[styles.sendButton, (!message.trim() || isClosed) && styles.sendButtonDisabled]}
           onPress={handleSendComment}
-          disabled={!message.trim() || commentMutation.isPending}
+          disabled={!message.trim() || commentMutation.isPending || isClosed}
           activeOpacity={0.8}
         >
           {commentMutation.isPending ? (

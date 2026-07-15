@@ -648,7 +648,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     backgroundColor: 'transparent',
   },
   payNowButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
@@ -661,7 +661,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   payNowText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#2563EB',
+    color: colors.primary,
   },
   noBillContent: {
     alignItems: 'center',
@@ -829,7 +829,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   ownerCallText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text.inverse,
   },
   noActivity: {
     alignItems: 'center',
