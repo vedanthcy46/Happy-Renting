@@ -218,7 +218,8 @@ const TenantPaymentPage = () => {
 
     try {
       await api.post(`/v2/payments/${rentRecord._id}/transactions`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000
       });
       toast.success('Payment proof submitted! Waiting for owner verification.');
       navigate('/payments');

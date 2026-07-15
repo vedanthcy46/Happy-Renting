@@ -31,6 +31,7 @@ export const submitManualPayment = async (rentRecordId: string, formData: FormDa
     headers: {
       'Content-Type': 'multipart/form-data',
     },
+    timeout: 30000,
   });
   return data;
 };

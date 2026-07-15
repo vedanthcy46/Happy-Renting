@@ -135,7 +135,8 @@ const PaymentsPage = () => {
       }
 
       await api.post(`/v2/payments/${selectedRecordForTxn._id}/transactions`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000
       });
       toast.success('Transaction recorded successfully!');
       setShowAddTxn(false);
