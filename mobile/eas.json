@@ -17,9 +17,8 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "channel": "production",
       "env": {
-        "NODE_ENV": "production"
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
       }
     }
   },
