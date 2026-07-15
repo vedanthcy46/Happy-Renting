@@ -219,6 +219,7 @@ paymentTransactionSchema.pre('save', function () {
 paymentTransactionSchema.index({ rentRecordId: 1 });
 // Find all transactions by tenant
 paymentTransactionSchema.index({ tenantId: 1 });
+paymentTransactionSchema.index({ tenantId: 1, createdAt: -1 });
 // Find all transactions by owner
 paymentTransactionSchema.index({ ownerId: 1 });
 // Prevent duplicate transaction IDs for payment methods that use them

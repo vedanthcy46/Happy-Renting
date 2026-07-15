@@ -35,10 +35,26 @@ const getUsers = async (req, res, next) => {
       if (req.query.role) filter.role = req.query.role;
     }
 
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const skip = (page - 1) * limit;
+
     const users = await User.find(filter)
       .select('_id name email role isActive phone lastLogin createdAt mustChangePassword ownerId')
-      .sort({ createdAt: -1 });
-    res.status(200).json({ success: true, count: users.length, users });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await User.countDocuments(filter);
+
+    res.status(200).json({ 
+      success: true, 
+      count: users.length, 
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      users 
+    });
   } catch (err) {
     next(err);
   }

@@ -24,7 +24,7 @@ const Icon = ({ name }) => {
     'chevron-down': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />,
   };
   return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       {icons[name]}
     </svg>
   );
@@ -228,6 +228,7 @@ const NavDropdown = ({ label, icon, children, isActive }) => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
+        aria-label={label}
         className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
           ${isActive
             ? 'bg-brand-600/20 text-brand-400'
@@ -256,6 +257,7 @@ const navGroups = [
       { path: '/properties', label: 'Properties', icon: 'home', roles: ['superadmin', 'owner'] },
       { path: '/rooms', label: 'Rooms', icon: 'door', roles: ['superadmin', 'owner'] },
       { path: '/tenants', label: 'Tenants', icon: 'users', roles: ['superadmin', 'owner'] },
+      { path: '/complaints', label: 'Complaints', icon: 'chat', roles: ['owner'] },
       { path: '/owner/deletion-requests', label: 'Deletions', icon: 'trash', roles: ['owner'] },
     ],
   },
@@ -437,6 +439,7 @@ const Navbar = () => {
               onClick={handleLogout}
               className="btn-ghost btn-sm flex items-center gap-1 p-2"
               title="Logout"
+              aria-label="Logout"
             >
               <Icon name="logout" />
               <span className="hidden sm:block text-xs">Logout</span>

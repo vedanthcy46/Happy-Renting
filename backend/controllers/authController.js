@@ -8,7 +8,7 @@ const emailService = require('../services/emailService');
 const notificationService = require('../services/notificationService');
 const logger = require('../config/logger');
 
-const otpStore = new Map();
+const OTP = require('../models/OTP');
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const loginValidation = [
@@ -38,10 +38,17 @@ const registerValidation = [
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const signToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  });
+const signToken = (user) =>
+  jwt.sign(
+    { 
+      id: user._id, 
+      role: user.role, 
+      ownerId: user.ownerId, 
+      isActive: user.isActive 
+    }, 
+    process.env.JWT_SECRET, 
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
 
 // ── POST /api/auth/login ───────────────────────────────────────────────────
 const login = async (req, res, next) => {
@@ -75,16 +82,9 @@ const login = async (req, res, next) => {
       const ip = req.ip || req.connection.remoteAddress;
       const device = req.headers['user-agent'];
       await emailService.sendLoginAlertEmail(user, ip, device).catch(() => null);
-      notificationService.sendPushNotification({
-        userId: user._id,
-        title: 'Welcome Back',
-        body: `Logged in as ${user.name}`,
-        type: 'login_alert',
-        data: {}
-      }).catch(() => null);
     }
 
-    const token = signToken(user._id, user.role);
+    const token = signToken(user);
 
     logger.info(`User logged in: ${user._id} role=${user.role}`);
 
@@ -138,15 +138,11 @@ const register = async (req, res, next) => {
 
     // Verify email OTP if verificationToken is provided
     if (verificationToken) {
-      const verifiedEntry = otpStore.get(`verified:${email}`);
-      if (!verifiedEntry || verifiedEntry.token !== verificationToken) {
+      const verifiedEntry = await OTP.findOne({ email, type: 'verified' });
+      if (!verifiedEntry || verifiedEntry.value !== verificationToken) {
         return res.status(400).json({ success: false, message: 'Invalid or expired verification. Please verify your email again.' });
       }
-      if (Date.now() > verifiedEntry.expiresAt) {
-        otpStore.delete(`verified:${email}`);
-        return res.status(400).json({ success: false, message: 'Verification expired. Please verify your email again.' });
-      }
-      otpStore.delete(`verified:${email}`);
+      await OTP.deleteOne({ _id: verifiedEntry._id });
     } else {
       return res.status(400).json({ success: false, message: 'Email verification is required.' });
     }
@@ -208,9 +204,9 @@ const register = async (req, res, next) => {
       }
     }
 
-    const token = signToken(user._id, user.role);
+    const token = signToken(user);
 
-    logger.info(`New user created: ${user._id} role=${user.role} by=${req.user?._id}`);
+    logger.info(`[AUTH] New user registered: ${user._id} role=${user.role} by=${req.user?._id}`);
 
     res.status(201).json({
       success: true,
@@ -404,10 +400,14 @@ const sendOtp = async (req, res, next) => {
     if (existingUser) return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
 
     const otp = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000;
-    otpStore.set(email, { otp, expiresAt });
-
-    setTimeout(() => otpStore.delete(email), 5 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    
+    // Upsert the OTP in the database
+    await OTP.findOneAndUpdate(
+      { email, type: 'otp' },
+      { value: otp, expiresAt },
+      { upsert: true, new: true }
+    );
 
     await emailService.sendEmail(
       email,
@@ -439,17 +439,20 @@ const verifyOtp = async (req, res, next) => {
     const { email, otp } = req.body;
     if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
 
-    const entry = otpStore.get(email);
-    if (!entry) return res.status(400).json({ success: false, message: 'No OTP found. Request a new one.' });
-    if (Date.now() > entry.expiresAt) {
-      otpStore.delete(email);
-      return res.status(400).json({ success: false, message: 'OTP has expired. Request a new one.' });
-    }
-    if (entry.otp !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP.' });
+    const entry = await OTP.findOne({ email, type: 'otp' });
+    if (!entry) return res.status(400).json({ success: false, message: 'No OTP found or OTP has expired. Request a new one.' });
+    if (entry.value !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP.' });
 
-    otpStore.delete(email);
+    await OTP.deleteOne({ _id: entry._id });
+    
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    otpStore.set(`verified:${email}`, { token: verificationToken, expiresAt: Date.now() + 15 * 60 * 1000 });
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    
+    await OTP.findOneAndUpdate(
+      { email, type: 'verified' },
+      { value: verificationToken, expiresAt },
+      { upsert: true, new: true }
+    );
 
     logger.info(`[OTP] Email verified: ${email}`);
     res.status(200).json({ success: true, message: 'Email verified successfully.', verificationToken });

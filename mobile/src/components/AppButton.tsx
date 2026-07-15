@@ -67,7 +67,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     primary: { backgroundColor: themeColors.primary },
     secondary: { backgroundColor: themeColors.secondary },
     outline: { 
-      backgroundColor: themeColors.borderLight, 
+      backgroundColor: 'transparent', 
       borderWidth: 1, 
       borderColor: themeColors.border,
       elevation: 0,

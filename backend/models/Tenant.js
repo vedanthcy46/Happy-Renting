@@ -201,6 +201,7 @@ tenantSchema.index(
 tenantSchema.index({ roomId: 1, status: 1 });
 tenantSchema.index({ ownerId: 1 });
 tenantSchema.index({ propertyId: 1 });
+tenantSchema.index({ ownerId: 1, status: 1, propertyId: 1 });
 
 // Pre-save hook: compute billingDay, firstBillingDate and sync rentDueDay
 tenantSchema.pre('save', function() {

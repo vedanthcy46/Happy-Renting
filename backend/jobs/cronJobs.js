@@ -204,8 +204,8 @@ const startCronJobs = () => {
   });
   logger.info('[CRON] Scheduled deletion processor initialized (Every 6 hours).');
 
-  // Daily Digest Processor (Every 1 minute)
-  cron.schedule('* * * * *', async () => {
+  // Daily Digest Processor (Every 5 minutes)
+  cron.schedule('*/5 * * * *', async () => {
     try {
       await dailyDigestService.processDigestQueue();
     } catch (err) {

@@ -251,14 +251,6 @@ const moveIn = async (params, performedBy) => {
           logger.error(`[TENANT CREATE] Failed to send welcome email: ${emailErr.message}`);
         }
 
-        notificationService.sendPushNotification({
-          userId: ownerId,
-          title: 'New Tenant',
-          body: `${user.name} moved into Room ${room.roomNumber}`,
-          type: 'new_tenant',
-          data: { tenantId: tenant._id, roomId }
-        }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
-
         // Automatically generate historical bills in the background so they appear instantly
         try {
           const billingServiceV2 = require('./billingServiceV2');
@@ -390,14 +382,6 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
     userId: updatedTenant.userId,
     title: 'Tenancy Ended',
     body: `You have been moved out from your room.`,
-    type: 'tenant_move_out',
-    data: { tenantId: updatedTenant._id }
-  }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
-
-  notificationService.sendPushNotification({
-    userId: updatedTenant.ownerId,
-    title: 'Tenant Moved Out',
-    body: `A tenant has vacated the room.`,
     type: 'tenant_move_out',
     data: { tenantId: updatedTenant._id }
   }).catch(err => logger.error(`[Push] Failed: ${err.message}`));

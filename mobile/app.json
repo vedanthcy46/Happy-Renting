@@ -3,7 +3,7 @@
     "name": "Happy Renting",
     "slug": "happy-renting-tenant",
     "sdkVersion": "56.0.0",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/main-app-icon.png",
     "scheme": "happyrenting",
@@ -20,7 +20,7 @@
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 24,
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

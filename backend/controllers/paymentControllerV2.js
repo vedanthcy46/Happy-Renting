@@ -85,6 +85,10 @@ const getRentRecords = async (req, res, next) => {
       filters.month = new RegExp(`-${formattedMonth}$`);
     }
 
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const skip = (page - 1) * limit;
+
     const rentRecords = await MonthlyRentRecord.find(filters)
       .populate('tenantId', 'status joinDate')
       .populate('userId', 'name email phone')
@@ -92,11 +96,18 @@ const getRentRecords = async (req, res, next) => {
       .populate('propertyId', 'name address')
       .populate('ownerId', 'name email')
       .sort({ month: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
+
+    const total = await MonthlyRentRecord.countDocuments(filters);
 
     res.status(200).json({
       success: true,
       count: rentRecords.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
       rentRecords
     });
   } catch (err) {
@@ -433,6 +444,10 @@ const getTransactionHistory = async (req, res, next) => {
     if (tenantId && /^[a-f\d]{24}$/i.test(tenantId)) filters.tenantId = tenantId;
     if (rentRecordId && /^[a-f\d]{24}$/i.test(rentRecordId)) filters.rentRecordId = rentRecordId;
 
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const skip = (page - 1) * limit;
+
     const transactions = await PaymentTransaction.find(filters)
       .populate('recordedBy', 'name')
       .populate({
@@ -444,11 +459,18 @@ const getTransactionHistory = async (req, res, next) => {
       })
       .populate('rentRecordId', 'month totalRent totalPaid status')
       .sort({ paymentDate: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
+
+    const total = await PaymentTransaction.countDocuments(filters);
 
     res.status(200).json({
       success: true,
       count: transactions.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
       transactions
     });
   } catch (err) {

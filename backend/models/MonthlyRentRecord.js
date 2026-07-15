@@ -201,6 +201,7 @@ monthlyRentRecordSchema.index({ tenantId: 1, month: 1 }, { unique: true });
 monthlyRentRecordSchema.index({ ownerId: 1, month: 1 });
 monthlyRentRecordSchema.index({ propertyId: 1, month: 1 });
 monthlyRentRecordSchema.index({ status: 1 });
+monthlyRentRecordSchema.index({ ownerId: 1, status: 1, month: 1 });
 
 // Recalculate remainingAmount before saving
 monthlyRentRecordSchema.pre('save', function() {

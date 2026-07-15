@@ -21,7 +21,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
   return (
     <View style={[styles.shadow, style]}>
       <LinearGradient
-        colors={g}
+        colors={g as any}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.card}

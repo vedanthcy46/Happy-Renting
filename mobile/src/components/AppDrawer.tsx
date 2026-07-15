@@ -102,7 +102,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
       >
         {/* Header */}
         <LinearGradient
-          colors={['#2563EB', '#1D4ED8']}
+          colors={themeColors.gradient.primary as any}
           style={[styles.drawerHeader, { paddingTop: insets.top + 16 }]}
         >
           <View style={styles.drawerLogoRow}>
@@ -202,8 +202,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   drawerLogo: {
-    width: 72,
-    height: 72,
+    width: 100,
+    height: 100,
   },
   drawerUserInfo: {
     flexDirection: 'row',

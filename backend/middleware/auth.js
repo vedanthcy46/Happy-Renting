@@ -33,16 +33,33 @@ const authenticate = async (req, res, next) => {
       return res.status(401).json({ success: false, message });
     }
 
-    // Confirm user still exists and is active
-    const user = await User.findById(decoded.id).select('-password');
-    if (!user || !user.isActive) {
+    // Check database to ensure user still exists and hasn't been deactivated
+    // since the token was issued.
+    const user = await User.findById(decoded.id).select('isActive ownerId role').lean();
+    
+    if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Account not found or deactivated.',
+        message: 'Account deleted. Please log in again.',
       });
     }
 
-    req.user = user;
+    if (user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'Account deactivated.',
+      });
+    }
+
+    // Attach minimal user object. If a controller needs the full mongoose document,
+    // it will fetch it explicitly (e.g., changePassword).
+    req.user = {
+      _id: user._id,
+      role: user.role,
+      ownerId: user.ownerId,
+      isActive: user.isActive,
+    };
+
     next();
   } catch (err) {
     logger.error(`authenticate middleware: ${err.message}`);

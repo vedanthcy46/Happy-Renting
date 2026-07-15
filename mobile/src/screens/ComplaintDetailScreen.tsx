@@ -18,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getComplaintDetail, addComplaintComment } from '../api/complaint';
 import { StatusBadge, AppCard } from '../components';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import { formatDate, formatRelativeTime } from '../utils';
 
 interface ComplaintDetailScreenProps {
@@ -26,17 +27,16 @@ interface ComplaintDetailScreenProps {
   onBack: () => void;
 }
 
-const priorityColors: Record<string, { bg: string; text: string }> = {
-  low: { bg: colors.successLight, text: colors.success },
-  medium: { bg: colors.warningLight, text: colors.warning },
-  high: { bg: colors.errorLight, text: colors.error },
-  urgent: { bg: colors.errorLight, text: colors.error },
-};
+export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ complaintId, onBack }) => {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
-export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({
-  complaintId,
-  onBack,
-}) => {
+  const priorityColors: Record<string, { bg: string; text: string }> = {
+    low: { bg: colors.successLight, text: colors.success },
+    medium: { bg: colors.warningLight, text: colors.warning },
+    high: { bg: colors.errorLight, text: colors.error },
+    urgent: { bg: colors.errorLight, text: colors.error },
+  };
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -113,7 +113,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
       {/* Custom Top Bar */}
@@ -134,7 +134,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* Timeline Indicator */}
-        <View style={styles.timelineCard}>
+        <AppCard variant="default" style={{ marginBottom: 24 }}>
           <Text style={styles.sectionHeaderTitle}>Status Progress</Text>
           <View style={styles.timelineWrapper}>
             {/* Background Line */}
@@ -188,7 +188,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({
               );
             })}
           </View>
-        </View>
+        </AppCard>
 
         {/* Complaint Info */}
         <AppCard variant="elevated" style={styles.infoCard}>
@@ -247,7 +247,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({
         </AppCard>
 
         {/* Comments Section */}
-        <View style={styles.commentsContainer}>
+        <AppCard variant="default" style={styles.commentsContainer}>
           <Text style={styles.commentsTitle}>Comments & Updates</Text>
           {(!complaint.comments || complaint.comments.length === 0) ? (
             <View style={styles.noCommentsBox}>
@@ -290,7 +290,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({
               );
             })
           )}
-        </View>
+        </AppCard>
       </ScrollView>
 
       {/* Comment Input Footer */}
@@ -321,7 +321,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -373,11 +373,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl * 2,
   },
   timelineCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
     marginBottom: spacing.lg,
-    ...shadows.sm,
   },
   sectionHeaderTitle: {
     fontSize: 14,
@@ -462,7 +458,6 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     marginBottom: spacing.lg,
-    padding: spacing.lg,
   },
   badgeRow: {
     flexDirection: 'row',

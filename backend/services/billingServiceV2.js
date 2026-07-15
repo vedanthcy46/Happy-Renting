@@ -132,7 +132,7 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
                 tenant._id,
                 iterMonthStr,
                 tenantMonthlyRent,
-                { allowVacated: true }
+                { allowVacated: true, tenant }
               );
             }
           } else {
@@ -143,7 +143,8 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
               tenantMonthlyRent,
               {
                 notes: `System generated calendar monthly billing for ${iterMonthStr}`,
-                allowVacated: true
+                allowVacated: true,
+                tenant
               }
             );
             

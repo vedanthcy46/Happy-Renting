@@ -19,6 +19,7 @@ import PaymentsPage    from './pages/PaymentsPage';
 import UsersPage       from './pages/UsersPage';
 import ComplaintsPage  from './pages/ComplaintsPage';
 import ProfilePage     from './pages/ProfilePage';
+import ComplaintDetailsPage from './pages/ComplaintDetailsPage';
 import TenantPaymentPage from './pages/TenantPaymentPage';
 import LandingPage       from './pages/LandingPage';
 import OwnerRequestPage  from './pages/OwnerRequestPage';
@@ -94,6 +95,7 @@ const AppContent = () => (
             <Route path="tenants/add" element={<ProtectedRoute roles={['superadmin','owner']}><AddTenantPage /></ProtectedRoute>} />
             <Route path="payments"   element={<ProtectedRoute roles={['superadmin','owner','tenant']}><PaymentsPage /></ProtectedRoute>} />
             <Route path="complaints" element={<ProtectedRoute roles={['owner','tenant']}><ComplaintsPage /></ProtectedRoute>} />
+            <Route path="complaints/:id" element={<ProtectedRoute roles={['owner','tenant']}><ComplaintDetailsPage /></ProtectedRoute>} />
             <Route path="profile"    element={<ProfilePage />} />
 
             {/* Tenant only */}

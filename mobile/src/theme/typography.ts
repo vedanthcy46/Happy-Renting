@@ -2,18 +2,18 @@ import { TextStyle, Platform } from 'react-native';
 
 const fontFamily = Platform.select({
   ios: {
-    heading: 'Poppins-Bold',
-    body: 'Inter-Regular',
+    heading: undefined,
+    body: undefined,
     mono: 'Menlo',
   },
   android: {
-    heading: 'Poppins-Bold',
-    body: 'Inter-Regular',
+    heading: undefined,
+    body: undefined,
     mono: 'monospace',
   },
   default: {
-    heading: 'Poppins-Bold',
-    body: 'Inter-Regular',
+    heading: undefined,
+    body: undefined,
     mono: 'monospace',
   },
 });

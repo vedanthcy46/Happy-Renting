@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { Wallet, Leaf } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Payment Status States
@@ -246,7 +247,7 @@ const TenantPaymentPage = () => {
       case PAYMENT_STATE.CREATING_ORDER: return 'Creating Order...';
       case PAYMENT_STATE.MODAL_OPEN: return 'Waiting for Payment...';
       case PAYMENT_STATE.POLLING: return 'Confirming Payment...';
-      default: return 'Pay Online Securely (Cashfree)';
+      default: return 'Pay Online (Gateway)';
     }
   };
 
@@ -333,12 +334,24 @@ const TenantPaymentPage = () => {
                 No QR Code available.
               </div>
             )}
-            {(rentRecord.ownerId?.upiId || rentRecord.ownerId?.upiNumber) && (
+            {(rentRecord.ownerId?.upiId || rentRecord.ownerId?.upiNumber || rentRecord.ownerId?.upiDetails?.upiId) && (
               <div className="mt-6 space-y-3 bg-surface border border-surface-border p-4 rounded-xl">
-                {rentRecord.ownerId.upiId && (
-                  <div className="flex justify-between">
+                {(rentRecord.ownerId?.upiDetails?.upiName) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 text-sm">UPI Name:</span>
+                    <span className="text-white text-sm font-bold">{rentRecord.ownerId.upiDetails.upiName}</span>
+                  </div>
+                )}
+                {(rentRecord.ownerId?.upiId || rentRecord.ownerId?.upiDetails?.upiId) && (
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-500 text-sm">UPI ID:</span>
-                    <span className="text-white text-sm font-mono">{rentRecord.ownerId.upiId}</span>
+                    <span className="text-white text-sm font-mono">{rentRecord.ownerId.upiId || rentRecord.ownerId.upiDetails.upiId}</span>
+                  </div>
+                )}
+                {rentRecord.ownerId?.upiNumber && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 text-sm">UPI Number:</span>
+                    <span className="text-white text-sm font-mono">{rentRecord.ownerId.upiNumber}</span>
                   </div>
                 )}
               </div>
@@ -349,9 +362,15 @@ const TenantPaymentPage = () => {
         {/* Right Column: Payment Form */}
         <div className="card p-6 flex flex-col justify-between">
           <div>
-            <h3 className="text-white font-bold mb-4 uppercase text-xs tracking-wider flex items-center gap-2">
-              <span className="text-brand-400">🧾</span> Record a Transaction
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white font-bold uppercase text-xs tracking-wider flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-brand-400" /> Pay via UPI / Bank
+              </h3>
+              <div className="flex items-center gap-1.5 bg-success/10 border border-success/20 px-2.5 py-1 rounded-full">
+                <Leaf className="w-3 h-3 text-success" />
+                <span className="text-[10px] font-bold text-success uppercase tracking-wider">Save charges</span>
+              </div>
+            </div>
 
             {rentRecord.remainingAmount <= 0 ? (
               <div className="p-4 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-center">
@@ -421,24 +440,24 @@ const TenantPaymentPage = () => {
                   />
                 </div>
 
-                <button type="submit" disabled={submitting || isGatewayBusy} className="btn-primary w-full mt-4">
+                <button type="submit" disabled={submitting || isGatewayBusy} className="btn-primary w-full mt-4 flex items-center justify-center gap-2 py-3 shadow-glow transition-all">
                   {submitting ? <LoadingSpinner size="sm" label="" /> : null}
-                  {submitting ? 'Submitting...' : 'Submit Manual Payment Proof'}
+                  {submitting ? 'Submitting...' : 'Submit Payment Proof'}
                 </button>
 
-                <div className="relative flex py-4 items-center">
-                  <div className="flex-grow border-t border-slate-700"></div>
-                  <span className="flex-shrink-0 mx-4 text-slate-500 text-xs uppercase font-bold tracking-wider">Or</span>
-                  <div className="flex-grow border-t border-slate-700"></div>
+                <div className="relative flex py-5 items-center">
+                  <div className="flex-grow border-t border-surface-border"></div>
+                  <span className="flex-shrink-0 mx-4 text-slate-500 text-[10px] uppercase font-bold tracking-wider">Or</span>
+                  <div className="flex-grow border-t border-surface-border"></div>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleCashfreePayment}
                   disabled={submitting || isGatewayBusy}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-lg shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-surface hover:bg-surface-hover border border-surface-border text-slate-300 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isGatewayBusy ? <LoadingSpinner size="sm" label="" /> : '⚡'}
+                  {isGatewayBusy ? <LoadingSpinner size="sm" label="" /> : '🌐'}
                   {gatewayButtonLabel()}
                 </button>
 

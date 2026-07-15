@@ -20,6 +20,10 @@ const connectDB = async () => {
       // These options are the defaults in Mongoose 6+ but listed explicitly for clarity
       serverSelectionTimeoutMS : 5000,   // Fail fast if Atlas unreachable
       socketTimeoutMS          : 45000,  // Close sockets after 45 s of inactivity
+      maxPoolSize              : 50,     // Handle concurrent load
+      minPoolSize              : 5,      // Keep warm pool ready
+      maxIdleTimeMS            : 30000,  // Recycle idle connections
+      waitQueueTimeoutMS       : 5000,   // Fail fast on pool exhaustion
     });
 
     logger.info(`MongoDB connected: ${conn.connection.host}`);

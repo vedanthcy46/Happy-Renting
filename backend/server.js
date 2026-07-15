@@ -24,6 +24,7 @@ const cors          = require('cors');
 const morgan        = require('morgan');
 const mongoSanitize = require('express-mongo-sanitize');
 const hpp           = require('hpp');
+const compression   = require('compression');
 
 const connectDB          = require('./config/db');
 const logger             = require('./config/logger');
@@ -54,42 +55,51 @@ const billingServiceV2 = require('./services/billingServiceV2');
 
 (async () => {
   await connectDB();
-  await billingServiceV2.migrateExistingTenants();
-  
   // Startup validation for data integrity
   try {
-    const MonthlyRentRecord = require('./models/MonthlyRentRecord');
-    const missingFields = await MonthlyRentRecord.countDocuments({
-      $or: [
-        { fullRentAmount: { $exists: false } },
-        { rentAmountAtGeneration: { $exists: false } },
-        { migrationVersion: { $exists: false } },
-        { migrationVersion: 0 }
-      ]
-    });
-    
-    if (missingFields > 0) {
-      logger.warn(`[DATA INTEGRITY] Found ${missingFields} legacy rent records requiring backfill. Running automatic backfill...`);
-      
-      const cursor = MonthlyRentRecord.find({
+    const MigrationHistory = require('./models/MigrationHistory');
+    const MIGRATION_ID = 'startup_v2_migration';
+    const hasMigrated = await MigrationHistory.findOne({ migrationId: MIGRATION_ID });
+
+    if (!hasMigrated) {
+      await billingServiceV2.migrateExistingTenants();
+
+      const MonthlyRentRecord = require('./models/MonthlyRentRecord');
+      const missingFields = await MonthlyRentRecord.countDocuments({
         $or: [
           { fullRentAmount: { $exists: false } },
           { rentAmountAtGeneration: { $exists: false } },
           { migrationVersion: { $exists: false } },
           { migrationVersion: 0 }
         ]
-      }).cursor();
+      });
       
-      let modified = 0;
-      for await (const record of cursor) {
-        const updateDoc = { $set: { migrationVersion: 1 } };
-        if (record.fullRentAmount == null) updateDoc.$set.fullRentAmount = record.totalRent;
-        if (record.rentAmountAtGeneration == null) updateDoc.$set.rentAmountAtGeneration = record.totalRent;
+      if (missingFields > 0) {
+        logger.warn(`[DATA INTEGRITY] Found ${missingFields} legacy rent records requiring backfill. Running automatic backfill...`);
         
-        const result = await MonthlyRentRecord.updateOne({ _id: record._id }, updateDoc);
-        if (result.modifiedCount > 0) modified++;
+        const cursor = MonthlyRentRecord.find({
+          $or: [
+            { fullRentAmount: { $exists: false } },
+            { rentAmountAtGeneration: { $exists: false } },
+            { migrationVersion: { $exists: false } },
+            { migrationVersion: 0 }
+          ]
+        }).cursor();
+        
+        let modified = 0;
+        for await (const record of cursor) {
+          const updateDoc = { $set: { migrationVersion: 1 } };
+          if (record.fullRentAmount == null) updateDoc.$set.fullRentAmount = record.totalRent;
+          if (record.rentAmountAtGeneration == null) updateDoc.$set.rentAmountAtGeneration = record.totalRent;
+          
+          const result = await MonthlyRentRecord.updateOne({ _id: record._id }, updateDoc);
+          if (result.modifiedCount > 0) modified++;
+        }
+        logger.info(`[DATA INTEGRITY] Automatic backfill complete. Modified ${modified} records.`);
       }
-      logger.info(`[DATA INTEGRITY] Automatic backfill complete. Modified ${modified} records.`);
+
+      await MigrationHistory.create({ migrationId: MIGRATION_ID, status: 'completed' });
+      logger.info(`[DATA INTEGRITY] Migration marked as completed.`);
     }
   } catch (err) {
     logger.error(`[DATA INTEGRITY] Failed to validate legacy rent records: ${err.message}`);
@@ -109,6 +119,21 @@ const billingServiceV2 = require('./services/billingServiceV2');
 
 const app = express();
 
+// ── 0. Correlation ID & Timeout ──────────────────────────────────────────────
+const { randomUUID } = require('crypto');
+app.use((req, res, next) => {
+  req.requestId = req.headers['x-request-id'] || randomUUID();
+  res.setHeader('X-Request-ID', req.requestId);
+  next();
+});
+
+app.use((req, res, next) => {
+  res.setTimeout(30000, () => {
+    res.status(503).json({ success: false, message: 'Request timeout' });
+  });
+  next();
+});
+
 // ── 1. Helmet (HTTP security headers) ─────────────────────────────────────
 app.use(
   helmet({
@@ -117,6 +142,9 @@ app.use(
   })
 );
 
+// ── 1.5 Compression ────────────────────────────────────────────────────────
+app.use(compression());
+
 // ── 2. CORS (strict whitelist) ─────────────────────────────────────────────
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
   .split(',')
@@ -124,7 +152,15 @@ const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
 
 app.use(
   cors({
-    origin     : true, // Reflect request origin (Allows all)
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else if (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost:')) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods    : ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

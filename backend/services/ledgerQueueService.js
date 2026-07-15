@@ -51,29 +51,6 @@ const enqueueRebuild = async ({ tenantId, triggerSource, priority = 'normal', re
   return job;
 };
 
-/**
- * Worker: Process the next highest priority pending job.
- */
-const processNextJob = async () => {
-  // 1. Fetch next job: high -> normal -> low
-  const job = await LedgerJob.findOneAndUpdate(
-    { status: 'pending' },
-    { 
-      status: 'processing', 
-      startedAt: new Date(),
-      lastHeartbeatAt: new Date()
-    },
-    { 
-      sort: { priority: 1, createdAt: 1 }, // Note: assuming enum values 'high', 'normal', 'low'. Wait, string sort 'high' < 'low' < 'normal'. This is wrong!
-      // Better way: use priority values or handle via $in query.
-      returnDocument: 'after'
-    }
-  );
-
-  // We actually need a better fetch strategy because string sort doesn't work for high/normal/low.
-  // We'll refactor this right below.
-  return job; // Placeholder
-};
 
 // Refactored fetch logic
 const fetchHighestPriorityJob = async () => {

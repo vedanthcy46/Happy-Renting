@@ -73,7 +73,15 @@ api.interceptors.response.use(
         localStorage.removeItem('hr_token');
         localStorage.removeItem('hr_user');
         if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+          let url = '/login';
+          if (data?.message?.toLowerCase().includes('deleted')) {
+            url += '?reason=deleted';
+          } else if (data?.message?.toLowerCase().includes('deactivated')) {
+            url += '?reason=deactivated';
+          } else {
+            url += '?reason=expired';
+          }
+          window.location.href = url;
         }
       }
 

@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const { Cashfree, CFEnvironment } = require('cashfree-pg');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const PaymentTransaction = require('../models/PaymentTransaction');
+const ProcessedWebhook = require('../models/ProcessedWebhook');
 const paymentServiceV2 = require('../services/paymentServiceV2');
 const logger = require('../config/logger');
 
@@ -298,6 +299,19 @@ exports.handleCashfreeWebhook = async (req, res) => {
     // ── Parse Event ───────────────────────────────────────────────────────
     const event = req.body;
     const eventType = event?.type;
+
+    // ── Idempotency Check (Prevent Retries/Race Conditions) ───────────────
+    const eventId = req.headers['x-webhook-event-id'] || req.headers['x-webhook-timestamp'] + '-' + (event?.data?.order?.order_id || 'unknown');
+    
+    try {
+      await ProcessedWebhook.create({ eventId });
+    } catch (err) {
+      if (err.code === 11000) {
+        logger.info(`[CASHFREE] Webhook Idempotency Hit — eventId=${eventId} already processed. Skipping.`);
+        return;
+      }
+      throw err; // Re-throw other DB errors
+    }
     const paymentData = event?.data?.payment;
     const orderData = event?.data?.order;
 

@@ -132,7 +132,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   if (isLoading || isLoadingRent) {
     return (
       <View style={styles.container}>
-        <LinearGradient colors={['#2563EB', '#1D4ED8']} style={[styles.headerSkeleton, { paddingTop: insets.top + spacing.lg }]}>
+        <LinearGradient colors={colors.gradient.primary as any} style={[styles.headerSkeleton, { paddingTop: insets.top + spacing.lg }]}>
           <View style={styles.skeletonHeaderContent}>
             <View style={styles.skeletonHello} />
             <View style={styles.skeletonName} />
@@ -173,7 +173,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     <View style={styles.container}>
       <Animated.View style={[styles.headerContainer, { height: headerHeight }]}>
         <LinearGradient
-          colors={['#2563EB', '#1D4ED8']}
+          colors={colors.gradient.primary as any}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.headerGradient, { paddingTop: insets.top + spacing.lg }]}
@@ -187,9 +187,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               >
                 <Ionicons name="menu-outline" size={24} color="#FFFFFF" />
               </TouchableOpacity>
-              <View style={styles.headerTextBlock}>
+              <View style={[styles.headerTextBlock, { flex: 1, marginHorizontal: spacing.sm }]}>
                 <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</Text>
-                <Text style={styles.userName}>{user?.name || 'Tenant'}</Text>
+                <Text style={styles.userName} numberOfLines={1} adjustsFontSizeToFit>{user?.name || 'Tenant'}</Text>
               </View>
               <View style={styles.headerRight}>
                 <TouchableOpacity

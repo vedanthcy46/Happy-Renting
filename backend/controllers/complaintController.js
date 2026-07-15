@@ -212,9 +212,11 @@ const addComplaintComment = async (req, res, next) => {
       }
     }
 
+    const userRec = await require('../models/User').findById(req.user._id).select('name');
+    
     complaint.comments.push({
       message: message.trim(),
-      authorName: req.user.name,
+      authorName: userRec ? userRec.name : 'User',
       authorRole: req.user.role,
       createdAt: Date.now()
     });
@@ -225,7 +227,7 @@ const addComplaintComment = async (req, res, next) => {
       notificationService.sendPushNotification({
         userId: complaint.ownerId,
         title: 'New Comment on Complaint',
-        body: `${req.user.name} commented: ${message}`,
+        body: `${userRec ? userRec.name : 'Tenant'} commented: ${message}`,
         type: 'complaint_comment',
         data: { complaintId: complaint._id }
       }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
@@ -235,7 +237,7 @@ const addComplaintComment = async (req, res, next) => {
         notificationService.sendPushNotification({
           userId: tenantRec.userId._id,
           title: 'New Comment on Your Complaint',
-          body: `${req.user.name} (owner) commented: ${message}`,
+          body: `${userRec ? userRec.name : 'Owner'} (owner) commented: ${message}`,
           type: 'complaint_comment',
           data: { complaintId: complaint._id }
         }).catch(err => logger.error(`[Push] Failed: ${err.message}`));

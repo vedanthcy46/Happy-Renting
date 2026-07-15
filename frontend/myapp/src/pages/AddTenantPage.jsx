@@ -132,6 +132,13 @@ const AddTenantPage = () => {
 
   const handleSendOtp = async () => {
     if (!form.email) { toast.error('Enter an email first'); return; }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
     if (otpTimer > 0) return;
     try {
       setOtpStatus('sending');

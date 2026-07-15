@@ -289,8 +289,19 @@ const processScheduledDeletions = async () => {
 const performDeletion = async (tenantRecord, request) => {
   const userId = tenantRecord.userId;
 
+  // Calculate how many people are leaving (tenant + co-occupants) to update room occupancy
+  const coOccupantsCount = await CoOccupant.countDocuments({ tenantId: tenantRecord._id });
+  const totalLeaving = 1 + coOccupantsCount;
+
   await CoOccupant.deleteMany({ tenantId: tenantRecord._id });
   await Complaint.deleteMany({ tenantId: userId });
+
+  // Free up the room occupancy
+  if (tenantRecord.roomId) {
+    await Room.findByIdAndUpdate(tenantRecord.roomId, {
+      $inc: { currentOccupancy: -totalLeaving }
+    });
+  }
 
   const user = await User.findById(userId);
   if (user) {

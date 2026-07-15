@@ -271,7 +271,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               }}
               activeOpacity={0.8}
             >
-              <LinearGradient colors={['#22C55E', '#16A34A']} style={styles.payManualGradient}>
+              <LinearGradient colors={colors.gradient.secondary as any} style={styles.payManualGradient}>
                 <View style={styles.payManualContent}>
                   <Ionicons name="wallet-outline" size={20} color="#FFFFFF" />
                   <Text style={styles.payManualText}>Pay via UPI / Bank</Text>

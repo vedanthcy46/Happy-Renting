@@ -75,8 +75,23 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
       }
     }
 
-    // Optional: Clean up unregistered tokens based on tickets (DeviceNotRegistered)
-    // For now, we just log success.
+    // 6. Clean up unregistered tokens based on tickets
+    const tokensToRemove = [];
+    for (let i = 0; i < tickets.length; i++) {
+      const ticket = tickets[i];
+      if (ticket.status === 'error' && ticket.details && ticket.details.error === 'DeviceNotRegistered') {
+        // validTokens maps 1:1 with the flattened tickets array
+        tokensToRemove.push(validTokens[i]);
+      }
+    }
+
+    if (tokensToRemove.length > 0) {
+      await User.findByIdAndUpdate(userId, {
+        $pull: { expoPushTokens: { token: { $in: tokensToRemove } } }
+      });
+      logger.info(`[Notifications] Cleaned up ${tokensToRemove.length} expired push tokens for user ${userId}`);
+    }
+
     logger.info(`[Notifications] Sent ${tickets.length} push notifications to user ${userId}`);
 
     return notification;

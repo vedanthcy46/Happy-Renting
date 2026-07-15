@@ -33,7 +33,7 @@ const DEFAULT_RENT_DUE_DAY = parseInt(process.env.DEFAULT_RENT_DUE_DAY || '5', 1
  */
 const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {}) => {
   // Fetch tenant context
-  const tenant = await Tenant.findById(tenantId);
+  const tenant = options.tenant || await Tenant.findById(tenantId);
   if (!tenant) {
     const err = new Error('Tenant not found');
     err.statusCode = 404;
