@@ -7,9 +7,3 @@
   from = "/*"
   to = "/index.html"
   status = 200
-
-[[redirects]]
-  from = "https://happyrenting.netlify.app/*"
-  to = "https://happyrenting.co.in/:splat"
-  status = 301
-  force = true
