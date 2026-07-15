@@ -31,13 +31,24 @@ const ownerRequestSchema = new mongoose.Schema({
   },
   status: {
     type   : String,
-    enum   : ['pending', 'approved', 'rejected'],
+    enum   : ['pending', 'approved', 'rejected', 'expired'],
     default: 'pending',
   },
   rejectionReason: {
     type: String,
     trim: true,
   },
+  isPriority: {
+    type   : Boolean,
+    default: false,
+  },
+  adminNotes: [
+    {
+      note    : { type: String, required: true, trim: true },
+      addedAt : { type: Date, default: Date.now },
+      addedBy : { type: String, trim: true }, // snapshot of admin's name
+    }
+  ],
 }, {
   timestamps: true
 });

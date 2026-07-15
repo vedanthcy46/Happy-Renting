@@ -5,6 +5,7 @@ const {
   getUsers, getUser, getProfile, updateProfile, createUser, updateUser, deleteUser,
   getAdminStats, getOwnerPropertyMapping, uploadQRCode, getActivityLogs, changePassword,
   resetUserPassword, createUserValidation, savePushToken,
+  resendVerificationEmail, getUserImpact, forcePasswordReset,
 } = require('../controllers/userController');
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -31,5 +32,8 @@ router.post('/',               authorize('superadmin', 'owner'), createUserValid
 router.patch('/:id',           authorize('superadmin', 'owner'), updateUser);
 router.patch('/:id/reset-password', authorize('superadmin', 'owner'), resetUserPassword);
 router.delete('/:id',          authorize('superadmin'),          deleteUser);
+router.post('/:id/resend-verification', authorize('superadmin'), resendVerificationEmail);
+router.get('/:id/impact',               authorize('superadmin'), getUserImpact);
+router.patch('/:id/force-reset',        authorize('superadmin'), forcePasswordReset);
 
 module.exports = router;

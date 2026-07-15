@@ -26,6 +26,24 @@ const submitRequest = async (req, res, next) => {
 
     const { name, email, phone, propertyName, propertyLocation } = req.body;
 
+    // 0. Verify email OTP token
+    const { verifiedToken } = req.body;
+    if (!verifiedToken) {
+      return res.status(400).json({ success: false, message: 'Email verification required. Please verify your email first.' });
+    }
+    const OTPModel = require('../models/OTP');
+    const otpRecord = await OTPModel.findOne({
+      email: email.toLowerCase(),
+      type: 'verified',
+      value: verifiedToken,
+      expiresAt: { $gt: new Date() }
+    });
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, message: 'Email verification expired or invalid. Please verify your email again.' });
+    }
+    // Clean up the verified token after use
+    await OTPModel.deleteMany({ email: email.toLowerCase() });
+
     // 1. Check if a User account already exists for this email
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -170,6 +188,9 @@ const updateRequestStatus = async (req, res, next) => {
       logger.info(`Owner request approved: ${request.email}. User account created.`);
 
     } else {
+      if (!reason || reason.trim().length < 5) {
+        return res.status(400).json({ success: false, message: 'A rejection reason (min 5 characters) is required.' });
+      }
       request.status = 'rejected';
       request.rejectionReason = reason;
       await request.save();
@@ -186,9 +207,211 @@ const updateRequestStatus = async (req, res, next) => {
   }
 };
 
+// ── 4. Send OTP for Email Verification (Public — for owner request form) ──
+const sendRequestOTP = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Valid email is required.' });
+    }
+
+    // Check if a User account already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
+    }
+
+    // Check if already approved
+    const existingApproved = await OwnerRequest.findOne({ email: email.toLowerCase(), status: 'approved' });
+    if (existingApproved) {
+      return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
+    }
+
+    const OTP = require('../models/OTP');
+    // Delete any previous OTP for this email
+    await OTP.deleteMany({ email: email.toLowerCase(), type: 'otp' });
+
+    // Generate a 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await OTP.create({ email: email.toLowerCase(), type: 'otp', value: otpCode, expiresAt });
+
+    // Send OTP email
+    await emailService.sendRequestOTPEmail(email, otpCode);
+
+    logger.info(`[OwnerRequest OTP] Sent OTP to ${email}`);
+    res.status(200).json({ success: true, message: 'OTP sent to your email.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── 5. Verify OTP (Public — before allowing form submission) ──────────────
+const verifyRequestOTP = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
+    }
+
+    const OTP = require('../models/OTP');
+    const record = await OTP.findOne({
+      email: email.toLowerCase(),
+      type: 'otp',
+      value: otp.toString(),
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!record) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP. Please request a new one.' });
+    }
+
+    // Mark as verified — replace otp record with a verified token
+    await OTP.deleteMany({ email: email.toLowerCase() });
+    const verifiedToken = crypto.randomBytes(32).toString('hex');
+    await OTP.create({
+      email: email.toLowerCase(),
+      type: 'verified',
+      value: verifiedToken,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 min to complete form
+    });
+
+    logger.info(`[OwnerRequest OTP] Email verified: ${email}`);
+    res.status(200).json({ success: true, message: 'Email verified successfully.', verifiedToken });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── 6. Toggle Priority Flag (Admin Only) ──────────────────────────────────
+const togglePriority = async (req, res, next) => {
+  try {
+    const request = await OwnerRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found.' });
+    }
+    request.isPriority = !request.isPriority;
+    await request.save();
+    logger.info(`[OwnerRequest] Priority toggled: ID=${req.params.id} isPriority=${request.isPriority}`);
+    res.status(200).json({ success: true, isPriority: request.isPriority });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── 7. Add Admin Note (Admin Only) ────────────────────────────────────────
+const addAdminNote = async (req, res, next) => {
+  try {
+    const { note } = req.body;
+    if (!note || note.trim().length < 3) {
+      return res.status(400).json({ success: false, message: 'Note must be at least 3 characters.' });
+    }
+    const request = await OwnerRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found.' });
+    }
+    request.adminNotes.push({
+      note    : note.trim(),
+      addedAt : new Date(),
+      addedBy : req.user.name,
+    });
+    await request.save();
+    logger.info(`[OwnerRequest] Note added by ${req.user.name} to request ID=${req.params.id}`);
+    res.status(201).json({ success: true, adminNotes: request.adminNotes });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── 8. Bulk Update Status (Admin Only) ────────────────────────────────────
+const bulkUpdateStatus = async (req, res, next) => {
+  try {
+    const { requestIds, status, reason } = req.body;
+    if (!Array.isArray(requestIds) || requestIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No requests selected.' });
+    }
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status.' });
+    }
+    if (status === 'rejected' && (!reason || reason.trim().length < 5)) {
+      return res.status(400).json({ success: false, message: 'A rejection reason (min 5 characters) is required.' });
+    }
+
+    let successCount = 0;
+    
+    // We process sequentially to avoid overwhelming email sending
+    for (const id of requestIds) {
+      const request = await OwnerRequest.findById(id);
+      if (!request || request.status !== 'pending') continue;
+
+      if (status === 'approved') {
+        const tempPassword = crypto.randomBytes(4).toString('hex') + 'A1!';
+        const verifiedToken = crypto.randomBytes(32).toString('hex');
+        
+        await User.create({
+          name: request.name,
+          email: request.email,
+          phone: request.phone,
+          role: 'owner',
+          password: tempPassword,
+          mustChangePassword: true,
+          emailVerified: true,
+          emailVerificationToken: verifiedToken
+        });
+        
+        request.status = 'approved';
+        await request.save();
+        await emailService.sendRequestApproved(request, tempPassword);
+        successCount++;
+      } else if (status === 'rejected') {
+        request.status = 'rejected';
+        request.rejectionReason = reason.trim();
+        await request.save();
+        await emailService.sendRequestRejected(request, request.rejectionReason);
+        successCount++;
+      }
+    }
+
+    logger.info(`[OwnerRequest Bulk] Processed ${successCount} requests to status: ${status}`);
+    res.status(200).json({ success: true, message: `Successfully updated ${successCount} requests.` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── 9. Auto-Expire Old Requests (Admin Only) ──────────────────────────────
+const expireOldRequests = async (req, res, next) => {
+  try {
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const oldRequests = await OwnerRequest.find({
+      status: 'pending',
+      createdAt: { $lt: fourteenDaysAgo }
+    });
+
+    for (const request of oldRequests) {
+      request.status = 'expired';
+      await request.save();
+      // Send expiration notification in background
+      emailService.sendRequestExpired(request).catch(e => logger.error(`Request Expired Alert Error: ${e.message}`));
+    }
+
+    logger.info(`[OwnerRequest Expiry] Expired ${oldRequests.length} old pending requests.`);
+    res.status(200).json({ success: true, count: oldRequests.length, message: `Expired ${oldRequests.length} old requests.` });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   submitRequest,
   getRequests,
   updateRequestStatus,
-  validateRequest
+  validateRequest,
+  sendRequestOTP,
+  verifyRequestOTP,
+  togglePriority,
+  addAdminNote,
+  bulkUpdateStatus,
+  expireOldRequests,
 };

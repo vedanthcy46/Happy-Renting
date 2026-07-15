@@ -40,7 +40,7 @@ const getUsers = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const users = await User.find(filter)
-      .select('_id name email role isActive phone lastLogin createdAt mustChangePassword ownerId')
+      .select('_id name email role isActive phone lastLogin createdAt mustChangePassword ownerId emailVerified')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -453,6 +453,63 @@ const savePushToken = async (req, res, next) => {
   }
 };
 
+// ── POST /api/users/:id/resend-verification (SuperAdmin) ───────────────────
+const resendVerificationEmail = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (user.emailVerified) {
+      return res.status(400).json({ success: false, message: 'Email is already verified.' });
+    }
+    const verificationToken = require('crypto').randomBytes(32).toString('hex');
+    user.emailVerificationToken = verificationToken;
+    user.emailVerificationExpires = Date.now() + 30 * 60 * 1000;
+    await user.save();
+    await emailService.sendVerificationEmail(user, verificationToken);
+    res.status(200).json({ success: true, message: `Verification email resent to ${user.email}.` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── GET /api/users/:id/impact (SuperAdmin) ───────────────────────────────────
+const getUserImpact = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    if (user.role === 'owner') {
+      const MonthlyRentRecord = require('../models/MonthlyRentRecord');
+      const [activeTenants, pendingPayments, openComplaints] = await Promise.all([
+        Tenant.countDocuments({ ownerId: user._id, status: 'active' }),
+        MonthlyRentRecord.countDocuments({ ownerId: user._id, status: { $in: ['pending', 'partial'] } }),
+        Complaint.countDocuments({ ownerId: user._id, status: { $in: ['open', 'in_progress'] } }),
+      ]);
+      return res.status(200).json({ success: true, impact: { activeTenants, pendingPayments, openComplaints } });
+    }
+
+    res.status(200).json({ success: true, impact: { activeTenants: 0, pendingPayments: 0, openComplaints: 0 } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── PATCH /api/users/:id/force-reset (SuperAdmin) ──────────────────────────
+const forcePasswordReset = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (user.role === 'superadmin') {
+      return res.status(403).json({ success: false, message: 'Cannot force-reset a superadmin account.' });
+    }
+    user.mustChangePassword = true;
+    await user.save();
+    res.status(200).json({ success: true, message: `${user.name} will be prompted to reset their password on next login.` });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getUsers,
   getUser,
@@ -470,4 +527,7 @@ module.exports = {
   resetUserPassword,
   createUserValidation,
   savePushToken,
+  resendVerificationEmail,
+  getUserImpact,
+  forcePasswordReset,
 };
