@@ -118,6 +118,7 @@ const billingServiceV2 = require('./services/billingServiceV2');
 })();
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render) for rate-limiting client IPs
 
 // ── 0. Correlation ID & Timeout ──────────────────────────────────────────────
 const { randomUUID } = require('crypto');

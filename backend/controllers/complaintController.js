@@ -131,25 +131,27 @@ const updateComplaint = async (req, res, next) => {
         const tenant = await Tenant.findById(complaint.tenantId).populate('userId');
         const property = await complaint.populate('propertyId roomId');
         
-        if (tenant && tenant.userId && tenant.userId.email) {
-          await emailService.sendComplaintResolvedNotification(
-            tenant.userId,
-            complaint,
-            property.propertyId,
-            property.roomId
-          );
-        }
-      } catch (emailErr) {
-        logger.error(`Failed to send resolution email: ${emailErr.message}`);
-      }
+        if (tenant && tenant.userId) {
+          if (tenant.userId.email) {
+            await emailService.sendComplaintResolvedNotification(
+              tenant.userId,
+              complaint,
+              property.propertyId,
+              property.roomId
+            );
+          }
 
-      notificationService.sendPushNotification({
-        userId: tenant.userId._id,
-        title: 'Complaint Resolved',
-        body: `Your complaint "${complaint.title}" has been resolved.`,
-        type: 'complaint_resolved',
-        data: { complaintId: complaint._id }
-      }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
+          notificationService.sendPushNotification({
+            userId: tenant.userId._id,
+            title: 'Complaint Resolved',
+            body: `Your complaint "${complaint.title}" has been resolved.`,
+            type: 'complaint_resolved',
+            data: { complaintId: complaint._id }
+          }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
+        }
+      } catch (err) {
+        logger.error(`Failed to send resolution notifications: ${err.message}`);
+      }
     }
 
     res.status(200).json({ success: true, message: 'Complaint updated.', complaint });
