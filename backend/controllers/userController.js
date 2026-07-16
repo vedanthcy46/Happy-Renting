@@ -27,7 +27,8 @@ const createUserValidation = [
 // superadmin: all users | owner: their tenants only
 const getUsers = async (req, res, next) => {
   try {
-    const filter = {};
+    // Exclude completely deleted (anonymized) accounts from the users list
+    const filter = { email: { $not: /@deleted\.local$/ } };
     if (req.user.role === 'owner') {
       filter.ownerId = req.user._id;
       filter.role    = 'tenant';
@@ -408,6 +409,9 @@ const resetUserPassword = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: 'Cannot reset password for a deactivated account.' });
+    }
 
     // Authorization: SuperAdmin can reset anyone. Owner can reset their tenants.
     if (req.user.role === 'owner' && String(user.ownerId) !== String(req.user._id)) {
@@ -466,6 +470,7 @@ const resendVerificationEmail = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (!user.isActive) return res.status(403).json({ success: false, message: 'Cannot resend verification for a deactivated account.' });
     if (user.emailVerified) {
       return res.status(400).json({ success: false, message: 'Email is already verified.' });
     }
@@ -507,6 +512,7 @@ const forcePasswordReset = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (!user.isActive) return res.status(403).json({ success: false, message: 'Cannot force password reset on a deactivated account.' });
     if (user.role === 'superadmin') {
       return res.status(403).json({ success: false, message: 'Cannot force-reset a superadmin account.' });
     }

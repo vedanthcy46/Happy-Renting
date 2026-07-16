@@ -275,31 +275,33 @@ const UsersPage = () => {
                           >
                             {u.isActive ? 'Disable' : 'Enable'}
                           </button>
-                          <button
-                            onClick={() => setResetModal({ open: true, user: u, password: '' })}
-                            className="btn-ghost btn-sm text-brand-400"
-                          >
-                            Reset Password
-                          </button>
-                          {!u.emailVerified && u.role !== 'superadmin' && (
-                            <button
-                              onClick={() => handleResendVerification(u)}
-                              disabled={resendVerifLoading === u._id}
-                              className="btn-ghost btn-sm text-blue-400"
-                              title="Resend verification email"
-                            >
-                              {resendVerifLoading === u._id ? '...' : 'Resend Email'}
-                            </button>
-                          )}
-                          {u.role !== 'superadmin' && (
-                            <button
-                              onClick={() => handleForceReset(u)}
-                              disabled={forceResetLoading === u._id}
-                              className="btn-ghost btn-sm text-orange-400"
-                              title="Force password reset on next login"
-                            >
-                              {forceResetLoading === u._id ? '...' : 'Force Reset'}
-                            </button>
+                          {u.isActive && (
+                            <>
+                              <button
+                                onClick={() => setResetModal({ open: true, user: u, password: '' })}
+                                className="btn-ghost btn-sm text-brand-400"
+                              >
+                                Reset Password
+                              </button>
+                              {!u.emailVerified && (
+                                <button
+                                  onClick={() => handleResendVerification(u)}
+                                  disabled={resendVerifLoading === u._id}
+                                  className="btn-ghost btn-sm text-blue-400"
+                                  title="Resend verification email"
+                                >
+                                  {resendVerifLoading === u._id ? '...' : 'Resend Email'}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleForceReset(u)}
+                                disabled={forceResetLoading === u._id}
+                                className="btn-ghost btn-sm text-orange-400"
+                                title="Force password reset on next login"
+                              >
+                                {forceResetLoading === u._id ? '...' : 'Force Reset'}
+                              </button>
+                            </>
                           )}
                         </>
                       )}
