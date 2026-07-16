@@ -14,9 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
-import * as AuthSession from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -95,28 +93,70 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
   const handlePayOnline = async () => {
     if (!data?.rentRecord) return;
     setPaying(true);
+    
+    // The deep link scheme that Cashfree will redirect back to after payment
+    // This MUST match the scheme in app.json
+    const APP_DEEP_LINK = 'happyrenting://payment';
+    
     try {
-      const redirectUrl = AuthSession.makeRedirectUri();
-      const response = await createCashfreeOrder(rentRecordId, data.rentRecord.remainingAmount, redirectUrl);
+      const response = await createCashfreeOrder(
+        rentRecordId,
+        data.rentRecord.remainingAmount,
+        APP_DEEP_LINK   // app_redirect sent to backend → baked into checkout proxy HTML
+      );
+      
       if (response.success && response.paymentUrl) {
-        try {
-          const result = await WebBrowser.openAuthSessionAsync(response.paymentUrl, redirectUrl, { showTitle: true });
-          if (result.type === 'success' || result.type === 'dismiss' || result.type === 'cancel') {
-            checkPaymentStatus(response.orderId);
+        // Set up deep link listener BEFORE opening browser
+        // When Cashfree proxy redirects to happyrenting://payment?order_id=...
+        // Android will fire this, closing Chrome Custom Tabs automatically
+        let subscription: any = null;
+        
+        const onDeepLink = ({ url }: { url: string }) => {
+          if (url.startsWith('happyrenting://payment')) {
+            subscription?.remove();
+            // Extract orderId from the deep link URL
+            const urlObj = new URL(url);
+            const returnedOrderId = urlObj.searchParams.get('order_id') || response.orderId;
+            setPaying(false);
+            checkPaymentStatus(returnedOrderId);
           }
-        } catch {
-          const canOpen = await Linking.canOpenURL(response.paymentUrl);
-          if (canOpen) {
-            await Linking.openURL(response.paymentUrl);
-            Alert.alert('Payment Initiated', 'Complete payment in browser.', [
-              { text: 'Check Status', onPress: () => checkPaymentStatus(response.orderId) },
-            ]);
-          }
-        }
+        };
+        
+        subscription = Linking.addEventListener('url', onDeepLink);
+        
+        // Open the payment URL in the default browser (Chrome Custom Tabs on Android)
+        // Do NOT use openAuthSessionAsync — it only closes when it detects its own redirectUrl
+        // in the address bar. Cashfree goes to Netlify first, not our scheme.
+        const opened = await Linking.openURL(response.paymentUrl);
+        
+        // Show a fallback dialog the user can use to manually check status
+        // in case the deep link never fires (e.g. user completes payment but
+        // the browser doesn't close)
+        Alert.alert(
+          'Payment Opened',
+          'Complete your payment in the browser. The app will update automatically when done.',
+          [
+            {
+              text: 'Check Status Manually',
+              onPress: () => {
+                subscription?.remove();
+                setPaying(false);
+                checkPaymentStatus(response.orderId);
+              },
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => {
+                subscription?.remove();
+                setPaying(false);
+              },
+            },
+          ]
+        );
       }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to initiate payment');
-    } finally {
       setPaying(false);
     }
   };

@@ -152,13 +152,18 @@ exports.createCashfreeOrder = async (req, res, next) => {
 
     const cfEnv = String(process.env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase();
     const isProd = cfEnv === 'PRODUCTION';
-    
-    // Instead of the dead V2 order URL, we point the mobile app to our own backend route
-    // that safely hosts the V3 JS SDK and auto-triggers the checkout flow.
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-    const paymentUrl = `${baseUrl}/api/v2/payments/cashfree/checkout?session_id=${response.data.payment_session_id}&order_id=${response.data.order_id}&env=${cfEnv}&app_redirect=${encodeURIComponent(appRedirect || '')}`;
 
-    logger.info(`[CASHFREE] Redirect URL Generated: ${paymentUrl} (Env: ${cfEnv})`);
+    // Use Cashfree's official hosted checkout URL — no JS SDK required.
+    // Works reliably in Chrome Custom Tabs / any browser on Android.
+    // Format: https://payments.cashfree.com/order/#<payment_session_id>
+    // After payment Cashfree POSTs webhook + redirects browser to return_url.
+    // return_url (set above) carries app_redirect, so Netlify bounces back to the app.
+    const cfBaseUrl = isProd
+      ? 'https://payments.cashfree.com'
+      : 'https://payments-test.cashfree.com';
+    const paymentUrl = `${cfBaseUrl}/order/#${response.data.payment_session_id}`;
+
+    logger.info(`[CASHFREE] Hosted checkout URL: ${paymentUrl} (Env: ${cfEnv})`);
 
     return res.status(200).json({
       success: true,
