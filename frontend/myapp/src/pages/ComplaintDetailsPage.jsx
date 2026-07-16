@@ -39,9 +39,31 @@ const ComplaintDetailsPage = () => {
     }
   }, [id, toast, navigate]);
 
+  const fetchComplaintSilent = useCallback(async () => {
+    try {
+      const { data } = await api.get(`/complaints/${id}`);
+      setComplaint(prev => {
+        // Only update if there's an actual change in comments length or status to avoid unnecessary re-renders
+        if (!prev || prev.comments.length !== data.complaint.comments.length || prev.status !== data.complaint.status) {
+          return data.complaint;
+        }
+        return prev;
+      });
+    } catch (err) {
+      // Ignore polling errors
+    }
+  }, [id]);
+
   useEffect(() => {
     fetchComplaint();
-  }, [fetchComplaint]);
+    
+    // Poll every 5 seconds for real-time communication
+    const interval = setInterval(() => {
+      fetchComplaintSilent();
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [fetchComplaint, fetchComplaintSilent]);
 
   const handleSendComment = async (e) => {
     e.preventDefault();

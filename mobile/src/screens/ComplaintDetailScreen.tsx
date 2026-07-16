@@ -45,6 +45,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['complaintDetail', complaintId],
     queryFn: () => getComplaintDetail(complaintId),
+    refetchInterval: 5000, // Poll every 5 seconds for real-time messages
   });
 
   const commentMutation = useMutation({
