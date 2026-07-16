@@ -47,7 +47,7 @@ const authenticate = async (req, res, next) => {
     if (user.isActive === false) {
       return res.status(401).json({
         success: false,
-        message: 'Account deactivated.',
+        message: 'Your account has been disabled by an Administrator. Please contact support.',
       });
     }
 

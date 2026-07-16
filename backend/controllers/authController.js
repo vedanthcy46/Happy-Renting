@@ -57,11 +57,17 @@ const login = async (req, res, next) => {
 
     // Explicitly select password (select:false in schema)
     const user = await User.findOne({ email }).select('+password');
-    if (!user || !user.isActive) {
-      // Use identical message to prevent user enumeration
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials.',
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your account has been disabled by an Administrator. Please contact support.',
       });
     }
 

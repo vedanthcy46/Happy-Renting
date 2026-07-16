@@ -27,7 +27,7 @@ const createUserValidation = [
 // superadmin: all users | owner: their tenants only
 const getUsers = async (req, res, next) => {
   try {
-    const filter = { isActive: true };
+    const filter = {};
     if (req.user.role === 'owner') {
       filter.ownerId = req.user._id;
       filter.role    = 'tenant';
@@ -227,7 +227,15 @@ const updateUser = async (req, res, next) => {
 
     const { name, email, isActive } = req.body;
     if (name) user.name = name;
-    if (isActive !== undefined) user.isActive = isActive;
+    
+    if (isActive !== undefined && user.isActive !== isActive) {
+      user.isActive = isActive;
+      
+      // Cascade deactivation/activation to the owner's tenants
+      if (user.role === 'owner') {
+        await User.updateMany({ ownerId: user._id, role: 'tenant' }, { isActive: isActive });
+      }
+    }
 
     if (email && email.toLowerCase() !== user.email) {
       const existing = await User.findOne({ email: email.toLowerCase() });
