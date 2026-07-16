@@ -59,23 +59,24 @@ const CashfreeCheckoutPage = () => {
         // window.Cashfree is set by the SDK script
         const cashfree = window.Cashfree({ mode });
 
-        // _self: Cashfree will do a full page redirect to their checkout,
-        // then redirect back to our return_url after payment.
-        // The promise only resolves if checkout was opened as an overlay/popup.
-        const result = await cashfree.checkout({
+        // With redirectTarget: '_self', Cashfree should do a full-page redirect
+        // to their checkout. The promise SHOULD never resolve in that case.
+        //
+        // However, on some mobile browsers Cashfree renders as an overlay instead.
+        // In overlay mode, clicking "More options" or dismissing closes the overlay
+        // and resolves the promise — even though payment is NOT done yet.
+        //
+        // THEREFORE: we NEVER auto-redirect when the promise resolves.
+        // We always show the manual "Return to App" button.
+        // The user taps it only after they've actually completed the payment.
+        await cashfree.checkout({
           paymentSessionId: sessionId,
           redirectTarget: '_self',
         });
 
-        // If we reach here, checkout ran as overlay (not full redirect).
-        // Show return button.
-        if (result && result.error) {
-          setErrorMsg(result.error.message || 'Payment cancelled or failed.');
-          setStatus('error');
-        } else {
-          // Payment done in overlay — bounce back to app
-          returnToApp();
-        }
+        // Promise resolved → overlay was closed (payment done, cancelled, or dismissed).
+        // Show the button. Do NOT auto-redirect — payment might not be complete.
+        setStatus('done');
       } catch (err) {
         setErrorMsg(err.message || 'Failed to initialize payment gateway.');
         setStatus('error');
@@ -113,6 +114,33 @@ const CashfreeCheckoutPage = () => {
     );
   }
 
+  // 'done' = SDK promise resolved (overlay was closed for any reason).
+  // Show button — never auto-redirect since payment state is unknown here.
+  if (status === 'done') {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
+          <h2 style={styles.title}>Payment Complete</h2>
+          <p style={styles.message}>
+            Tap the button below to return to the app and confirm your payment status.
+          </p>
+          {appRedirect ? (
+            <button style={styles.btn} onClick={returnToApp}>
+              Return to App
+            </button>
+          ) : (
+            <p style={{ ...styles.message, color: '#9ca3af', marginTop: '8px' }}>
+              You can now close this window.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Default: spinner shown while Cashfree SDK loads or while full-page
+  // redirect is in progress (the page navigates away, so user won't see this long)
   return (
     <div style={styles.container}>
       <div style={styles.card}>
