@@ -357,7 +357,6 @@ const UsersPage = () => {
             <select className="form-select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
               <option value="owner">Property Owner</option>
               <option value="superadmin">Platform Admin</option>
-              <option value="tenant">Standalone Tenant</option>
             </select>
           </div>
           <div>
