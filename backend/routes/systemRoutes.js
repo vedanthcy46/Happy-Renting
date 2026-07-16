@@ -166,6 +166,29 @@ router.patch('/notifications/read-all', authenticate, async (req, res, next) => 
   }
 });
 
+// DELETE /api/system/notifications/clear-all — delete all my notifications
+router.delete('/notifications/clear-all', authenticate, async (req, res, next) => {
+  try {
+    await Notification.deleteMany({ userId: req.user._id });
+    res.json({ success: true, message: 'All notifications cleared' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/system/notifications/:id — delete one notification
+router.delete('/notifications/:id', authenticate, async (req, res, next) => {
+  try {
+    const notification = await Notification.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+    res.json({ success: true, message: 'Notification deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/system/audit-logs
 const LedgerAuditLog = require('../models/LedgerAuditLog');
 router.get('/audit-logs', authenticate, authorize('superadmin', 'owner'), async (req, res, next) => {
