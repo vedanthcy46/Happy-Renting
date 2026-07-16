@@ -62,7 +62,24 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
 
   const mutationDelete = useMutation({
     mutationFn: (id: string) => deleteNotification(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const previousData = queryClient.getQueryData(['notifications']);
+      queryClient.setQueryData(['notifications'], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          notifications: (old.notifications || []).filter((n: any) => n._id !== deletedId),
+        };
+      });
+      return { previousData };
+    },
+    onError: (err, newTodo, context: any) => {
+      queryClient.setQueryData(['notifications'], context.previousData);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
   });
 
   const mutationClearAll = useMutation({
@@ -124,6 +141,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
       <Swipeable 
         renderRightActions={() => renderRightActions(item._id, styles)}
         containerStyle={{ marginBottom: spacing.sm }}
+        onSwipeableRightOpen={() => {
+          mutationDelete.mutate(item._id);
+        }}
       >
         <TouchableOpacity onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
           <AppCard
