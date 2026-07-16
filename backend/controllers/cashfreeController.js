@@ -151,19 +151,15 @@ exports.createCashfreeOrder = async (req, res, next) => {
     );
 
     const cfEnv = String(process.env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase();
-    const isProd = cfEnv === 'PRODUCTION';
 
-    // Use Cashfree's official hosted checkout URL — no JS SDK required.
-    // Works reliably in Chrome Custom Tabs / any browser on Android.
-    // Format: https://payments.cashfree.com/order/#<payment_session_id>
-    // After payment Cashfree POSTs webhook + redirects browser to return_url.
-    // return_url (set above) carries app_redirect, so Netlify bounces back to the app.
-    const cfBaseUrl = isProd
-      ? 'https://payments.cashfree.com'
-      : 'https://payments-test.cashfree.com';
-    const paymentUrl = `${cfBaseUrl}/order/#${response.data.payment_session_id}`;
+    // Point mobile app to the Netlify frontend page that hosts the Cashfree V3 SDK.
+    // happyrenting.netlify.app is already whitelisted in Cashfree merchant dashboard.
+    // Netlify runs the SDK, checkout completes, Cashfree redirects to return_url,
+    // which carries app_redirect so PaymentsPage.jsx bounces back to the deep link.
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://happyrenting.netlify.app').replace(/\/$/, '');
+    const paymentUrl = `${frontendUrl}/cashfree-checkout?session_id=${response.data.payment_session_id}&order_id=${response.data.order_id}&env=${cfEnv}&app_redirect=${encodeURIComponent(appRedirect || '')}`;
 
-    logger.info(`[CASHFREE] Hosted checkout URL: ${paymentUrl} (Env: ${cfEnv})`);
+    logger.info(`[CASHFREE] Netlify checkout URL: ${paymentUrl} (Env: ${cfEnv})`);
 
     return res.status(200).json({
       success: true,

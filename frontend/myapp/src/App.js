@@ -44,6 +44,7 @@ import DataDeletionPage from './pages/DataDeletionPage';
 import AdminDeletionRequestsPage from './pages/AdminDeletionRequestsPage';
 import OwnerDeletionRequestsPage from './pages/OwnerDeletionRequestsPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import CashfreeCheckoutPage from './pages/CashfreeCheckoutPage';
 
 /**
  * AppLayout — wraps all authenticated pages with Navbar + padded main area
@@ -77,6 +78,8 @@ const AppContent = () => (
           <Route path="/terms" element={<TermsConditionsPage />} />
           <Route path="/refund" element={<RefundPolicyPage />} />
           <Route path="/data-deletion" element={<DataDeletionPage />} />
+          {/* Mobile payment gateway proxy — must be public, no auth */}
+          <Route path="/cashfree-checkout" element={<CashfreeCheckoutPage />} />
 
           {/* Protected — all authenticated roles */}
           <Route
