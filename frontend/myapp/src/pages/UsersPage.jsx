@@ -2,12 +2,14 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
 
 const UsersPage = () => {
   const toast = useToast();
+  const { user: currentUser } = useAuth();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const filterId = searchParams.get('id');
@@ -107,6 +109,29 @@ const UsersPage = () => {
     } catch (err) {
       toast.error(err.message);
       setImpactModal(m => ({ ...m, loading: false }));
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (user.role === 'superadmin') return toast.error('Cannot delete superadmins.');
+    const msg = user.role === 'owner' 
+      ? `WARNING: This will completely delete the owner '${user.name}', ALL their properties, rooms, tenants, payments, complaints, and activity logs.\n\nAre you absolutely sure? This cannot be undone.`
+      : `Are you sure you want to completely delete the tenant '${user.name}' and all their data?`;
+      
+    if (!window.confirm(msg)) return;
+    
+    // Double confirmation for owners
+    if (user.role === 'owner') {
+      const typeName = window.prompt(`Type the owner's name "${user.name}" to confirm complete deletion:`);
+      if (typeName !== user.name) return toast.error('Name did not match. Deletion cancelled.');
+    }
+
+    try {
+      await api.delete(`/users/${user._id}`);
+      toast.success(`User ${user.name} and all data completely deleted.`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.message);
     }
   };
 
@@ -302,6 +327,17 @@ const UsersPage = () => {
                                 {forceResetLoading === u._id ? '...' : 'Force Reset'}
                               </button>
                             </>
+                          )}
+                          
+                          {/* Superadmin Hard Delete Action */}
+                          {currentUser?.role === 'superadmin' && (
+                            <button
+                              onClick={() => handleDeleteUser(u)}
+                              className="btn-ghost btn-sm text-danger"
+                              title="Completely delete user and all associated data"
+                            >
+                              Delete
+                            </button>
                           )}
                         </>
                       )}
