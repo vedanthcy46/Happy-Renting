@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
@@ -18,6 +18,7 @@ const ComplaintDetailsPage = () => {
   // Comments
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef(null);
 
   // Status Update (Owner only)
   const [status, setStatus] = useState('');
@@ -65,13 +66,21 @@ const ComplaintDetailsPage = () => {
     return () => clearInterval(interval);
   }, [fetchComplaint, fetchComplaintSilent]);
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [complaint?.comments]);
+
   const handleSendComment = async (e) => {
     e.preventDefault();
     if (!message.trim()) return;
     setSending(true);
     try {
       const { data } = await api.post(`/complaints/${id}/comments`, { message });
-      setComplaint(data.complaint);
+      setComplaint(prev => ({ ...prev, comments: data.comments }));
       setMessage('');
       toast.success('Message sent');
     } catch (err) {
@@ -154,7 +163,7 @@ const ComplaintDetailsPage = () => {
           <div className="card p-6">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Conversation History</h3>
             
-            <div className="space-y-4 mb-6">
+            <div className="space-y-4 mb-6 max-h-96 overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
               {complaint.comments && complaint.comments.length > 0 ? (
                 complaint.comments.map((comment) => {
                   const isOwn = comment.author === user._id || (comment.authorRole === user.role);
@@ -183,6 +192,7 @@ const ComplaintDetailsPage = () => {
                   <p>No messages yet. Send a message to start the conversation.</p>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             <form onSubmit={handleSendComment} className="flex gap-2">

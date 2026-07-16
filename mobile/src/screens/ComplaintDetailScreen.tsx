@@ -21,6 +21,7 @@ import { StatusBadge, AppCard } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatDate, formatRelativeTime } from '../utils';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface ComplaintDetailScreenProps {
   complaintId: string;
@@ -39,7 +40,9 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
   };
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { user } = useAuthStore();
   const scrollViewRef = useRef<ScrollView>(null);
+  const commentsScrollRef = useRef<ScrollView>(null);
   const [message, setMessage] = useState('');
 
   const { data, isLoading, refetch } = useQuery({
@@ -54,7 +57,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
       queryClient.invalidateQueries({ queryKey: ['complaintDetail', complaintId] });
       setMessage('');
       setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
+        commentsScrollRef.current?.scrollToEnd({ animated: true });
       }, 300);
     },
     onError: (err: any) => {
@@ -252,47 +255,55 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
         {/* Comments Section */}
         <AppCard variant="default" style={styles.commentsContainer}>
           <Text style={styles.commentsTitle}>Comments & Updates</Text>
-          {(!complaint.comments || complaint.comments.length === 0) ? (
-            <View style={styles.noCommentsBox}>
-              <Ionicons name="chatbubble-outline" size={24} color={colors.text.tertiary} />
-              <Text style={styles.noCommentsText}>No updates or comments yet.</Text>
-            </View>
-          ) : (
-            complaint.comments.map((comment) => {
-              const isTenant = comment.authorRole === 'tenant';
-              return (
-                <View
-                  key={comment._id}
-                  style={[
-                    styles.commentBubbleWrapper,
-                    isTenant ? styles.commentRight : styles.commentLeft,
-                  ]}
-                >
+          <ScrollView 
+            ref={commentsScrollRef}
+            style={{ maxHeight: 350 }} 
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+            onContentSizeChange={() => commentsScrollRef.current?.scrollToEnd({ animated: false })}
+          >
+            {(!complaint.comments || complaint.comments.length === 0) ? (
+              <View style={styles.noCommentsBox}>
+                <Ionicons name="chatbubble-outline" size={24} color={colors.text.tertiary} />
+                <Text style={styles.noCommentsText}>No updates or comments yet.</Text>
+              </View>
+            ) : (
+              complaint.comments.map((comment) => {
+                const isOwn = user?.role ? comment.authorRole === user.role : comment.authorRole === 'tenant';
+                return (
                   <View
+                    key={comment._id}
                     style={[
-                      styles.commentBubble,
-                      isTenant ? styles.bubbleTenant : styles.bubbleAdmin,
+                      styles.commentBubbleWrapper,
+                      isOwn ? styles.commentRight : styles.commentLeft,
                     ]}
                   >
-                    <View style={styles.commentHeader}>
-                      <Text style={[styles.authorName, isTenant ? styles.textWhite : styles.textPrimary]}>
-                        {comment.authorName}
-                      </Text>
-                      <View style={[styles.roleLabel, isTenant ? styles.roleTenant : styles.roleAdmin]}>
-                        <Text style={styles.roleLabelText}>{comment.authorRole.toUpperCase()}</Text>
+                    <View
+                      style={[
+                        styles.commentBubble,
+                        isOwn ? styles.bubbleOwn : styles.bubbleOther,
+                      ]}
+                    >
+                      <View style={styles.commentHeader}>
+                        <Text style={[styles.authorName, isOwn ? styles.textWhite : styles.textPrimary]}>
+                          {comment.authorName}
+                        </Text>
+                        <View style={[styles.roleLabel, isOwn ? styles.roleOwn : styles.roleOther]}>
+                          <Text style={isOwn ? styles.roleOwnText : styles.roleOtherText}>{comment.authorRole.toUpperCase()}</Text>
+                        </View>
                       </View>
+                      <Text style={[styles.commentMessage, isOwn ? styles.textWhite : styles.textPrimary]}>
+                        {comment.message}
+                      </Text>
+                      <Text style={[styles.commentTime, isOwn ? styles.timeLight : styles.timeDark]}>
+                        {formatRelativeTime(comment.createdAt)}
+                      </Text>
                     </View>
-                    <Text style={[styles.commentMessage, isTenant ? styles.textWhite : styles.textPrimary]}>
-                      {comment.message}
-                    </Text>
-                    <Text style={[styles.commentTime, isTenant ? styles.timeLight : styles.timeDark]}>
-                      {formatRelativeTime(comment.createdAt)}
-                    </Text>
                   </View>
-                </View>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </ScrollView>
         </AppCard>
       </ScrollView>
 
@@ -600,11 +611,11 @@ const makeStyles = (colors: any) => StyleSheet.create({
     borderRadius: radius.lg,
     ...shadows.sm,
   },
-  bubbleTenant: {
+  bubbleOwn: {
     backgroundColor: colors.primary,
     borderBottomRightRadius: radius.xs,
   },
-  bubbleAdmin: {
+  bubbleOther: {
     backgroundColor: colors.surface,
     borderBottomLeftRadius: radius.xs,
     borderWidth: 1,
@@ -626,13 +637,18 @@ const makeStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.sm,
   },
-  roleTenant: {
+  roleOwn: {
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  roleAdmin: {
+  roleOther: {
     backgroundColor: colors.borderLight,
   },
-  roleLabelText: {
+  roleOwnText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  roleOtherText: {
     fontSize: 8,
     fontWeight: '700',
     color: colors.text.secondary,

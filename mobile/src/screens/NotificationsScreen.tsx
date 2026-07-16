@@ -1,9 +1,10 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Text, View, Animated } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotifications, markAsRead, markAllAsRead, Notification } from '../api/notifications';
+import { getNotifications, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, Notification } from '../api/notifications';
 import { AppCard, EmptyState, ErrorState } from '../components';
 import { typography, spacing, radius } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
@@ -59,6 +60,16 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
+  const mutationDelete = useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const mutationClearAll = useMutation({
+    mutationFn: () => clearAllNotifications(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.read) {
       mutationMarkRead.mutate(notification._id);
@@ -95,32 +106,50 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
     return { name: 'notifications-outline' as const, color: colors.text.tertiary };
   };
 
+  const renderRightActions = (id: string, styles: any) => {
+    return (
+      <TouchableOpacity 
+        style={styles.swipeDeleteAction}
+        onPress={() => mutationDelete.mutate(id)}
+      >
+        <Ionicons name="trash-outline" size={24} color="#FFF" />
+      </TouchableOpacity>
+    );
+  };
+
   const renderItem = ({ item }: { item: Notification }) => {
     const iconConfig = getIconConfig(item.type);
     const styles = createStyles(colors);
     return (
-      <TouchableOpacity onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
-        <AppCard
-          style={[styles.notificationCard, !item.read && styles.unreadCard] as any}
-          variant={item.read ? 'bordered' : 'elevated'}
-          padding={spacing.lg}
-          animate={false}
-        >
-          <View style={styles.notifRow}>
-            <View style={[styles.notifIcon, { backgroundColor: iconConfig.color + '18' }]}>
-              <Ionicons name={iconConfig.name} size={22} color={iconConfig.color} />
+      <Swipeable 
+        renderRightActions={() => renderRightActions(item._id, styles)}
+        containerStyle={{ marginBottom: spacing.sm }}
+      >
+        <TouchableOpacity onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
+          <AppCard
+            style={[!item.read && styles.unreadCard] as any}
+            variant={item.read ? 'bordered' : 'elevated'}
+            padding={spacing.lg}
+            animate={false}
+          >
+            <View style={styles.notifRow}>
+              <View style={[styles.notifIcon, { backgroundColor: iconConfig.color + '18' }]}>
+                <Ionicons name={iconConfig.name} size={22} color={iconConfig.color} />
+              </View>
+              <View style={styles.notifContent}>
+                <View style={styles.titleRow}>
+                  <Text style={[styles.notifTitle, !item.read && styles.notifTitleUnread]}>
+                    {item.title}
+                  </Text>
+                </View>
+                <Text style={styles.notifBody} numberOfLines={2}>{item.body || item.message}</Text>
+                <Text style={styles.notifDate}>{formatRelativeTime(item.createdAt)}</Text>
+              </View>
+              {!item.read && <View style={styles.unreadDot} />}
             </View>
-            <View style={styles.notifContent}>
-              <Text style={[styles.notifTitle, !item.read && styles.notifTitleUnread]}>
-                {item.title}
-              </Text>
-              <Text style={styles.notifBody} numberOfLines={2}>{item.body}</Text>
-              <Text style={styles.notifDate}>{formatRelativeTime(item.createdAt)}</Text>
-            </View>
-            {!item.read && <View style={styles.unreadDot} />}
-          </View>
-        </AppCard>
-      </TouchableOpacity>
+          </AppCard>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
@@ -133,13 +162,20 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: colors.text.primary }]}>Notifications</Text>
-        {data?.unreadCount ? (
-          <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()} activeOpacity={0.7} style={styles.markAllButton}>
-            <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all read</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.markAllButton} />
-        )}
+        <View style={styles.headerActions}>
+          {data?.notifications?.length > 0 && (
+            <TouchableOpacity onPress={() => mutationClearAll.mutate()} activeOpacity={0.7} style={styles.headerIconBtn}>
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+            </TouchableOpacity>
+          )}
+          {data?.unreadCount > 0 ? (
+            <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()} activeOpacity={0.7} style={styles.markAllButton}>
+              <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all read</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.markAllButton} />
+          )}
+        </View>
       </View>
 
       {isLoading ? (
@@ -162,6 +198,13 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
           refreshing={isFetching}
           onRefresh={refetch}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            data?.notifications?.length > 0 ? (
+              <Text style={styles.swipeHintText}>
+                Tip: Swipe left on a notification to delete it
+              </Text>
+            ) : null
+          }
           ListEmptyComponent={
             <EmptyState
               icon="notifications-off-outline"
@@ -204,12 +247,30 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontWeight: '600',
   },
   markAllButton: {
-    width: 80,
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xs,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerIconBtn: {
+    padding: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  swipeHintText: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    fontStyle: 'italic',
   },
   listContent: {
     padding: spacing.lg,
@@ -238,10 +299,25 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
   },
   notifTitle: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '500',
     color: colors.text.primary,
+    marginRight: spacing.sm,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 2,
+  },
+  swipeDeleteAction: {
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderTopRightRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
   },
   notifTitleUnread: {
     fontWeight: '700',

@@ -67,4 +67,29 @@ router.patch('/read-all', authenticate, async (req, res, next) => {
   }
 });
 
+// DELETE /v2/notifications/clear-all
+// Delete all notifications for the user
+router.delete('/clear-all', authenticate, async (req, res, next) => {
+  try {
+    await Notification.deleteMany({ userId: req.user._id });
+    res.status(200).json({ success: true, message: 'All notifications cleared' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /v2/notifications/:id
+// Delete a specific notification
+router.delete('/:id', authenticate, async (req, res, next) => {
+  try {
+    const notification = await Notification.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+    res.status(200).json({ success: true, message: 'Notification deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

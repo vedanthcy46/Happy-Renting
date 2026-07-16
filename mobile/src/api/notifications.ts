@@ -34,3 +34,11 @@ export const markAllAsRead = async (): Promise<void> => {
 export const updatePushToken = async (token: string, deviceName: string, platform: string): Promise<void> => {
   await api.patch('/users/profile/push-token', { token, deviceName, platform });
 };
+
+export const deleteNotification = async (id: string): Promise<void> => {
+  await api.delete(`/v2/notifications/${id}`);
+};
+
+export const clearAllNotifications = async (): Promise<void> => {
+  await api.delete('/v2/notifications/clear-all');
+};

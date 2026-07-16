@@ -103,6 +103,24 @@ const NotificationBell = () => {
     } catch {}
   };
 
+  const deleteNotification = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await api.delete(`/system/notifications/${id}`);
+      const isUnread = !notifications.find(n => n._id === id)?.read;
+      setNotifications(prev => prev.filter(n => n._id !== id));
+      if (isUnread) setUnreadCount(c => Math.max(0, c - 1));
+    } catch {}
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      await api.delete('/system/notifications/clear-all');
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch {}
+  };
+
   const timeAgo = (date) => {
     const secs = Math.floor((Date.now() - new Date(date)) / 1000);
     if (secs < 60) return 'just now';
@@ -146,13 +164,23 @@ const NotificationBell = () => {
                 <span className="text-[10px] bg-brand-500 text-white rounded-full px-1.5 py-0.5 font-bold">{unreadCount}</span>
               )}
             </span>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-[10px] font-bold text-brand-400 hover:text-brand-300 underline"
-              >
-                Mark all read
-              </button>
+            {notifications.length > 0 && (
+              <div className="flex items-center gap-3">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="text-[10px] font-bold text-brand-400 hover:text-brand-300 underline"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={clearAllNotifications}
+                  className="text-[10px] font-bold text-red-400 hover:text-red-300 underline"
+                >
+                  Clear all
+                </button>
+              </div>
             )}
           </div>
 
@@ -197,9 +225,20 @@ const NotificationBell = () => {
                       </div>
                       <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
                     </div>
-                    {!n.read && (
-                      <span className="mt-2 w-2 h-2 rounded-full shrink-0 bg-brand-400" />
-                    )}
+                    <div className="flex flex-col items-center gap-1.5 shrink-0 mt-0.5">
+                      {!n.read && (
+                        <span className="w-2 h-2 rounded-full bg-brand-400" />
+                      )}
+                      <button 
+                        onClick={(e) => deleteNotification(e, n._id)}
+                        className="p-1 text-slate-500 hover:text-red-400 rounded hover:bg-red-400/10 transition-colors"
+                        title="Delete notification"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </button>
                 );
               })
