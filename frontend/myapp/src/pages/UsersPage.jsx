@@ -114,17 +114,16 @@ const UsersPage = () => {
 
   const handleDeleteUser = async (user) => {
     if (user.role === 'superadmin') return toast.error('Cannot delete superadmins.');
+    
     const msg = user.role === 'owner' 
       ? `WARNING: This will completely delete the owner '${user.name}', ALL their properties, rooms, tenants, payments, complaints, and activity logs.\n\nAre you absolutely sure? This cannot be undone.`
-      : `Are you sure you want to completely delete the tenant '${user.name}' and all their data?`;
+      : `WARNING: This will completely delete the tenant '${user.name}' and all their payment/complaint history.\n\nAre you absolutely sure? This cannot be undone.`;
       
     if (!window.confirm(msg)) return;
     
-    // Double confirmation for owners
-    if (user.role === 'owner') {
-      const typeName = window.prompt(`Type the owner's name "${user.name}" to confirm complete deletion:`);
-      if (typeName !== user.name) return toast.error('Name did not match. Deletion cancelled.');
-    }
+    // Double confirmation for all hard deletes
+    const typeName = window.prompt(`Type the user's name "${user.name}" to confirm complete deletion:`);
+    if (typeName !== user.name) return toast.error('Name did not match. Deletion cancelled.');
 
     try {
       await api.delete(`/users/${user._id}`);
