@@ -501,36 +501,67 @@ exports.renderMobileCheckout = (req, res) => {
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f9fafb; margin: 0; }
         .spinner { border: 4px solid rgba(0,0,0,0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #2196f3; animation: spin 1s linear infinite; margin-bottom: 16px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        h2 { color: #333; margin: 0; font-size: 1.2rem; }
-        p { color: #666; margin-top: 8px; font-size: 0.9rem; text-align: center; padding: 0 20px; }
+        h2 { color: #333; margin: 0; font-size: 1.2rem; text-align: center; }
+        p { color: #666; margin-top: 8px; font-size: 0.9rem; text-align: center; padding: 0 20px; line-height: 1.5; }
+        .btn { margin-top: 24px; padding: 14px 28px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
       </style>
     </head>
     <body>
-      <div class="spinner"></div>
-      <h2>Initializing Payment...</h2>
-      <p>Redirecting you to Cashfree Secure Checkout. Please do not close this window.</p>
+      <div id="loading" style="display: flex; flex-direction: column; align-items: center;">
+        <div class="spinner"></div>
+        <h2>Initializing Payment...</h2>
+        <p>Redirecting you to Cashfree Secure Checkout. Please do not close this window.</p>
+      </div>
+      
+      <div id="complete" style="display: none; flex-direction: column; align-items: center;">
+        <h2>Payment Processed</h2>
+        <p>If you are not redirected back to the app automatically, please click the button below.</p>
+        <button id="returnBtn" class="btn" onclick="returnToApp()">Return to App</button>
+      </div>
       
       <script>
+        const appRedirectUrl = '${app_redirect ? `${app_redirect}?order_id=${order_id}` : ''}';
+        
+        function returnToApp() {
+          if (appRedirectUrl) {
+            window.location.href = appRedirectUrl;
+          }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
           try {
             const cashfree = Cashfree({ mode: '${mode}' });
             
             // _self redirects the current tab to Cashfree's checkout.
-            // When payment completes, Cashfree will redirect this tab to our return_url!
+            // On web, it unloads the page.
+            // On mobile UPI, it might return control here after the UPI app closes!
             const result = await cashfree.checkout({
               paymentSessionId: '${session_id}',
               redirectTarget: '_self'
             });
             
-            // This code only runs if checkout fails to initialize or user dismisses an overlay
+            // If we reach here, the page didn't unload!
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('complete').style.display = 'flex';
+            
             if (result && result.error) {
-              alert(result.error.message || 'Payment failed to load.');
-              if ('${app_redirect}') {
-                window.location.href = '${app_redirect}?order_id=${order_id}';
-              }
+              document.querySelector('#complete h2').innerText = 'Payment Cancelled or Failed';
+              document.querySelector('#complete p').innerText = result.error.message || 'The payment session was closed. Please return to the app.';
+            }
+            
+            if (appRedirectUrl) {
+              document.getElementById('returnBtn').style.display = 'block';
+              // Attempt auto-redirect (might be blocked by Chrome without user gesture)
+              setTimeout(returnToApp, 500);
             }
           } catch (err) {
-            alert('Failed to initialize payment: ' + err.message);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('complete').style.display = 'flex';
+            document.querySelector('#complete h2').innerText = 'Initialization Error';
+            document.querySelector('#complete p').innerText = err.message;
+            if (appRedirectUrl) {
+              document.getElementById('returnBtn').style.display = 'block';
+            }
           }
         });
       </script>
