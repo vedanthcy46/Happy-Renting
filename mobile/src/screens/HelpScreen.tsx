@@ -93,8 +93,8 @@ export const HelpScreen: React.FC = () => {
   };
 
   const openPlayStore = () => {
-    Linking.openURL('market://details?id=com.happyrenting.app').catch(() =>
-      Linking.openURL('https://play.google.com/store/apps/details?id=com.happyrenting.app').catch(() => {})
+    Linking.openURL('market://details?id=co.in.happyrenting.tenant').catch(() =>
+      Linking.openURL('https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant').catch(() => {})
     );
   };
 

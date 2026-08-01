@@ -1,20 +1,86 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Platform, StyleSheet, TouchableOpacity, Animated, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, Animated, View, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { colors, typography } from '../../src/theme';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { useState, useRef as useReactRef, useEffect } from 'react';
-import { AppDrawer } from '../../src/components/AppDrawer';
+import { useState, useRef as useReactRef, useEffect, useMemo } from 'react';
+import { AppDrawer, FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
+import { WalkthroughStep } from '../../src/components/FeatureWalkthrough';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../src/utils/events';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const WALKTHROUGH_KEY_PREFIX = 'walkthrough_completed';
+
+const tabTargets = (() => {
+  const tabWidth = SCREEN_WIDTH / 4;
+  const top = SCREEN_HEIGHT - TAB_BAR_HEIGHT + 6;
+  const width = tabWidth - 8;
+  const height = TAB_BAR_HEIGHT - 14;
+  return [0, 1, 2, 3].map((i) => ({
+    left: tabWidth * i + 4,
+    top,
+    width,
+    height,
+  }));
+})();
+
 export default function TabLayout() {
-  const { token, isLoading } = useAuthStore();
+  const { token, isLoading, user } = useAuthStore();
   const { colors: themeColors } = useTheme();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
   const translateX = useReactRef(new Animated.Value(-400)).current;
   const overlayOpacity = useReactRef(new Animated.Value(0)).current;
+
+  const walkthroughSteps = useMemo<WalkthroughStep[]>(
+    () => [
+      {
+        id: 'home',
+        title: 'Dashboard',
+        description: 'View your current rent bill, due date and payment status right on the home screen.',
+        icon: 'home',
+        target: tabTargets[0],
+      },
+      {
+        id: 'payments',
+        title: 'Payments',
+        description: 'Track all rent transactions, view history and make payments easily.',
+        icon: 'card',
+        target: tabTargets[1],
+      },
+      {
+        id: 'complaints',
+        title: 'Requests',
+        description: 'Raise and track maintenance requests and complaints with live updates.',
+        icon: 'construct',
+        target: tabTargets[2],
+      },
+      {
+        id: 'profile',
+        title: 'Profile',
+        description: 'Manage your account, security settings, privacy and more.',
+        icon: 'person',
+        target: tabTargets[3],
+      },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    const checkWalkthrough = async () => {
+      if (!user?._id) return;
+      try {
+        const completed = await SecureStore.getItemAsync(`${WALKTHROUGH_KEY_PREFIX}_${user._id}`);
+        if (!completed) {
+          setShowWalkthrough(true);
+        }
+      } catch {}
+    };
+    checkWalkthrough();
+  }, [user?._id]);
 
   useEffect(() => {
     const handleOpenDrawer = () => {
@@ -25,6 +91,15 @@ export default function TabLayout() {
       appEvents.off(OPEN_DRAWER_EVENT, handleOpenDrawer);
     };
   }, []);
+
+  const finishWalkthrough = async () => {
+    setShowWalkthrough(false);
+    if (user?._id) {
+      try {
+        await SecureStore.setItemAsync(`${WALKTHROUGH_KEY_PREFIX}_${user._id}`, 'true');
+      } catch {}
+    }
+  };
 
   const openDrawer = () => {
     setDrawerOpen(true);
@@ -161,6 +236,12 @@ export default function TabLayout() {
         onClose={closeDrawer}
         translateX={translateX}
         overlayOpacity={overlayOpacity}
+      />
+
+      <FeatureWalkthrough
+        visible={showWalkthrough}
+        steps={walkthroughSteps}
+        onFinish={finishWalkthrough}
       />
     </View>
   );

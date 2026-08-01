@@ -47,7 +47,7 @@ const LandingPage = () => {
                 Get Started
                 <ArrowRight className="w-5 h-5" />
               </Link>
-              <a href="https://play.google.com/store/apps/details?id=com.happyrenting.app" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-white text-slate-900 border-2 border-slate-200 px-8 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all hover:-translate-y-0.5 active:translate-y-0 text-base">
+              <a href="https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-white text-slate-900 border-2 border-slate-200 px-8 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all hover:-translate-y-0.5 active:translate-y-0 text-base">
                 <Download className="w-5 h-5" />
                 Download Android App
               </a>
@@ -406,7 +406,7 @@ const LandingPage = () => {
                   Get Started
                   <ArrowRight className="w-5 h-5" />
                 </Link>
-                <a href="https://play.google.com/store/apps/details?id=com.happyrenting.app" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-white/10 text-white border-2 border-white/20 px-8 py-4 rounded-2xl font-bold hover:bg-white/20 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
+                <a href="https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto bg-white/10 text-white border-2 border-white/20 px-8 py-4 rounded-2xl font-bold hover:bg-white/20 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
                   <Download className="w-5 h-5" />
                   Download App
                 </a>

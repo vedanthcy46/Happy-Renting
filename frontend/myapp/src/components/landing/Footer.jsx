@@ -19,7 +19,7 @@ const Footer = () => (
             <li><Link to="/features" className="hover:text-white transition-colors">Features</Link></li>
             <li><Link to="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
             <li><span className="text-slate-500">Pricing (Coming Soon)</span></li>
-            <li><a href="https://play.google.com/store/apps/details?id=com.happyrenting.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Download</a></li>
+            <li><a href="https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Download</a></li>
           </ul>
         </div>
         <div>

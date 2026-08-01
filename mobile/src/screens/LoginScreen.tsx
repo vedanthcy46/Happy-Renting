@@ -31,6 +31,7 @@ import {
   getBiometricCredentials,
   saveBiometricCredentials,
 } from '../hooks/useBiometric';
+import { APP_VERSION } from '../utils/rateApp';
 
 const { width } = Dimensions.get('window');
 
@@ -347,7 +348,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   <Text style={styles.footerLink}>Terms</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.footerVersion}>v1.0.0 · Made with ❤️ in India 🇮🇳</Text>
+              <Text style={styles.footerVersion}>v{APP_VERSION} · Made with ❤️ in India 🇮🇳</Text>
             </View>
           </Animated.View>
         </ScrollView>

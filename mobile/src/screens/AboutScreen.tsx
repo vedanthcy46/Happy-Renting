@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeProvider';
 import { useRouter } from 'expo-router';
+import { APP_VERSION, APP_BUILD_NUMBER } from '../utils/rateApp';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -211,7 +212,7 @@ export const AboutScreen: React.FC = () => {
           <InfoRow
             icon="information-circle-outline"
             label="Version"
-            value="1.0.0"
+            value={APP_VERSION}
             primaryColor={themeColors.primary}
             textPrimary={themeColors.text.primary}
             textSecondary={themeColors.text.secondary}
@@ -220,7 +221,7 @@ export const AboutScreen: React.FC = () => {
           <InfoRow
             icon="layers-outline"
             label="Build Number"
-            value="1"
+            value={APP_BUILD_NUMBER}
             primaryColor={themeColors.primary}
             textPrimary={themeColors.text.primary}
             textSecondary={themeColors.text.secondary}
@@ -342,7 +343,7 @@ export const AboutScreen: React.FC = () => {
             icon="star-outline"
             label="Rate Happy Renting"
             onPress={() =>
-              openLink('https://play.google.com/store/apps/details?id=com.happyrenting.app')
+              openLink('https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant')
             }
             showDivider={false}
             primaryColor={themeColors.primary}

@@ -24,6 +24,7 @@ import { AppCard, AppButton, AppInput, StatusBadge, GradientCard } from '../comp
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatMonth, formatDate, generateAndShareReceipt } from '../utils';
+import { maybeRequestRating } from '../utils/rateApp';
 
 interface RentDetailScreenProps {
   rentRecordId: string;
@@ -72,6 +73,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
       setShowManualModal(false);
       resetManualForm();
       Alert.alert('Submitted', 'Payment submitted for verification');
+      maybeRequestRating();
     },
     onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to submit payment'),
   });
@@ -169,6 +171,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
         Alert.alert('Success', 'Payment received!');
         queryClient.invalidateQueries({ queryKey: ['rentRecordDetail', rentRecordId] });
         queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
+        maybeRequestRating();
       } else if (response.status === 'FAILED') {
         Alert.alert('Payment Failed', 'Transaction failed.');
       } else {

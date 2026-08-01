@@ -27,6 +27,7 @@ import { AppCard, AppButton, AppInput } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { getInitials } from '../utils';
+import { rateApp, APP_VERSION } from '../utils/rateApp';
 
 interface ProfileScreenProps {
   onLogout: () => void;
@@ -294,6 +295,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             icon={<Ionicons name="information-circle-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
+            title="Rate Your App"
+            onPress={rateApp}
+            variant="outline"
+            fullWidth
+            style={{ marginBottom: spacing.md }}
+            icon={<Ionicons name="star-outline" size={18} color="#F59E0B" />}
+          />
+          <AppButton
             title="Visit Website"
             onPress={() => Linking.openURL('https://happyrenting.netlify.app')}
             variant="outline"
@@ -331,7 +340,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>Happy Renting v1.0.0 · Made with ❤️ in India</Text>
+        <Text style={styles.versionText}>Happy Renting v{APP_VERSION} · Made with ❤️ in India</Text>
       </ScrollView>
 
       <Modal visible={showPassModal} transparent animationType="fade">

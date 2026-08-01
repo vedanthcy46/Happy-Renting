@@ -28,6 +28,7 @@ import { AppCard, AppButton, AppInput } from '../components';
 import { useRouter } from 'expo-router';
 import { requestDeletion, getMyDeletionStatus, cancelDeletion, DeletionStatusData } from '../api/deletion';
 import { login } from '../api/auth';
+import { rateApp, APP_VERSION, APP_BUILD_NUMBER } from '../utils/rateApp';
 
 export const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -447,6 +448,21 @@ export const SettingsScreen: React.FC = () => {
 
           <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
+          <TouchableOpacity style={styles.row} onPress={rateApp} activeOpacity={0.7}>
+            <View style={styles.rowLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#F59E0B15' }]}>
+                <Ionicons name="star-outline" size={20} color="#F59E0B" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Rate Your App</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>Loved the app? Leave us a review</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={themeColors.text.tertiary} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
           <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('https://happyrenting.netlify.app')} activeOpacity={0.7}>
             <View style={styles.rowLeft}>
               <View style={[styles.iconBox, { backgroundColor: '#10B98115' }]}>
@@ -466,7 +482,7 @@ export const SettingsScreen: React.FC = () => {
         <AppCard variant="elevated" style={[styles.card, { backgroundColor: themeColors.surface }]}>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: themeColors.text.primary }]}>Version</Text>
-            <Text style={[styles.infoValue, { color: themeColors.text.secondary }]}>v1.0.0 (Build 1)</Text>
+            <Text style={[styles.infoValue, { color: themeColors.text.secondary }]}>v{APP_VERSION} (Build {APP_BUILD_NUMBER})</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
           <View style={styles.infoRow}>

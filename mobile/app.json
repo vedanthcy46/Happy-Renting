@@ -3,7 +3,7 @@
     "name": "Happy Renting",
     "slug": "happy-renting-tenant",
     "sdkVersion": "56.0.0",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/main-app-icon.png",
     "scheme": "happyrenting",
@@ -17,10 +17,11 @@
     },
     "android": {
       "package": "co.in.happyrenting.tenant",
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant",
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 24,
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

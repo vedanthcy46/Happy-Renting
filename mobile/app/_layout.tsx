@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { Stack, useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import { fontAssets } from '../src/theme/typography';
 import 'react-native-reanimated';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,6 +44,7 @@ function AppContent() {
   const [isLocked, setIsLocked] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -71,10 +74,10 @@ function AppContent() {
   }, [isAuthLoading, router]);
 
   useEffect(() => {
-    if (!isAuthLoading && onboardingChecked) {
+    if (!isAuthLoading && onboardingChecked && (fontsLoaded || fontError)) {
       SplashScreen.hideAsync();
     }
-  }, [isAuthLoading, onboardingChecked]);
+  }, [isAuthLoading, onboardingChecked, fontsLoaded, fontError]);
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -119,7 +122,7 @@ function AppContent() {
     checkLockStatus();
   }, [isAuthLoading, user, token]);
 
-  if (isAuthLoading || checkingBiometric || !onboardingChecked) {
+  if (isAuthLoading || checkingBiometric || !onboardingChecked || (!fontsLoaded && !fontError)) {
     return null;
   }
 
