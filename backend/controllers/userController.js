@@ -292,9 +292,10 @@ const deleteUser = async (req, res, next) => {
         await CoOccupant.deleteMany({ tenantId: t._id });
         // Cleanup complaints for each tenancy
         await Complaint.deleteMany({ tenantId: t._id });
-        // Remove payment transactions and rent records for the tenant tenancy
+        // Remove the tenant's full payment ledger rows for this tenancy
         await PaymentTransaction.deleteMany({ tenantId: t._id });
         await MonthlyRentRecord.deleteMany({ tenantId: t._id });
+        await Payment.deleteMany({ tenantId: t._id });
       }
 
       // Delete all tenancy records
