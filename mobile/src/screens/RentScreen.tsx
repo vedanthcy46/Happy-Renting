@@ -53,6 +53,7 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
       totalRent={item.totalRent}
       totalPaid={item.totalPaid}
       remainingAmount={item.remainingAmount}
+      advanceBalance={item.advanceBalance}
       status={item.status}
       dueDate={item.dueDate}
       index={index}
@@ -100,6 +101,14 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={styles.overpayNote}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+            <Text style={styles.overpayNoteText}>
+              You can pay more than the rent amount — the extra is kept as advance and automatically adjusted against your pending bills.
+            </Text>
+          </View>
+        }
         refreshControl={
           <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={colors.primary} />
         }
@@ -153,5 +162,20 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   emptyContainer: {
     paddingTop: spacing.huge,
+  },
+  overpayNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  overpayNoteText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.text.secondary,
   },
 });

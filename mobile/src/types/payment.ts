@@ -4,6 +4,7 @@ export interface RentRecord {
   totalRent: number;
   totalPaid: number;
   remainingAmount: number;
+  advanceBalance?: number;
   status: 'pending' | 'partial' | 'paid' | 'overdue' | 'overpaid';
   dueDate: string;
   updatedAt?: string;

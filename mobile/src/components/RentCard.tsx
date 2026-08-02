@@ -12,6 +12,7 @@ interface RentCardProps {
   totalRent: number;
   totalPaid: number;
   remainingAmount: number;
+  advanceBalance?: number;
   status: string;
   dueDate: string;
   onPress?: () => void;
@@ -24,6 +25,7 @@ export const RentCard: React.FC<RentCardProps> = ({
   totalRent,
   totalPaid,
   remainingAmount,
+  advanceBalance = 0,
   status,
   dueDate,
   onPress,
@@ -70,6 +72,13 @@ export const RentCard: React.FC<RentCardProps> = ({
               <View style={[styles.progressBar, { width: `${Math.min(progress * 100, 100)}%`, backgroundColor: isPaid ? colors.success : colors.primary }]} />
             </View>
           </View>
+
+          {advanceBalance > 0 && (
+            <View style={styles.advanceBadge}>
+              <Ionicons name="trending-up" size={12} color="#16A34A" />
+              <Text style={styles.advanceText}>+{formatCurrency(advanceBalance)} Floating</Text>
+            </View>
+          )}
 
           {!isPaid && (
             <TouchableOpacity style={styles.payButton} onPress={onPayPress} activeOpacity={0.8}>
@@ -145,6 +154,24 @@ const makeStyles = (colors: any) => StyleSheet.create({
   progressBar: {
     height: '100%',
     borderRadius: 3,
+  },
+  advanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 3,
+    backgroundColor: colors.successLight,
+    borderWidth: 1,
+    borderColor: colors.success,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 2,
+    marginBottom: spacing.md,
+  },
+  advanceText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16A34A',
   },
   payButton: {
     backgroundColor: colors.primary,

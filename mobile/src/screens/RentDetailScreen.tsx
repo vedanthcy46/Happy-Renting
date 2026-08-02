@@ -295,6 +295,12 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                 <Text style={styles.progressLabel}>Paid: {formatCurrency(record.totalPaid)}</Text>
                 <Text style={styles.progressLabel}>Remaining: {formatCurrency(record.remainingAmount)}</Text>
               </View>
+              {(record.advanceBalance || 0) > 0 && (
+                <View style={styles.floatingBadge}>
+                  <Ionicons name="trending-up" size={12} color="#BBF7D0" />
+                  <Text style={styles.floatingBadgeText}>+{formatCurrency(record.advanceBalance || 0)} Floating — applied to pending bills</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.summaryDetails}>
@@ -401,6 +407,13 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                 onChangeText={(text) => setManualForm({ ...manualForm, amount: text })}
                 keyboardType="numeric"
               />
+
+              <View style={styles.overpayNote}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+                <Text style={styles.overpayNoteText}>
+                  You can pay more than the rent amount. The extra is kept as advance and automatically adjusted against your pending bills.
+                </Text>
+              </View>
 
               <Text style={styles.fieldLabel}>Payment Method</Text>
               <View style={styles.methodRow}>
@@ -576,6 +589,19 @@ const makeStyles = (colors: any) => StyleSheet.create({
   progressLabel: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'transparent',
+  },
+  floatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.sm,
+    backgroundColor: 'transparent',
+  },
+  floatingBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#BBF7D0',
     backgroundColor: 'transparent',
   },
   summaryDetails: {
@@ -776,6 +802,22 @@ const makeStyles = (colors: any) => StyleSheet.create({
     flexWrap: 'wrap',
     marginBottom: spacing.xl,
     gap: spacing.sm,
+  },
+  overpayNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+    marginTop: spacing.xs,
+  },
+  overpayNoteText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.text.secondary,
   },
   methodChip: {
     paddingHorizontal: spacing.lg,
