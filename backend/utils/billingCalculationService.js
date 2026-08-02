@@ -23,11 +23,11 @@ const getDaysInMonth = (year, monthIndex) => {
  */
 const calculateDueDate = (monthStr) => {
   const [year, monthNum] = monthStr.split('-').map(Number);
-  // Default to 5 if not in env
   const defaultDueDay = parseInt(process.env.GLOBAL_RENT_DUE_DAY || process.env.DEFAULT_RENT_DUE_DAY || '5', 10);
-  
-  // Create Date for the 5th of the NEXT month (since postpaid bills are generated for the previous month)
-  return new Date(year, monthNum, defaultDueDay, 12, 0, 0, 0);
+
+  // monthNum is 1-based from the YYYY-MM string, so monthIndex must be monthNum - 1.
+  const monthIndex = Math.max(0, monthNum - 1);
+  return new Date(year, monthIndex, defaultDueDay, 12, 0, 0, 0);
 };
 
 /**

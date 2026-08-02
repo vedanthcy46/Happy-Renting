@@ -615,6 +615,9 @@ const chargeMonthlySubscriptions = async () => {
     const subscriptionFee = settings.monthlySubscription;
     if (subscriptionFee <= 0) return;
 
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+
     // Find all active wallets
     const wallets = await OwnerWallet.find({ status: 'active' }).populate('ownerId').session(session);
     const systemId = new mongoose.Types.ObjectId(); // Mock system user ID
@@ -627,14 +630,10 @@ const chargeMonthlySubscriptions = async () => {
       const actualOwnerId = wallet.ownerId._id || wallet.ownerId;
 
       // Check if already charged for current calendar month
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
       const alreadyCharged = await WalletTransaction.findOne({
         ownerId: actualOwnerId,
         type: 'subscription_fee',
-        createdAt: { $gte: startOfMonth }
+        createdAt: { $gte: currentMonthStart }
       }).session(session);
 
       if (alreadyCharged) continue;

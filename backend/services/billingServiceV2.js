@@ -23,9 +23,8 @@ const notificationService = require('./notificationService');
 const generateMonthlyBills = async (ownerId, tenantId) => {
   try {
     const utcDate = new Date();
-    const istString = utcDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-    const today = new Date(istString);
-    const currentMonthStr = today.toISOString().slice(0, 7); // "YYYY-MM"
+    const today = new Date(utcDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     
     logger.info(`[CRON-V2] IST Date: ${today.toISOString()}`);
     const billingResults = { created: 0, skipped: 0, errors: 0 };
