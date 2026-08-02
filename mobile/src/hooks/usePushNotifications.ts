@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { updatePushToken } from '../api/notifications';
+import { useAuthStore } from '../store/useAuthStore';
 import type * as NotificationsType from 'expo-notifications';
 
 let Notifications: typeof NotificationsType | null = null;
@@ -28,19 +29,21 @@ if (Notifications) {
   }
 }
 
-export function usePushNotifications() {
+export function usePushNotifications(onNotificationTap?: (data: any) => void) {
   const [expoPushToken, setExpoPushToken] = useState<string>('');
   const [notification, setNotification] = useState<NotificationsType.Notification | false>(false);
+  const authToken = useAuthStore((state) => state.token);
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
+  const onNotificationTapRef = useRef(onNotificationTap);
+
+  useEffect(() => {
+    onNotificationTapRef.current = onNotificationTap;
+  }, [onNotificationTap]);
 
   useEffect(() => {
     registerForPushNotificationsAsync().then(token => {
-      if (token) {
-        setExpoPushToken(token);
-        // Sync token with backend
-        updatePushToken(token, Device.osBuildId || Device.modelName || 'unknown', Platform.OS).catch(console.error);
-      }
+      if (token) setExpoPushToken(token);
     });
 
     if (Notifications) {
@@ -48,8 +51,14 @@ export function usePushNotifications() {
         setNotification(notification);
       });
 
-      responseListener.current = Notifications.addNotificationResponseReceivedListener(_response => {
-        // Notification tap handled by navigation
+      const handleResponse = (response: any) => {
+        const data = response?.notification?.request?.content?.data || {};
+        onNotificationTapRef.current?.(data);
+      };
+
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(handleResponse);
+      Notifications.getLastNotificationResponseAsync?.().then((last: any) => {
+        if (last) handleResponse(last);
       });
     }
 
@@ -62,6 +71,11 @@ export function usePushNotifications() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!expoPushToken || !authToken) return;
+    updatePushToken(expoPushToken, Device.osBuildId || Device.modelName || 'unknown', Platform.OS).catch(console.error);
+  }, [expoPushToken, authToken]);
 
   return { expoPushToken, notification };
 }

@@ -42,3 +42,7 @@ export const deleteNotification = async (id: string): Promise<void> => {
 export const clearAllNotifications = async (): Promise<void> => {
   await api.delete('/v2/notifications/clear-all');
 };
+
+export const sendTestPush = async (): Promise<void> => {
+  await api.post('/v2/notifications/test-push');
+};

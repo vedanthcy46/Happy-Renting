@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const Notification = require('../models/Notification');
+const notificationService = require('../services/notificationService');
 
 // GET /v2/notifications
 // Get user notifications (paginated or last 50)
@@ -87,6 +88,22 @@ router.delete('/:id', authenticate, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Notification not found' });
     }
     res.status(200).json({ success: true, message: 'Notification deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /v2/notifications/test-push
+// Send a test push to the current user's device (dev/testing helper)
+router.post('/test-push', authenticate, async (req, res, next) => {
+  try {
+    await notificationService.sendPushNotification({
+      userId: req.user._id,
+      title: 'Test Notification',
+      body: 'This is a test push. If you can see this, push notifications are working!',
+      type: 'system',
+    });
+    res.status(200).json({ success: true, message: 'Test push sent.' });
   } catch (err) {
     next(err);
   }

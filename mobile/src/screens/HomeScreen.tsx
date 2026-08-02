@@ -1,13 +1,10 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
   Alert,
-  Modal,
-  Animated,
-  Platform,
   Linking,
   TextInput,
   Text,
@@ -21,7 +18,7 @@ import { getMyTenancy, addRoommate, updateRoommate, deleteRoommate } from '../ap
 import { getRentRecords } from '../api/payment';
 import { getNotifications } from '../api/notifications';
 import { useAuthStore } from '../store/useAuthStore';
-import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard } from '../components';
+import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard, AppBottomSheet } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatDate, getInitials, formatMonth } from '../utils';
@@ -36,7 +33,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const scrollY = useRef(new Animated.Value(0)).current;
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [showRoommateModal, setShowRoommateModal] = useState(false);
@@ -64,6 +60,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const records = rentData?.rentRecords || [];
   const latestRecord = records[0];
   const totalPending = records.reduce((sum, r) => sum + (r.status !== 'paid' && r.status !== 'overpaid' ? r.remainingAmount : 0), 0);
+  const isPrivateRoom = (tenant?.roomId as any)?.capacity === 1;
+  const coOccupants = (tenant?.coOccupants as any[]) || [];
 
   const mutationAdd = useMutation({
     mutationFn: (data: any) => addRoommate(tenant!._id, data),
@@ -117,18 +115,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
   }, []);
 
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, 120],
-    outputRange: [220, 120],
-    extrapolate: 'clamp',
-  });
-
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 80],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-
   if (isLoading || isLoadingRent) {
     return (
       <View style={styles.container}>
@@ -171,60 +157,53 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.headerContainer, { height: headerHeight }]}>
-        <LinearGradient
-          colors={colors.gradient.primary as any}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.headerGradient, { paddingTop: insets.top + spacing.lg }]}
-        >
-          <Animated.View style={[styles.headerContent, { opacity: headerOpacity }]}>
-            <View style={styles.headerRow}>
+      <LinearGradient
+        colors={colors.gradient.primary as any}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: insets.top + spacing.lg }]}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={[styles.iconButton, { marginRight: spacing.sm }]}
+              onPress={() => appEvents.emit(OPEN_DRAWER_EVENT)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="menu-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={[styles.headerTextBlock, { flex: 1, marginHorizontal: spacing.sm }]}>
+              <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</Text>
+              <Text style={styles.userName} numberOfLines={1} adjustsFontSizeToFit>{user?.name || 'Tenant'}</Text>
+            </View>
+            <View style={styles.headerRight}>
               <TouchableOpacity
-                style={[styles.iconButton, { marginRight: spacing.sm }]}
-                onPress={() => appEvents.emit(OPEN_DRAWER_EVENT)}
+                style={styles.iconButton}
+                onPress={() => onNavigate('notifications')}
                 activeOpacity={0.7}
               >
-                <Ionicons name="menu-outline" size={24} color="#FFFFFF" />
+                <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
-              <View style={[styles.headerTextBlock, { flex: 1, marginHorizontal: spacing.sm }]}>
-                <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</Text>
-                <Text style={styles.userName} numberOfLines={1} adjustsFontSizeToFit>{user?.name || 'Tenant'}</Text>
-              </View>
-              <View style={styles.headerRight}>
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={() => onNavigate('notifications')}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-                  {unreadCount > 0 && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
             </View>
-            <View style={styles.propertyRow}>
-              <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.propertyText}>
-                {tenant.propertyId?.name} · Room {tenant.roomId?.roomNumber}
-              </Text>
-            </View>
-          </Animated.View>
-        </LinearGradient>
-      </Animated.View>
+          </View>
+          <View style={styles.propertyRow}>
+            <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.propertyText}>
+              {tenant.propertyId?.name} · Room {tenant.roomId?.roomNumber}
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
 
-      <Animated.ScrollView
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={isLoading || isLoadingRent}
@@ -350,6 +329,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <Text style={styles.detailValue}>{tenant.roomId?.roomNumber}</Text>
             </View>
             <View style={styles.detailItem}>
+              <Ionicons name="people-outline" size={16} color={colors.text.secondary} />
+              <Text style={styles.detailLabel}>Capacity</Text>
+              <Text style={styles.detailValue}>
+                {(tenant.roomId as any)?.capacity != null ? `${(tenant.roomId as any).capacity} ${(tenant.roomId as any).capacity > 1 ? 'people' : 'person'}` : '—'}
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
               <Ionicons name="cash-outline" size={16} color={colors.text.secondary} />
               <Text style={styles.detailLabel}>Monthly Rent</Text>
               <Text style={styles.detailValue}>{formatCurrency(tenant.roomId?.monthlyRent)}</Text>
@@ -362,39 +348,52 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           </View>
         </AppCard>
 
-        {tenant?.coOccupants && tenant!.coOccupants!.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Roommates</Text>
-            <AppCard variant="elevated" style={styles.sectionCard}>
-              {(tenant.coOccupants as any[]).map((co: any, idx: number) => (
-                <View key={co._id} style={[styles.roommateRow, idx === tenant!.coOccupants!.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={styles.roommateAvatar}>
-                    <Text style={styles.avatarText}>{getInitials(co.name)}</Text>
-                  </View>
-                  <View style={styles.roommateInfo}>
-                    <Text style={styles.roommateName}>{co.name}</Text>
-                    <Text style={styles.roommatePhone}>{co.phone}</Text>
-                  </View>
-                  <View style={styles.roommateActions}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setEditingRoommate(co);
-                        setRoommateForm({ name: co.name, phone: co.phone, idProof: co.idProof || '' });
-                        setShowRoommateModal(true);
-                      }}
-                      style={styles.actionBtn}
-                    >
-                      <Ionicons name="pencil" size={16} color={colors.text.secondary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => confirmDeleteRoommate(co)}
-                      style={styles.actionBtn}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={colors.error} />
-                    </TouchableOpacity>
-                  </View>
+        <>
+          <Text style={styles.sectionTitle}>Roommates</Text>
+          <AppCard variant="elevated" style={styles.sectionCard}>
+            {coOccupants.length > 0 && coOccupants.map((co: any, idx: number) => (
+              <View key={co._id} style={[styles.roommateRow, idx === coOccupants.length - 1 && { borderBottomWidth: 0 }]}>
+                <View style={styles.roommateAvatar}>
+                  <Text style={styles.avatarText}>{getInitials(co.name)}</Text>
                 </View>
-              ))}
+                <View style={styles.roommateInfo}>
+                  <Text style={styles.roommateName}>{co.name}</Text>
+                  <Text style={styles.roommatePhone}>{co.phone}</Text>
+                </View>
+                <View style={styles.roommateActions}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingRoommate(co);
+                      setRoommateForm({ name: co.name, phone: co.phone, idProof: co.idProof || '' });
+                      setShowRoommateModal(true);
+                    }}
+                    style={styles.actionBtn}
+                  >
+                    <Ionicons name="pencil" size={16} color={colors.text.secondary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => confirmDeleteRoommate(co)}
+                    style={styles.actionBtn}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
+            {isPrivateRoom ? (
+              <View style={styles.noRoommates}>
+                <Ionicons name="lock-closed-outline" size={24} color={colors.text.tertiary} />
+                <Text style={styles.noRoommatesText}>This is a private room reserved for one tenant.</Text>
+              </View>
+            ) : coOccupants.length === 0 ? (
+              <View style={styles.noRoommates}>
+                <Ionicons name="people-outline" size={24} color={colors.text.tertiary} />
+                <Text style={styles.noRoommatesText}>No roommates yet. Add one below.</Text>
+              </View>
+            ) : null}
+
+            {!isPrivateRoom && (
               <TouchableOpacity
                 style={styles.addRoommateButton}
                 onPress={() => {
@@ -407,9 +406,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                 <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
                 <Text style={styles.addRoommateText}>Add Roommate</Text>
               </TouchableOpacity>
-            </AppCard>
-          </>
-        )}
+            )}
+          </AppCard>
+        </>
 
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.ownerSection}>
@@ -431,55 +430,53 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           <Ionicons name="calendar-outline" size={12} color={colors.text.tertiary} />
           <Text style={styles.joinedText}>Joined {formatDate(tenant.joinDate)}</Text>
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
 
-      <Modal visible={showRoommateModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>
-              {editingRoommate ? 'Edit Roommate' : 'Add Roommate'}
-            </Text>
-            <AppInput
-              label="Name"
-              placeholder="Enter name"
-              value={roommateForm.name}
-              onChangeText={(text) => setRoommateForm({ ...roommateForm, name: text })}
+      <AppBottomSheet
+        visible={showRoommateModal}
+        onClose={() => setShowRoommateModal(false)}
+      >
+        <Text style={styles.modalTitle}>
+          {editingRoommate ? 'Edit Roommate' : 'Add Roommate'}
+        </Text>
+        <AppInput
+          label="Name"
+          placeholder="Enter name"
+          value={roommateForm.name}
+          onChangeText={(text) => setRoommateForm({ ...roommateForm, name: text })}
+        />
+        <AppInput
+          label="Phone"
+          placeholder="Enter phone number"
+          value={roommateForm.phone}
+          onChangeText={(text) => setRoommateForm({ ...roommateForm, phone: text })}
+          keyboardType="phone-pad"
+        />
+        <AppInput
+          label="ID Proof (Optional)"
+          placeholder="Enter ID proof reference"
+          value={roommateForm.idProof}
+          onChangeText={(text) => setRoommateForm({ ...roommateForm, idProof: text })}
+        />
+        <View style={styles.modalButtons}>
+          <View style={{ flex: 1 }}>
+            <AppButton
+              title="Cancel"
+              onPress={() => setShowRoommateModal(false)}
+              variant="ghost"
+              fullWidth
             />
-            <AppInput
-              label="Phone"
-              placeholder="Enter phone number"
-              value={roommateForm.phone}
-              onChangeText={(text) => setRoommateForm({ ...roommateForm, phone: text })}
-              keyboardType="phone-pad"
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton
+              title={editingRoommate ? 'Update' : 'Add'}
+              onPress={handleSaveRoommate}
+              loading={mutationAdd.isPending || mutationUpdate.isPending}
+              fullWidth
             />
-            <AppInput
-              label="ID Proof (Optional)"
-              placeholder="Enter ID proof reference"
-              value={roommateForm.idProof}
-              onChangeText={(text) => setRoommateForm({ ...roommateForm, idProof: text })}
-            />
-            <View style={styles.modalButtons}>
-              <View style={{ flex: 1 }}>
-                <AppButton
-                  title="Cancel"
-                  onPress={() => setShowRoommateModal(false)}
-                  variant="ghost"
-                  fullWidth
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <AppButton
-                  title={editingRoommate ? 'Update' : 'Add'}
-                  onPress={handleSaveRoommate}
-                  loading={mutationAdd.isPending || mutationUpdate.isPending}
-                  fullWidth
-                />
-              </View>
-            </View>
           </View>
         </View>
-      </Modal>
+      </AppBottomSheet>
     </View>
   );
 };
@@ -495,16 +492,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xxl,
   },
-  headerContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    overflow: 'hidden',
-  },
   headerGradient: {
-    flex: 1,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xxl,
   },
@@ -605,7 +593,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 220,
+    paddingTop: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
   billCard: {
@@ -791,6 +779,15 @@ const makeStyles = (colors: any) => StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
+  noRoommates: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  noRoommatesText: {
+    fontSize: 14,
+    color: colors.text.tertiary,
+  },
   addRoommateText: {
     fontSize: 14,
     fontWeight: '600',
@@ -851,26 +848,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
     fontSize: 12,
     color: colors.text.tertiary,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xxl + 4,
-    borderTopRightRadius: radius.xxl + 4,
-    padding: spacing.xxl,
-    paddingBottom: spacing.huge + 20,
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    alignSelf: 'center',
-    marginBottom: spacing.xxl,
-  },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -882,6 +859,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
+    marginBottom: spacing.md,
   },
   modalBtnHalf: {
     flex: 1,

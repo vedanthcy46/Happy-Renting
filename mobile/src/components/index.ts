@@ -13,5 +13,6 @@ export { RentCard } from './RentCard';
 export { ActivityCard } from './ActivityCard';
 export { OfflineBanner } from './OfflineBanner';
 export { AppDrawer } from './AppDrawer';
+export { AppBottomSheet } from './AppBottomSheet';
 export { SuccessAnimation } from './SuccessAnimation';
 export { FeatureWalkthrough, TAB_BAR_HEIGHT } from './FeatureWalkthrough';

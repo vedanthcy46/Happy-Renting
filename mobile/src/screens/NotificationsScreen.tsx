@@ -1,10 +1,10 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Text, View, Animated } from 'react-native';
+import { StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Text, View, Animated, Alert } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotifications, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, Notification } from '../api/notifications';
+import { getNotifications, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, sendTestPush, Notification } from '../api/notifications';
 import { AppCard, EmptyState, ErrorState } from '../components';
 import { typography, spacing, radius } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
@@ -85,6 +85,16 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
   const mutationClearAll = useMutation({
     mutationFn: () => clearAllNotifications(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const mutationTestPush = useMutation({
+    mutationFn: () => sendTestPush(),
+    onSuccess: () => {
+      Alert.alert('Test Push Sent', 'If push is working, you should see the notification shortly.');
+    },
+    onError: () => {
+      Alert.alert('Failed', 'Could not send test push. Make sure the backend is reachable.');
+    },
   });
 
   const handleNotificationPress = (notification: Notification) => {
@@ -183,6 +193,16 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: colors.text.primary }]}>Notifications</Text>
         <View style={styles.headerActions}>
+          {__DEV__ && (
+            <TouchableOpacity
+              onPress={() => mutationTestPush.mutate()}
+              activeOpacity={0.7}
+              style={styles.headerIconBtn}
+              disabled={mutationTestPush.isPending}
+            >
+              <Ionicons name={mutationTestPush.isPending ? 'hourglass-outline' : 'paper-plane-outline'} size={20} color={colors.primary} />
+            </TouchableOpacity>
+          )}
           {data?.notifications?.length > 0 && (
             <TouchableOpacity onPress={() => mutationClearAll.mutate()} activeOpacity={0.7} style={styles.headerIconBtn}>
               <Ionicons name="trash-outline" size={20} color={colors.error} />

@@ -59,6 +59,7 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
       sound: 'default',
       title,
       body: finalMessage,
+      channelId: 'default',
       data: { notificationId: notification._id, ...data },
     }));
 

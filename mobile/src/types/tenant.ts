@@ -9,6 +9,8 @@ export interface Room {
   roomNumber: string;
   floor: number;
   monthlyRent: number;
+  capacity?: number;
+  currentOccupancy?: number;
 }
 
 export interface Owner {

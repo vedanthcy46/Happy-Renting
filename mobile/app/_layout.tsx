@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Stack, useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
+import { markAsRead } from '../src/api/notifications';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
 import { colors } from '../src/theme';
 import { appEvents, SESSION_EXPIRED_EVENT } from '../src/utils/events';
@@ -48,8 +49,50 @@ function AppContent() {
 
   const router = useRouter();
   const pathname = usePathname();
+  const pendingNotification = useRef<any>(null);
 
-  usePushNotifications();
+  const handleNotificationTap = useCallback((data: any) => {
+    const notificationId = data?.notificationId;
+    if (notificationId) {
+      markAsRead(notificationId).catch(() => {});
+    }
+
+    const rentRecordId = data?.rentRecordId;
+    const complaintId = data?.complaintId;
+
+    const navigate = () => {
+      if (rentRecordId) {
+        router.navigate(`/rentDetail/${rentRecordId}` as any);
+      } else if (complaintId) {
+        router.navigate('/(tabs)/complaints' as any);
+      } else {
+        router.navigate('/notifications' as any);
+      }
+    };
+
+    const { user: u, token: t } = useAuthStore.getState();
+    if (!u || !t) {
+      pendingNotification.current = { rentRecordId, complaintId };
+      return;
+    }
+    navigate();
+  }, [router]);
+
+  usePushNotifications(handleNotificationTap);
+
+  useEffect(() => {
+    if (user && token && pendingNotification.current) {
+      const pending = pendingNotification.current;
+      pendingNotification.current = null;
+      if (pending.rentRecordId) {
+        router.navigate(`/rentDetail/${pending.rentRecordId}` as any);
+      } else if (pending.complaintId) {
+        router.navigate('/(tabs)/complaints' as any);
+      } else {
+        router.navigate('/notifications' as any);
+      }
+    }
+  }, [user, token, router]);
 
   useEffect(() => {
     initialize();
