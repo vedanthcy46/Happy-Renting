@@ -15,10 +15,12 @@ import {
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
+import { Image as CachedImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getRentRecordDetail, createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment } from '../api/payment';
+import { createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment } from '../api/payment';
+import { cachedRentRecordDetail } from '../repositories';
 import { PaymentTransaction } from '../types/payment';
 import { AppCard, AppButton, AppInput, StatusBadge, GradientCard } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
@@ -51,7 +53,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['rentRecordDetail', rentRecordId],
-    queryFn: () => getRentRecordDetail(rentRecordId),
+    queryFn: cachedRentRecordDetail(rentRecordId),
   });
 
   const onRefresh = useCallback(async () => {
@@ -67,13 +69,17 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
 
   const mutationManual = useMutation({
     mutationFn: ({ id, formData }: { id: string; formData: FormData }) => submitManualPayment(id, formData),
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['rentRecordDetail', rentRecordId] });
       queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
       setShowManualModal(false);
       resetManualForm();
-      Alert.alert('Submitted', 'Payment submitted for verification');
-      maybeRequestRating();
+      if (res.transaction?.queued) {
+        Alert.alert('Payment Queued', 'Saved offline. It will be submitted automatically when you are back online.');
+      } else {
+        Alert.alert('Submitted', 'Payment submitted for verification');
+        maybeRequestRating();
+      }
     },
     onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to submit payment'),
   });
@@ -358,6 +364,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                   <View>
                     <Text style={styles.txnMethod}>{txn.paymentMethod.replace('_', ' ').toUpperCase()}</Text>
                     <Text style={styles.txnDate}>{formatDate(txn.paymentDate)}</Text>
+                    {txn.queued && <Text style={styles.txnQueued}>Queued — syncs when online</Text>}
                   </View>
                 </View>
                 <View style={styles.txnRight}>
@@ -422,7 +429,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                     <Text selectable style={styles.upiText}>Phone: {(record.ownerId as any).upiNumber}</Text>
                   )}
                   {(record.ownerId as any)?.qrCodeImage?.secureUrl && (
-                    <Image source={{ uri: (record.ownerId as any).qrCodeImage.secureUrl }} style={styles.qrImage} resizeMode="contain" />
+                    <CachedImage source={{ uri: (record.ownerId as any).qrCodeImage.secureUrl }} style={styles.qrImage} contentFit="contain" />
                   )}
                 </View>
               )}
@@ -698,6 +705,12 @@ const makeStyles = (colors: any) => StyleSheet.create({
   txnDate: {
     fontSize: 12,
     color: colors.text.secondary,
+    marginTop: 2,
+  },
+  txnQueued: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.warning,
     marginTop: 2,
   },
   txnRight: {

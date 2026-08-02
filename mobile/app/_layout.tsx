@@ -4,7 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { fontAssets } from '../src/theme/typography';
 import 'react-native-reanimated';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useIsRestoring } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,17 +20,19 @@ import { colors } from '../src/theme';
 import { appEvents, SESSION_EXPIRED_EVENT } from '../src/utils/events';
 import { isBiometricEnabled, authenticateWithBiometric } from '../src/hooks/useBiometric';
 import { OfflineBanner } from '../src/components';
+import { queryClient } from '../src/queryClient';
+import { sqlitePersister } from '../src/persist/sqlitePersister';
+import { startSyncEngine } from '../src/sync/syncEngine';
 
 const ONBOARDING_KEY = 'onboarding_completed';
+const CACHE_BUSTER = 'v1';
+const CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 30;
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      staleTime: 1000 * 60 * 5,
-    },
-  },
-});
+function CacheGate({ children }: { children: React.ReactNode }) {
+  const isRestoring = useIsRestoring();
+  if (isRestoring) return null;
+  return <>{children}</>;
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -97,6 +100,12 @@ function AppContent() {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (user && token) {
+      startSyncEngine();
+    }
+  }, [user, token]);
 
   // Check onboarding flag and redirect if needed
   useEffect(() => {
@@ -241,13 +250,22 @@ function AppContent() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: sqlitePersister,
+          maxAge: CACHE_MAX_AGE,
+          buster: CACHE_BUSTER,
+        }}
+      >
         <ThemeProvider>
           <GestureHandlerRootView style={styles.root}>
-            <AppContent />
+            <CacheGate>
+              <AppContent />
+            </CacheGate>
           </GestureHandlerRootView>
         </ThemeProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </SafeAreaProvider>
   );
 }

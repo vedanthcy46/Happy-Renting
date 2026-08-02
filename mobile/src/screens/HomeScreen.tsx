@@ -14,9 +14,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getMyTenancy, addRoommate, updateRoommate, deleteRoommate } from '../api/tenant';
-import { getRentRecords } from '../api/payment';
-import { getNotifications } from '../api/notifications';
+import { addRoommate, updateRoommate, deleteRoommate } from '../api/tenant';
+import { cachedRentRecords, cachedNotificationsUnread, cachedTenancy } from '../repositories';
 import { useAuthStore } from '../store/useAuthStore';
 import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard, AppBottomSheet } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
@@ -41,17 +40,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['myTenancy'],
-    queryFn: getMyTenancy,
+    queryFn: cachedTenancy,
   });
 
   const { data: rentData, isLoading: isLoadingRent } = useQuery({
     queryKey: ['rentRecords'],
-    queryFn: getRentRecords,
+    queryFn: cachedRentRecords,
   });
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications', 'unread'],
-    queryFn: () => getNotifications(1, 1),
+    queryFn: cachedNotificationsUnread,
     refetchInterval: 30 * 1000,
   });
   const unreadCount = notifData?.unreadCount || 0;

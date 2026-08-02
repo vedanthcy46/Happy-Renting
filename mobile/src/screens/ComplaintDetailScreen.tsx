@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Image,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -14,9 +13,11 @@ import {
   FlatList,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Image as CachedImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getComplaintDetail, addComplaintComment } from '../api/complaint';
+import { addComplaintComment } from '../api/complaint';
+import { cachedComplaintDetail } from '../repositories';
 import { StatusBadge, AppCard } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
@@ -47,7 +48,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['complaintDetail', complaintId],
-    queryFn: () => getComplaintDetail(complaintId),
+    queryFn: cachedComplaintDetail(complaintId),
     refetchInterval: 5000, // Poll every 5 seconds for real-time messages
   });
 
@@ -224,11 +225,11 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
               <Text style={styles.sectionLabel}>Attachments</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imagesScroll}>
                 {complaint.images.map((imgUri, index) => (
-                  <Image
+                  <CachedImage
                     key={index}
                     source={{ uri: imgUri }}
                     style={styles.attachmentImage}
-                    resizeMode="cover"
+                    contentFit="cover"
                   />
                 ))}
               </ScrollView>

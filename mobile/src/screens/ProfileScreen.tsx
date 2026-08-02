@@ -138,7 +138,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
       const res = await updateProfile(formData);
       if (res.success) {
         await setAuth(res.user, token!);
-        Alert.alert('Success', 'Profile updated successfully');
+        if (res.queued) {
+          Alert.alert('Saved Offline', 'Profile updated on this device. It will sync automatically when you are back online.');
+        } else {
+          Alert.alert('Success', 'Profile updated successfully');
+        }
       }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to update profile');

@@ -14,7 +14,15 @@ router.get('/', authenticate, async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
 
-    const notifications = await Notification.find({ userId: req.user._id })
+    const query = { userId: req.user._id };
+
+    // Incremental sync: only return notifications modified after a timestamp
+    const { updatedAfter } = req.query;
+    if (updatedAfter && !isNaN(Date.parse(updatedAfter))) {
+      query.updatedAt = { $gt: new Date(updatedAfter) };
+    }
+
+    const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

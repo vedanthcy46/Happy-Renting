@@ -14,7 +14,7 @@ const TypedFlashList = FlashList as any;
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTransactionHistory } from '../api/payment';
+import { cachedTransactionHistory } from '../repositories';
 import { PaymentTransaction } from '../types/payment';
 import { StatusBadge, AppCard, EmptyState } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
@@ -55,7 +55,7 @@ export const TransactionHistoryScreen: React.FC = () => {
 
   const { data, isLoading, refetch, isError } = useQuery({
     queryKey: ['transactionHistory'],
-    queryFn: getTransactionHistory,
+    queryFn: cachedTransactionHistory,
   });
 
   const handleRefresh = async () => {

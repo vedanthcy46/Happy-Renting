@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { clearBiometricCredentials } from '../hooks/useBiometric';
+import { queryClient } from '../queryClient';
+import { sqlitePersister } from '../persist/sqlitePersister';
+import { clearOutbox } from '../db/outbox';
+import { clearAllCaches } from '../db/cacheRepo';
+import { clearSyncCursors } from '../sync/syncEngine';
 
 interface User {
   _id: string;
@@ -38,15 +43,29 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     try {
-      await SecureStore.deleteItemAsync('userToken');
-      await SecureStore.deleteItemAsync('userData');
+      queryClient.clear();
+      await Promise.all([
+        SecureStore.deleteItemAsync('userToken'),
+        SecureStore.deleteItemAsync('userData'),
+        Promise.resolve(sqlitePersister.removeClient()).catch(() => {}),
+        Promise.resolve(clearOutbox()).catch(() => {}),
+        Promise.resolve(clearSyncCursors()).catch(() => {}),
+        Promise.resolve(clearAllCaches()).catch(() => {}),
+      ]);
       await clearBiometricCredentials();
       set({ user: null, token: null, isLoading: false });
       if (__DEV__) console.log('[Auth] Logged out and storage cleared');
     } catch (error) {
       console.error('[Auth] Failed to clear session', error);
       // Still clear the state
-      await clearBiometricCredentials().catch(() => {});
+      queryClient.clear();
+      await Promise.all([
+        clearBiometricCredentials().catch(() => {}),
+        Promise.resolve(sqlitePersister.removeClient()).catch(() => {}),
+        Promise.resolve(clearOutbox()).catch(() => {}),
+        Promise.resolve(clearSyncCursors()).catch(() => {}),
+        Promise.resolve(clearAllCaches()).catch(() => {}),
+      ]);
       set({ user: null, token: null, isLoading: false });
     }
   },

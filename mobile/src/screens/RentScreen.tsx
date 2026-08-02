@@ -12,7 +12,8 @@ import { FlashList } from '@shopify/flash-list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRentRecords, triggerBillingSync } from '../api/payment';
+import { triggerBillingSync } from '../api/payment';
+import { cachedRentRecords } from '../repositories';
 import { RentRecord } from '../types/payment';
 import { RentCard, EmptyState } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
@@ -30,7 +31,7 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['rentRecords'],
-    queryFn: getRentRecords,
+    queryFn: cachedRentRecords,
   });
 
   const mutationSync = useMutation({

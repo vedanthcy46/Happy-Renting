@@ -21,6 +21,12 @@ const getComplaints = async (req, res, next) => {
       filter.tenantId = tenant._id;
     }
 
+    // Incremental sync: only return complaints modified after a timestamp
+    const { updatedAfter } = req.query;
+    if (updatedAfter && !isNaN(Date.parse(updatedAfter))) {
+      filter.updatedAt = { $gt: new Date(updatedAfter) };
+    }
+
     const complaints = await Complaint.find(filter)
       .populate({
         path: 'tenantId',

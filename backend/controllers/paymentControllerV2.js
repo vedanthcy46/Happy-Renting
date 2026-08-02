@@ -69,10 +69,15 @@ const getRentRecords = async (req, res, next) => {
     }
 
     // Query filters
-    const { tenantId, propertyId, month, year, status } = req.query;
+    const { tenantId, propertyId, month, year, status, updatedAfter } = req.query;
     if (tenantId && /^[a-f\d]{24}$/i.test(tenantId)) filters.tenantId = tenantId;
     if (propertyId && /^[a-f\d]{24}$/i.test(propertyId)) filters.propertyId = propertyId;
     if (status) filters.status = status;
+
+    // Incremental sync: only return records modified after a timestamp
+    if (updatedAfter && !isNaN(Date.parse(updatedAfter))) {
+      filters.updatedAt = { $gt: new Date(updatedAfter) };
+    }
 
     // Advanced Month/Year Filtering
     if (month && year) {
@@ -440,9 +445,14 @@ const getTransactionHistory = async (req, res, next) => {
       filters.tenantId = tenancy._id;
     }
 
-    const { tenantId, rentRecordId, month } = req.query;
+    const { tenantId, rentRecordId, month, updatedAfter } = req.query;
     if (tenantId && /^[a-f\d]{24}$/i.test(tenantId)) filters.tenantId = tenantId;
     if (rentRecordId && /^[a-f\d]{24}$/i.test(rentRecordId)) filters.rentRecordId = rentRecordId;
+
+    // Incremental sync: only return transactions modified after a timestamp
+    if (updatedAfter && !isNaN(Date.parse(updatedAfter))) {
+      filters.updatedAt = { $gt: new Date(updatedAfter) };
+    }
 
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 100;

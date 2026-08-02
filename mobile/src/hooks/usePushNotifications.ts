@@ -4,14 +4,24 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { updatePushToken } from '../api/notifications';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePushStore } from '../store/usePushStore';
 import type * as NotificationsType from 'expo-notifications';
 
 let Notifications: typeof NotificationsType | null = null;
+let requireError: string = '';
 try {
   Notifications = require('expo-notifications');
-} catch (error) {
-  if (__DEV__) console.log('expo-notifications not available in this environment');
+} catch (error: any) {
+  requireError = error?.message || String(error);
+  if (__DEV__) console.log('expo-notifications not available in this environment', error);
 }
+
+const detectEnvironment = (): string => {
+  if (Platform.OS === 'web') return 'web browser';
+  if (Constants.appOwnership === 'expo') return 'Expo Go';
+  if (!Device.isDevice) return 'emulator/simulator';
+  return Platform.OS === 'ios' ? 'iOS native' : 'Android native';
+};
 
 if (Notifications) {
   try {
@@ -74,7 +84,12 @@ export function usePushNotifications(onNotificationTap?: (data: any) => void) {
 
   useEffect(() => {
     if (!expoPushToken || !authToken) return;
-    updatePushToken(expoPushToken, Device.osBuildId || Device.modelName || 'unknown', Platform.OS).catch(console.error);
+    updatePushToken(expoPushToken, Device.osBuildId || Device.modelName || 'unknown', Platform.OS)
+      .then(() => usePushStore.setState({ status: 'registered' }))
+      .catch((err) => {
+        console.error('Push token sync failed', err);
+        usePushStore.setState({ status: 'failed', error: `Sync failed: ${err?.message || err}` });
+      });
   }, [expoPushToken, authToken]);
 
   return { expoPushToken, notification };
@@ -82,7 +97,13 @@ export function usePushNotifications(onNotificationTap?: (data: any) => void) {
 
 async function registerForPushNotificationsAsync() {
   let token;
-  if (!Notifications) return token;
+  if (!Notifications) {
+    usePushStore.getState().setFailed(requireError || 'expo-notifications not available');
+    usePushStore.setState({ environment: detectEnvironment() });
+    return token;
+  }
+
+  const envLabel = detectEnvironment();
 
   try {
     if (Platform.OS === 'android') {
@@ -94,24 +115,34 @@ async function registerForPushNotificationsAsync() {
       });
     }
 
-    if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== 'granted') {
-        if (__DEV__) console.log('Push notification permission denied');
-        return;
-      }
-      token = (await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig?.extra?.eas?.projectId,
-      })).data;
-    } else {
+    if (!Device.isDevice) {
+      usePushStore.getState().setNoDevice();
+      usePushStore.setState({ environment: `${envLabel} (emulator/simulator)` });
       if (__DEV__) console.log('Push notifications require a physical device');
+      return;
     }
-  } catch (error) {
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      usePushStore.getState().setPermissionDenied();
+      usePushStore.setState({ environment: envLabel });
+      if (__DEV__) console.log('Push notification permission denied');
+      return;
+    }
+
+    token = (await Notifications.getExpoPushTokenAsync({
+      projectId: Constants.expoConfig?.extra?.eas?.projectId,
+    })).data;
+
+    usePushStore.getState().setToken(token, envLabel);
+  } catch (error: any) {
+    usePushStore.getState().setFailed(`${error?.message || error}`);
+    usePushStore.setState({ environment: envLabel });
     if (__DEV__) console.log('Push notification registration failed', error);
   }
 

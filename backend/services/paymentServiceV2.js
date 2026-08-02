@@ -745,6 +745,7 @@ const verifyTransaction = async (transactionId, caller) => {
   // Send status email to tenant
   try {
     if (rentRecord) {
+      const populated = await rentRecord.populate('userId propertyId roomId ownerId');
       if (populated.userId) {
         if (populated.userId.email) {
           await emailService.sendPaymentStatusNotification(

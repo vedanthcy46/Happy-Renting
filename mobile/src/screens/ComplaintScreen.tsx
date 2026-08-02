@@ -18,7 +18,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { getComplaints, createComplaint } from '../api/complaint';
+import { createComplaint, createComplaintFormData } from '../api/complaint';
+import { cachedComplaints } from '../repositories';
 import { Complaint } from '../types/complaint';
 import { AppCard, AppButton, AppInput, StatusBadge, EmptyState } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
@@ -53,16 +54,20 @@ export const ComplaintScreen: React.FC = () => {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['complaints'],
-    queryFn: getComplaints,
+    queryFn: cachedComplaints,
   });
 
   const mutation = useMutation({
     mutationFn: createComplaint,
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['complaints'] });
       setShowAddModal(false);
       setForm({ title: '', description: '', priority: 'medium', category: 'other' });
       setImageUri(null);
+      const isQueued = typeof res?.complaint?._id === 'string' && res.complaint._id.startsWith('local-');
+      if (isQueued) {
+        Alert.alert('Saved Offline', 'Complaint saved on this device. It will be submitted automatically when you are back online.');
+      }
     },
     onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to submit complaint'),
   });
@@ -84,22 +89,13 @@ export const ComplaintScreen: React.FC = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('title', form.title.trim());
-    formData.append('description', form.description.trim());
-    formData.append('priority', form.priority);
-    formData.append('category', form.category);
-
-    if (imageUri) {
-      const filename = imageUri.split('/').pop() || 'photo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-      formData.append('image', {
-        uri: Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri,
-        name: filename,
-        type,
-      } as any);
-    }
+    const formData = createComplaintFormData({
+      title: form.title.trim(),
+      description: form.description.trim(),
+      priority: form.priority,
+      category: form.category,
+      imageUri: imageUri || undefined,
+    });
 
     mutation.mutate(formData as any);
   };

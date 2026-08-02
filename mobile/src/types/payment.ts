@@ -6,6 +6,7 @@ export interface RentRecord {
   remainingAmount: number;
   status: 'pending' | 'partial' | 'paid' | 'overdue' | 'overpaid';
   dueDate: string;
+  updatedAt?: string;
   ownerId?: {
     name?: string;
     email?: string;
@@ -25,6 +26,7 @@ export interface PaymentTransaction {
   paymentDate: string;
   status: 'pending' | 'verified' | 'rejected' | 'reversed' | 'verifying' | 'completed';
   referenceId?: string;
+  queued?: boolean;
 }
 
 export interface RentRecordsResponse {

@@ -4,7 +4,9 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotifications, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, sendTestPush, Notification } from '../api/notifications';
+import { markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, sendTestPush, Notification } from '../api/notifications';
+import { cachedNotifications } from '../repositories';
+import { usePushStore } from '../store/usePushStore';
 import { AppCard, EmptyState, ErrorState } from '../components';
 import { typography, spacing, radius } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
@@ -47,44 +49,114 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => getNotifications(1, 50),
+    queryFn: cachedNotifications,
   });
+
+  const applyNotificationsUpdate = (mutator: (data: any) => any) => {
+    queryClient.setQueryData(['notifications'], (old: any) => (old ? mutator(old) : old));
+    queryClient.setQueryData(['notifications', 'unread'], (old: any) => (old ? mutator(old) : old));
+  };
+
+  const snapshotNotifications = () => ({
+    notifications: queryClient.getQueryData(['notifications']),
+    unread: queryClient.getQueryData(['notifications', 'unread']),
+  });
+
+  const restoreNotifications = (snapshot: any) => {
+    if (snapshot.notifications !== undefined) {
+      queryClient.setQueryData(['notifications'], snapshot.notifications);
+    }
+    if (snapshot.unread !== undefined) {
+      queryClient.setQueryData(['notifications', 'unread'], snapshot.unread);
+    }
+  };
+
+  const invalidateNotifications = () => {
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] });
+  };
 
   const mutationMarkRead = useMutation({
     mutationFn: (id: string) => markAsRead(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const snapshot = snapshotNotifications();
+      applyNotificationsUpdate((data) => {
+        const wasRead = data.notifications?.find((n: any) => n._id === id)?.read;
+        return {
+          ...data,
+          unreadCount: Math.max(0, (data.unreadCount || 0) - (wasRead ? 0 : 1)),
+          notifications: (data.notifications || []).map((n: any) =>
+            n._id === id ? { ...n, read: true } : n
+          ),
+        };
+      });
+      return { snapshot };
+    },
+    onError: (_err, _id, context: any) => {
+      if (context?.snapshot) restoreNotifications(context.snapshot);
+    },
+    onSettled: invalidateNotifications,
   });
 
   const mutationMarkAllRead = useMutation({
     mutationFn: () => markAllAsRead(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const snapshot = snapshotNotifications();
+      applyNotificationsUpdate((data) => ({
+        ...data,
+        unreadCount: 0,
+        notifications: (data.notifications || []).map((n: any) => ({ ...n, read: true })),
+      }));
+      return { snapshot };
+    },
+    onError: (_err, _vars, context: any) => {
+      if (context?.snapshot) restoreNotifications(context.snapshot);
+    },
+    onSettled: invalidateNotifications,
   });
 
   const mutationDelete = useMutation({
     mutationFn: (id: string) => deleteNotification(id),
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
-      const previousData = queryClient.getQueryData(['notifications']);
-      queryClient.setQueryData(['notifications'], (old: any) => {
-        if (!old) return old;
+      const snapshot = snapshotNotifications();
+      applyNotificationsUpdate((data) => {
+        const removed = data.notifications?.find((n: any) => n._id === deletedId);
         return {
-          ...old,
-          notifications: (old.notifications || []).filter((n: any) => n._id !== deletedId),
+          ...data,
+          unreadCount: Math.max(0, (data.unreadCount || 0) - (removed?.read ? 0 : 1)),
+          count: Math.max(0, (data.count || 0) - 1),
+          notifications: (data.notifications || []).filter((n: any) => n._id !== deletedId),
         };
       });
-      return { previousData };
+      return { snapshot };
     },
-    onError: (err, newTodo, context: any) => {
-      queryClient.setQueryData(['notifications'], context.previousData);
+    onError: (_err, _newTodo, context: any) => {
+      if (context?.snapshot) restoreNotifications(context.snapshot);
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
+    onSettled: invalidateNotifications,
   });
 
   const mutationClearAll = useMutation({
     mutationFn: () => clearAllNotifications(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const snapshot = snapshotNotifications();
+      applyNotificationsUpdate(() => ({
+        success: true,
+        count: 0,
+        total: 0,
+        unreadCount: 0,
+        notifications: [],
+      }));
+      return { snapshot };
+    },
+    onError: (_err, _vars, context: any) => {
+      if (context?.snapshot) restoreNotifications(context.snapshot);
+    },
+    onSettled: invalidateNotifications,
   });
 
   const mutationTestPush = useMutation({
@@ -98,10 +170,20 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
       } else if (res?.pushTokenCount > 0) {
         Alert.alert('Invalid Tokens', 'Tokens are saved but not valid Expo push tokens. Reinstall the app to re-register.');
       } else {
-        Alert.alert(
-          'No Push Tokens',
-          'No push token is registered for your account. This app must run on a physical device via a development/standalone build (Expo Go does not support push on Android). Reinstall, open once, then retry.'
-        );
+        const pushState = usePushStore.getState();
+        const localDetail =
+          pushState.status === 'registered'
+            ? `Token synced to server (${pushState.environment}). Try sending again.`
+            : pushState.status === 'permission_denied'
+            ? 'Notification permission is denied. Enable notifications for this app in Settings, then reopen.'
+            : pushState.status === 'no_device'
+            ? 'Running on an emulator/simulator. Push requires a physical device.'
+            : pushState.status === 'failed'
+            ? `Registration failed: ${pushState.error}`
+            : pushState.environment
+            ? `Running in ${pushState.environment}. Push requires a dev/standalone build on a physical device (Expo Go does not support push on Android).`
+            : 'This app must run on a physical device via a development/standalone build (Expo Go does not support push on Android). Reinstall, open once, then retry.';
+        Alert.alert('No Push Tokens', localDetail);
       }
     },
     onError: (error: any) => {
@@ -190,7 +272,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
                     {item.title}
                   </Text>
                 </View>
-                <Text style={styles.notifBody} numberOfLines={2}>{item.body || item.message}</Text>
+                <Text style={styles.notifBody} numberOfLines={2}>{item.body || (item as any).message}</Text>
                 <Text style={styles.notifDate}>{formatRelativeTime(item.createdAt)}</Text>
               </View>
               {!item.read && <View style={styles.unreadDot} />}
@@ -221,12 +303,12 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
               <Ionicons name={mutationTestPush.isPending ? 'hourglass-outline' : 'paper-plane-outline'} size={20} color={colors.primary} />
             </TouchableOpacity>
           )}
-          {data?.notifications?.length > 0 && (
+          {(data?.notifications?.length ?? 0) > 0 && (
             <TouchableOpacity onPress={() => mutationClearAll.mutate()} activeOpacity={0.7} style={styles.headerIconBtn}>
               <Ionicons name="trash-outline" size={20} color={colors.error} />
             </TouchableOpacity>
           )}
-          {data?.unreadCount > 0 ? (
+          {(data?.unreadCount ?? 0) > 0 ? (
             <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()} activeOpacity={0.7} style={styles.markAllButton}>
               <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all read</Text>
             </TouchableOpacity>
@@ -257,7 +339,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
           onRefresh={refetch}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            data?.notifications?.length > 0 ? (
+            (data?.notifications?.length ?? 0) > 0 ? (
               <Text style={styles.swipeHintText}>
                 Tip: Swipe left on a notification to delete it
               </Text>
