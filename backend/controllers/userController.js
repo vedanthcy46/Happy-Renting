@@ -7,6 +7,8 @@ const Property = require('../models/Property');
 const ActivityLog = require('../models/ActivityLog');
 const Room       = require('../models/Room');
 const Payment    = require('../models/Payment');
+const PaymentTransaction = require('../models/PaymentTransaction');
+const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const Complaint  = require('../models/Complaint');
 const CoOccupant = require('../models/CoOccupant');
 const emailService = require('../services/emailService');
@@ -290,6 +292,9 @@ const deleteUser = async (req, res, next) => {
         await CoOccupant.deleteMany({ tenantId: t._id });
         // Cleanup complaints for each tenancy
         await Complaint.deleteMany({ tenantId: t._id });
+        // Remove payment transactions and rent records for the tenant tenancy
+        await PaymentTransaction.deleteMany({ tenantId: t._id });
+        await MonthlyRentRecord.deleteMany({ tenantId: t._id });
       }
 
       // Delete all tenancy records
