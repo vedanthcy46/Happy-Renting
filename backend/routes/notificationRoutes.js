@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const Notification = require('../models/Notification');
 const notificationService = require('../services/notificationService');
+const { Expo } = require('expo-server-sdk');
 
 // GET /v2/notifications
 // Get user notifications (paginated or last 50)
@@ -97,13 +98,24 @@ router.delete('/:id', authenticate, async (req, res, next) => {
 // Send a test push to the current user's device (dev/testing helper)
 router.post('/test-push', authenticate, async (req, res, next) => {
   try {
-    await notificationService.sendPushNotification({
+    const notification = await notificationService.sendPushNotification({
       userId: req.user._id,
       title: 'Test Notification',
       body: 'This is a test push. If you can see this, push notifications are working!',
       type: 'system',
     });
-    res.status(200).json({ success: true, message: 'Test push sent.' });
+
+    const user = await User.findById(req.user._id).select('expoPushTokens');
+    const tokens = ((user && user.expoPushTokens) || []).map(t => t.token);
+    const validTokens = tokens.filter(t => Expo.isExpoPushToken(t));
+
+    res.status(200).json({
+      success: true,
+      message: 'Test push sent.',
+      notificationId: notification._id,
+      pushTokenCount: tokens.length,
+      validPushTokenCount: validTokens.length,
+    });
   } catch (err) {
     next(err);
   }

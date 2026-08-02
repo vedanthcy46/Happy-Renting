@@ -89,8 +89,20 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
 
   const mutationTestPush = useMutation({
     mutationFn: () => sendTestPush(),
-    onSuccess: () => {
-      Alert.alert('Test Push Sent', 'If push is working, you should see the notification shortly.');
+    onSuccess: (res: any) => {
+      if (res?.validPushTokenCount > 0) {
+        Alert.alert(
+          'Test Push Sent',
+          `Sent to ${res.validPushTokenCount} registered device token(s). Check your phone for the notification.`
+        );
+      } else if (res?.pushTokenCount > 0) {
+        Alert.alert('Invalid Tokens', 'Tokens are saved but not valid Expo push tokens. Reinstall the app to re-register.');
+      } else {
+        Alert.alert(
+          'No Push Tokens',
+          'No push token is registered for your account. This app must run on a physical device via a development/standalone build (Expo Go does not support push on Android). Reinstall, open once, then retry.'
+        );
+      }
     },
     onError: () => {
       Alert.alert('Failed', 'Could not send test push. Make sure the backend is reachable.');

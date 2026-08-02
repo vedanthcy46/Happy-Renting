@@ -43,6 +43,7 @@ export const clearAllNotifications = async (): Promise<void> => {
   await api.delete('/v2/notifications/clear-all');
 };
 
-export const sendTestPush = async (): Promise<void> => {
-  await api.post('/v2/notifications/test-push');
+export const sendTestPush = async (): Promise<{ pushTokenCount: number; validPushTokenCount: number }> => {
+  const { data } = await api.post('/v2/notifications/test-push');
+  return data;
 };
