@@ -104,8 +104,14 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
         );
       }
     },
-    onError: () => {
-      Alert.alert('Failed', 'Could not send test push. Make sure the backend is reachable.');
+    onError: (error: any) => {
+      const status = error?.response?.status;
+      const serverMsg = error?.response?.data?.message;
+      const raw = error?.message || 'Unknown error';
+      Alert.alert(
+        'Test Push Failed',
+        `Status: ${status ?? 'network/timeout'}\n${serverMsg || raw}`
+      );
     },
   });
 
