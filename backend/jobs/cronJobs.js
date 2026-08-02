@@ -7,6 +7,7 @@ const logger       = require('../config/logger');
 const NotificationQueue = require('../models/NotificationQueue');
 const LedgerJob = require('../models/LedgerJob');
 const SystemHealth = require('../models/SystemHealth');
+const { createConcurrencyGuard } = require('../utils/cronGuard');
 
 /**
  * cronJobs.js
@@ -20,7 +21,12 @@ const ledgerQueueService = require('../services/ledgerQueueService');
 const walletService = require('../services/walletService');
 const dailyDigestService = require('../services/dailyDigestService');
 
+const dailyJobsGuard = createConcurrencyGuard('daily-jobs', logger);
+const queueProcessorGuard = createConcurrencyGuard('queue-processor', logger);
+const digestWatchdogGuard = createConcurrencyGuard('digest-watchdog', logger);
+
 const runDailyJobs = async () => {
+  return await dailyJobsGuard.run(async () => {
   logger.info('[CRON] Starting daily rent status check (IST timezone)...');
   
   try {
@@ -96,6 +102,7 @@ const runDailyJobs = async () => {
   } catch (err) {
     logger.error(`[CRON ERROR] ${err.message}`);
   }
+  });
 };
 
 const startCronJobs = () => {
@@ -124,11 +131,13 @@ const startCronJobs = () => {
 
   // Background Notification Queue (Every 5 minutes)
   cron.schedule('*/5 * * * *', async () => {
-    try {
-      await emailService.processNotificationQueue();
-    } catch (err) {
-      logger.error(`[CRON QUEUE ERROR] ${err.message}`);
-    }
+    await queueProcessorGuard.run(async () => {
+      try {
+        await emailService.processNotificationQueue();
+      } catch (err) {
+        logger.error(`[CRON QUEUE ERROR] ${err.message}`);
+      }
+    });
   });
   logger.info('[CRON] Notification queue processor initialized (Every 5 mins).');
 
@@ -215,11 +224,13 @@ const startCronJobs = () => {
 
   // Daily Digest Watchdog (Every 5 minutes)
   cron.schedule('*/5 * * * *', async () => {
-    try {
-      await dailyDigestService.runDigestWatchdog();
-    } catch (err) {
-      logger.error(`[CRON ERROR] runDigestWatchdog failed: ${err.message}`);
-    }
+    await digestWatchdogGuard.run(async () => {
+      try {
+        await dailyDigestService.runDigestWatchdog();
+      } catch (err) {
+        logger.error(`[CRON ERROR] runDigestWatchdog failed: ${err.message}`);
+      }
+    });
   });
 };
 

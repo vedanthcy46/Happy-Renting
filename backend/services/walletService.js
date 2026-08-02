@@ -600,6 +600,16 @@ const rebuildOwnerWallet = async (ownerId, session = null) => {
   }
 };
 
+const resolveOwnerWalletOwnerId = (wallet) => {
+  if (!wallet || !wallet.ownerId) return null;
+
+  if (typeof wallet.ownerId === 'object' && wallet.ownerId !== null) {
+    return wallet.ownerId._id || wallet.ownerId;
+  }
+
+  return wallet.ownerId;
+};
+
 /**
  * Charges active owners their monthly subscription fee if enabled.
  * Designed to be triggered by a daily cron job.
@@ -624,10 +634,16 @@ const chargeMonthlySubscriptions = async () => {
 
     let chargeCount = 0;
     for (const wallet of wallets) {
+      const ownerRef = wallet.ownerId;
+
       // Only charge if owner is active
-      if (wallet.ownerId && wallet.ownerId.isActive === false) continue;
-      
-      const actualOwnerId = wallet.ownerId._id || wallet.ownerId;
+      if (ownerRef && typeof ownerRef === 'object' && ownerRef.isActive === false) continue;
+
+      const actualOwnerId = resolveOwnerWalletOwnerId(wallet);
+      if (!actualOwnerId) {
+        logger.warn(`[WALLET] Skipped subscription charge for wallet=${wallet._id} because owner reference is missing.`);
+        continue;
+      }
 
       // Check if already charged for current calendar month
       const alreadyCharged = await WalletTransaction.findOne({
@@ -765,5 +781,6 @@ module.exports = {
   generateWithdrawalQr,
   rebuildOwnerWallet,
   chargeMonthlySubscriptions,
-  calculateGatewayFee
+  calculateGatewayFee,
+  resolveOwnerWalletOwnerId
 };

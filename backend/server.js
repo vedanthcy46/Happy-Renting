@@ -29,6 +29,7 @@ const compression   = require('compression');
 const connectDB          = require('./config/db');
 const logger             = require('./config/logger');
 const { apiLimiter }     = require('./middleware/rateLimiter');
+const { createConcurrencyLimiter } = require('./middleware/concurrencyLimiter');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
 // ── Routes ─────────────────────────────────────────────────────────────────
@@ -200,6 +201,10 @@ if (process.env.NODE_ENV !== 'test') {
 
 // ── 7. Global API rate limit ───────────────────────────────────────────────
 app.use('/api', apiLimiter);
+
+// ── 7.5 Concurrency protection for burst traffic ─────────────────────────
+const concurrencyLimiter = createConcurrencyLimiter({ maxConcurrent: 50 });
+app.use('/api', concurrencyLimiter);
 
 // ── 8. Health check & Server ID ──────────────────────────────────────────
 const SERVER_ID = process.env.SERVER_ID || 'primary';
