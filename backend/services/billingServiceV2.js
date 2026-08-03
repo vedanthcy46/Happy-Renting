@@ -257,18 +257,23 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
       const dueDate = new Date(record.dueDate);
       dueDate.setHours(0, 0, 0, 0);
 
-      // Guard: prevent newly generated rent records from being marked overdue during the same cron run
-      const isCreatedToday = record.createdAt && record.createdAt.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
-      if (isCreatedToday) {
+      // Guard: skip bills created on the same business day so a newly generated
+      // bill is not marked overdue during the very same cron run. Uses the local
+      // business day (matches `today`) instead of UTC via toISOString().
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const createdLocalStr = record.createdAt
+        ? `${record.createdAt.getFullYear()}-${String(record.createdAt.getMonth() + 1).padStart(2, '0')}-${String(record.createdAt.getDate()).padStart(2, '0')}`
+        : null;
+      if (createdLocalStr === todayStr) {
         logger.info(`[OVERDUE DEBUG] Skipping overdue processing for newly generated bill ${record._id}`);
         continue;
       }
 
-      let diffDays = 0;
-      if (today > dueDate) {
-        const diffTime = today.getTime() - dueDate.getTime();
-        diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      }
+      // Signed difference: negative when the due date is still in the future,
+      // zero on the due date, positive once truly overdue. The old code clamped
+      // future dates to 0, which wrongly treated them as "due today".
+      const diffTime = today.getTime() - dueDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       logger.info(`[OVERDUE DEBUG] currentDate=${today.toISOString()} dueDate=${dueDate.toISOString()} billMonth=${record.month} generatedAt=${record.createdAt ? record.createdAt.toISOString() : 'Unknown'} diffDays=${diffDays}`);
 

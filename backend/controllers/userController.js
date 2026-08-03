@@ -309,6 +309,8 @@ const deleteUser = async (req, res, next) => {
       await Room.deleteMany({ ownerId: user._id });
       await Tenant.deleteMany({ ownerId: user._id });
       await Payment.deleteMany({ ownerId: user._id });
+      await PaymentTransaction.deleteMany({ ownerId: user._id });
+      await MonthlyRentRecord.deleteMany({ ownerId: user._id });
       await Complaint.deleteMany({ ownerId: user._id });
       
       // Also delete the User accounts of tenants managed by this owner
