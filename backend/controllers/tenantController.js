@@ -3,6 +3,7 @@
 const { body, param } = require('express-validator');
 const Tenant        = require('../models/Tenant');
 const User          = require('../models/User');
+const Room          = require('../models/Room');
 const logger        = require('../config/logger');
 const tenantService = require('../services/tenantService');
 const emailService  = require('../services/emailService');
@@ -215,7 +216,6 @@ const updateTenant = async (req, res, next) => {
     // Handle status change transition from active to vacated
     if (oldStatus === 'active' && tenant.status === 'vacated') {
       const CoOccupant = require('../models/CoOccupant');
-      const Room = require('../models/Room');
       
       const coOccupantCount = await CoOccupant.countDocuments({ tenantId: tenant._id });
       const totalOccupantsToRemove = 1 + coOccupantCount;
@@ -256,6 +256,19 @@ const updateTenant = async (req, res, next) => {
     }
 
     await tenant.save();
+
+    // Feature: Security deposit sync — keep the tenant's room in sync
+    if (securityDeposit !== undefined) {
+      try {
+        const roomToUpdate = await Room.findById(tenant.roomId);
+        if (roomToUpdate) {
+          roomToUpdate.securityDeposit = Number(securityDeposit);
+          await roomToUpdate.save({ validateBeforeSave: false });
+        }
+      } catch (syncErr) {
+        logger.error(`Room security deposit sync failed: ${syncErr.message}`);
+      }
+    }
 
     // rentDueDay sync is removed because due dates are globally hardcoded to the 5th now.
 

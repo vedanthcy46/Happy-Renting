@@ -11,6 +11,7 @@ interface StatCardProps {
   trend?: 'up' | 'down' | 'neutral';
   trendValue?: string;
   color?: string;
+  valueColor?: string;
   style?: ViewStyle;
 }
 
@@ -21,6 +22,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   trend,
   trendValue,
   color: propColor,
+  valueColor,
   style,
 }) => {
   const { colors } = useTheme();
@@ -39,7 +41,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           <Ionicons name={icon} size={20} color={color} />
         </View>
       )}
-      <Text style={styles.value}>{value}</Text>
+      <Text style={[styles.value, valueColor ? { color: valueColor } : null]}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
       {trend && trendValue && (
         <View style={styles.trendRow}>

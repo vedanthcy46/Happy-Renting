@@ -173,7 +173,29 @@ const updateRoom = async (req, res, next) => {
 
     // NOTE: currentOccupancy is NEVER updated here — only via tenantService transactions
     await room.save();
-    
+
+    // Feature: Security deposit propagation — keep every active tenant in sync with the room
+    if (securityDeposit !== undefined) {
+      try {
+        const newDeposit = Number(securityDeposit);
+        const result = await Tenant.updateMany(
+          { roomId: room._id, status: 'active', advancePaid: { $lte: newDeposit } },
+          { $set: { securityDeposit: newDeposit } }
+        );
+        const skipped = await Tenant.countDocuments({
+          roomId: room._id,
+          status: 'active',
+          advancePaid: { $gt: newDeposit },
+        });
+        logger.info(`Propagated securityDeposit ${newDeposit} to ${result.modifiedCount} active tenant(s) of room ${room._id}`);
+        if (skipped > 0) {
+          logger.warn(`Skipped securityDeposit propagation for ${skipped} tenant(s) of room ${room._id}: advancePaid exceeds new deposit ${newDeposit}`);
+        }
+      } catch (propErr) {
+        logger.error(`Security deposit propagation failed for room ${room._id}: ${propErr.message}`);
+      }
+    }
+
     // Feature A: Rent propagation logic
     if (monthlyRent !== undefined && Number(monthlyRent) !== Number(oldMonthlyRent)) {
       try {

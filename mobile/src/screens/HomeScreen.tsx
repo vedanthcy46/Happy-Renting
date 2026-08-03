@@ -262,6 +262,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             value={formatCurrency(totalPending)}
             icon="card-outline"
             color={colors.primary}
+            valueColor={colors.warning}
           />
 
           <View style={styles.advanceCard}>
