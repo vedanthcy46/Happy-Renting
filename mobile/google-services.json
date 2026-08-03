@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "705995671656",
+    "project_id": "studio-4107046591-fb225",
+    "storage_bucket": "studio-4107046591-fb225.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:705995671656:android:87a4e6fead53e388c513dd",
+        "android_client_info": {
+          "package_name": "co.in.happyrenting.tenant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEAGZ_ctjphkAninly3Hu3ZZvpGwnAJKg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

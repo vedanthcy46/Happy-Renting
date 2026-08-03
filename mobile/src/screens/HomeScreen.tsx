@@ -59,6 +59,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const records = rentData?.rentRecords || [];
   const latestRecord = records[0];
   const totalPending = records.reduce((sum, r) => sum + (r.status !== 'paid' && r.status !== 'overpaid' ? r.remainingAmount : 0), 0);
+  const depositTotal = Number(tenant?.securityDeposit || 0);
+  const depositPaid = Number(tenant?.advancePaid || 0);
+  const depositFullyPaid = depositTotal > 0 && depositPaid >= depositTotal;
   const isPrivateRoom = (tenant?.roomId as any)?.capacity === 1;
   const coOccupants = (tenant?.coOccupants as any[]) || [];
 
@@ -259,15 +262,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             value={formatCurrency(totalPending)}
             icon="card-outline"
             color={colors.primary}
-            style={styles.statCardHalf}
           />
-          <StatCard
-            label="Advance Balance"
-            value={formatCurrency(tenant.advancePaid || 0)}
-            icon="wallet-outline"
-            color={colors.success}
-            style={styles.statCardHalf}
-          />
+
+          <View style={styles.advanceCard}>
+            <View style={styles.advanceCardHeader}>
+              <View style={[styles.advanceIconCircle, { backgroundColor: colors.success + '15' }]}>
+                <Ionicons name="wallet-outline" size={18} color={colors.success} />
+              </View>
+              <View style={styles.advanceHeaderText}>
+                <Text style={styles.advanceLabel}>Advance Balance</Text>
+                <Text style={styles.advanceCaption}>Security Deposit</Text>
+              </View>
+              {depositFullyPaid && (
+                <View style={[styles.paidTick, { backgroundColor: colors.success }]}>
+                  <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+            <Text style={styles.advanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+              {formatCurrency(depositPaid)}
+            </Text>
+            <View style={styles.advanceRows}>
+              <View style={styles.advanceRow}>
+                <Text style={styles.advanceRowLabel}>Total Deposit</Text>
+                <Text style={styles.advanceRowValue}>{formatCurrency(depositTotal)}</Text>
+              </View>
+              <View style={styles.advanceRow}>
+                <Text style={styles.advanceRowLabel}>Paid</Text>
+                <Text style={[styles.advanceRowValue, { color: colors.success }]}>{formatCurrency(depositPaid)}</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -666,14 +691,81 @@ const makeStyles = (colors: any) => StyleSheet.create({
     textAlign: 'center',
   },
   statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
+    flexDirection: 'column',
+    gap: spacing.lg,
     marginBottom: spacing.xl,
   },
   statCardHalf: {
     flex: 1,
     alignItems: 'flex-start',
     paddingVertical: spacing.xl,
+  },
+  advanceCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    ...shadows.card,
+  },
+  advanceCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  advanceIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  advanceHeaderText: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  advanceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  advanceCaption: {
+    fontSize: 11,
+    color: colors.text.secondary,
+    marginTop: 1,
+  },
+  advanceValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.success,
+    marginBottom: spacing.md,
+  },
+  paidTick: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  advanceRows: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  advanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  advanceRowLabel: {
+    fontSize: 13,
+    color: colors.text.secondary,
+  },
+  advanceRowValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text.primary,
   },
   sectionTitle: {
     fontSize: 13,

@@ -87,7 +87,7 @@ const TenantsPage = () => {
       open: true, 
       tenant, 
       amount: tenant.advancePaid || 0,
-      total: tenant.securityDeposit || tenant.roomId?.securityDeposit || 0,
+      total: tenant.roomId?.securityDeposit ?? tenant.securityDeposit ?? 0,
       name: tenant.userId?.name || '',
       email: tenant.userId?.email || '',
       phone: tenant.phone || '',

@@ -193,11 +193,26 @@ const MyRoomPage = () => {
               </div>
               <div className="text-right">
                 <p className="text-slate-500 text-xs uppercase font-bold">Advance Paid</p>
-                <p className="text-xl font-semibold text-brand-400">₹{tenancy.advancePaid?.toLocaleString()}</p>
+                <p className="text-xl font-semibold text-brand-400">
+                  ₹{tenancy.advancePaid?.toLocaleString()}
+                  {tenancy.securityDeposit > 0 && tenancy.advancePaid >= tenancy.securityDeposit && (
+                    <span className="inline-flex items-center justify-center w-5 h-5 ml-2 rounded-full bg-green-500 text-white" title="Security deposit fully paid">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
-            
+
             <div className="pt-6 border-t border-slate-800">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-slate-400">Total Deposit</span>
+                <span className="text-white font-mono">₹{(tenancy.securityDeposit || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-slate-400">Paid</span>
+                <span className="text-green-400 font-mono font-bold">₹{(tenancy.advancePaid || 0).toLocaleString()}</span>
+              </div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-slate-400">Join Date</span>
                 <span className="text-white font-mono">{new Date(tenancy.joinDate).toLocaleDateString()}</span>
