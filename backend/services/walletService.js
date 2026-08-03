@@ -600,6 +600,16 @@ const rebuildOwnerWallet = async (ownerId, session = null) => {
   }
 };
 
+const resolveOwnerWalletOwnerId = (wallet) => {
+  if (!wallet || !wallet.ownerId) return null;
+
+  if (typeof wallet.ownerId === 'object' && wallet.ownerId !== null) {
+    return wallet.ownerId._id || wallet.ownerId;
+  }
+
+  return wallet.ownerId;
+};
+
 /**
  * Charges active owners their monthly subscription fee if enabled.
  * Designed to be triggered by a daily cron job.
@@ -615,26 +625,31 @@ const chargeMonthlySubscriptions = async () => {
     const subscriptionFee = settings.monthlySubscription;
     if (subscriptionFee <= 0) return;
 
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+
     // Find all active wallets
     const wallets = await OwnerWallet.find({ status: 'active' }).populate('ownerId').session(session);
     const systemId = new mongoose.Types.ObjectId(); // Mock system user ID
 
     let chargeCount = 0;
     for (const wallet of wallets) {
+      const ownerRef = wallet.ownerId;
+
       // Only charge if owner is active
-      if (wallet.ownerId && wallet.ownerId.isActive === false) continue;
-      
-      const actualOwnerId = wallet.ownerId._id || wallet.ownerId;
+      if (ownerRef && typeof ownerRef === 'object' && ownerRef.isActive === false) continue;
+
+      const actualOwnerId = resolveOwnerWalletOwnerId(wallet);
+      if (!actualOwnerId) {
+        logger.warn(`[WALLET] Skipped subscription charge for wallet=${wallet._id} because owner reference is missing.`);
+        continue;
+      }
 
       // Check if already charged for current calendar month
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
       const alreadyCharged = await WalletTransaction.findOne({
         ownerId: actualOwnerId,
         type: 'subscription_fee',
-        createdAt: { $gte: startOfMonth }
+        createdAt: { $gte: currentMonthStart }
       }).session(session);
 
       if (alreadyCharged) continue;
@@ -766,5 +781,6 @@ module.exports = {
   generateWithdrawalQr,
   rebuildOwnerWallet,
   chargeMonthlySubscriptions,
-  calculateGatewayFee
+  calculateGatewayFee,
+  resolveOwnerWalletOwnerId
 };
