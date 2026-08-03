@@ -20,6 +20,7 @@ const activityLogSchema = new mongoose.Schema(
         'PAYMENT_TRANSACTION_ADDED', 'PAYMENT_TRANSACTION_REVERSED',
         'PAYMENT_TRANSACTION_VERIFIED', 'PAYMENT_TRANSACTION_REJECTED',
         'RENT_RECORD_UPDATED',
+        'EXPENSE_CREATED', 'EXPENSE_UPDATED', 'EXPENSE_DELETED',
         'COMPLAINT_UPDATED'
       ],
       required: true,
@@ -30,7 +31,7 @@ const activityLogSchema = new mongoose.Schema(
     },
     targetModel: {
       type: String,
-      enum: ['Property', 'Room', 'Tenant', 'Payment', 'Complaint', 'PaymentTransaction', 'MonthlyRentRecord'],
+      enum: ['Property', 'Room', 'Tenant', 'Payment', 'Complaint', 'PaymentTransaction', 'MonthlyRentRecord', 'Expense'],
       required: true,
     },
     details: {

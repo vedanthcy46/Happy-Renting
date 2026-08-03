@@ -27,6 +27,7 @@ import AdminOwnerRequests from './pages/AdminOwnerRequests';
 import AuditLogPage       from './pages/AuditLogPage';
 import WalletPage         from './pages/WalletPage';
 import AdminWalletPage    from './pages/AdminWalletPage';
+import ExpensesPage       from './pages/ExpensesPage';
 
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage    from './pages/NotFoundPage';
@@ -114,6 +115,7 @@ const AppContent = () => (
 
             {/* Owner only */}
             <Route path="wallet" element={<ProtectedRoute roles={['owner']}><WalletPage /></ProtectedRoute>} />
+            <Route path="expenses" element={<ProtectedRoute roles={['owner']}><ExpensesPage /></ProtectedRoute>} />
             <Route path="owner/deletion-requests" element={<ProtectedRoute roles={['owner', 'superadmin']}><OwnerDeletionRequestsPage /></ProtectedRoute>} />
 
             {/* Catch-all → 404 */}

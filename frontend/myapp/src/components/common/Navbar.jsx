@@ -306,6 +306,7 @@ const navGroups = [
     children: [
       { path: '/payments', label: 'Payments', icon: 'coin', roles: ['superadmin', 'owner', 'tenant'] },
       { path: '/wallet', label: 'Wallet', icon: 'wallet', roles: ['owner'] },
+      { path: '/expenses', label: 'Expenses', icon: 'coin', roles: ['owner'] },
       { path: '/wallet-admin', label: 'Wallet Admin', icon: 'wallet', roles: ['superadmin'] },
     ],
   },
@@ -341,6 +342,7 @@ const navLinks = [
   { path: '/tenants', label: 'Tenants', icon: 'users', roles: ['superadmin', 'owner'] },
   { path: '/payments', label: 'Payments', icon: 'coin', roles: ['superadmin', 'owner', 'tenant'] },
   { path: '/wallet', label: 'Wallet', icon: 'wallet', roles: ['owner'] },
+  { path: '/expenses', label: 'Expenses', icon: 'coin', roles: ['owner'] },
   { path: '/wallet-admin', label: 'Wallet Admin', icon: 'wallet', roles: ['superadmin'] },
   { path: '/users', label: 'Owners', icon: 'shield', roles: ['superadmin'] },
   { path: '/requests', label: 'Requests', icon: 'clock', roles: ['superadmin'] },
