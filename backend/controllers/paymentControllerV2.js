@@ -445,9 +445,12 @@ const getTransactionHistory = async (req, res, next) => {
       filters.tenantId = tenancy._id;
     }
 
-    const { tenantId, rentRecordId, month, updatedAfter } = req.query;
+    const { tenantId, rentRecordId, month, updatedAfter, status } = req.query;
     if (tenantId && /^[a-f\d]{24}$/i.test(tenantId)) filters.tenantId = tenantId;
     if (rentRecordId && /^[a-f\d]{24}$/i.test(rentRecordId)) filters.rentRecordId = rentRecordId;
+    if (status && ['completed', 'verifying', 'failed', 'reversed', 'superseded', 'voided'].includes(status)) {
+      filters.status = status;
+    }
 
     // Incremental sync: only return transactions modified after a timestamp
     if (updatedAfter && !isNaN(Date.parse(updatedAfter))) {
