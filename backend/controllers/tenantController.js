@@ -9,7 +9,6 @@ const tenantService = require('../services/tenantService');
 const logActivity   = require('../utils/activityLogger');
 const emailService  = require('../services/emailService');
 const MoveOutRequest = require('../models/MoveOutRequest');
-const logActivity   = require('../utils/activityLogger');
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const addTenantValidation = [
