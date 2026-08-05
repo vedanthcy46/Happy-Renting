@@ -37,6 +37,8 @@ const logActivity = require('../utils/activityLogger');
 
 const CoOccupant = require('../models/CoOccupant');
 const Property = require('../models/Property');
+const MonthlyRentRecord = require('../models/MonthlyRentRecord');
+const PaymentTransaction = require('../models/PaymentTransaction');
 
 // ── Transaction Fallback Helper ──────────────────────────────────────────────
 // Allows local standalone MongoDB to work without throwing Replica Set errors.
@@ -66,6 +68,22 @@ const withTransactionOrFallback = async (operation) => {
   } finally {
     await session.endSession();
   }
+};
+
+// ── Ledger Rebuild Helper ────────────────────────────────────────────────────
+// Recomputes a rent record's totalPaid from its remaining completed transactions.
+// The pre-save hook then recalculates remainingAmount, advanceBalance and status.
+const recomputeRentRecordTotals = async (rentRecordId, session) => {
+  const record = await MonthlyRentRecord.findById(rentRecordId).session(session);
+  if (!record) return;
+
+  const completedTx = await PaymentTransaction.find({
+    rentRecordId,
+    status: 'completed',
+  }).session(session);
+
+  record.totalPaid = completedTx.reduce((sum, t) => sum + t.amount, 0);
+  await record.save({ session });
 };
 
 // ── Move-In ────────────────────────────────────────────────────────────────
@@ -582,6 +600,66 @@ const reverseMoveOut = async (tenantId, callerRole, callerId) => {
       { $inc: { currentOccupancy: totalOccupantsToRestore } },
       { session }
     );
+
+    // ── Revert the move-out settlement ledger ────────────────────────────────
+    // Delete the prorated move-out rent record(s) generated on move-out, remove
+    // their attached ledger transactions, and reverse any advance transfers that
+    // were applied to them so the tenant's payment history is restored to its
+    // pre-move-out state.
+    const moveOutRecords = await MonthlyRentRecord.find({
+      tenantId,
+      billingType: 'prorated_moveout',
+    }).session(session);
+
+    const moveOutRecordIds = moveOutRecords.map((r) => r._id);
+    const moveOutMonths = moveOutRecords.map((r) => r.month);
+
+    if (moveOutRecordIds.length) {
+      // Find advance transfers that carried surplus from a previous month INTO
+      // the (now cancelled) move-out month so we can return that floating advance
+      // to the source month(s).
+      const advanceDeducted = await PaymentTransaction.find({
+        tenantId,
+        transactionType: 'advance_deducted',
+        note: { $regex: 'Advance transferred to month' },
+      }).session(session);
+
+      // Remove the move-out record's own transactions (real payments + its
+      // advance_applied entries). These only made sense against the cancelled bill.
+      await PaymentTransaction.deleteMany(
+        { rentRecordId: { $in: moveOutRecordIds } },
+        { session }
+      );
+
+      // Reverse the paired advance_deducted entries so the overpaid amount floats
+      // back to the source month(s) that originally funded it.
+      for (const txn of advanceDeducted) {
+        const feedsMoveOut = moveOutMonths.some(
+          (m) => txn.note && txn.note.includes(m)
+        );
+        if (feedsMoveOut) {
+          await PaymentTransaction.deleteOne({ _id: txn._id }).session(session);
+        }
+      }
+
+      await MonthlyRentRecord.deleteMany(
+        { _id: { $in: moveOutRecordIds } },
+        { session }
+      );
+
+      // Recompute every remaining record from its completed transactions so any
+      // floating advance (overpaid surplus) returns to the correct previous month
+      // and every month's totals, advanceBalance and status are left consistent.
+      const remainingRecords = await MonthlyRentRecord.find({ tenantId }).session(session);
+      for (const rec of remainingRecords) {
+        await recomputeRentRecordTotals(rec._id, session);
+      }
+
+      logger.info(
+        `[REVERSE MOVE-OUT] Removed ${moveOutRecordIds.length} move-out settlement record(s) ` +
+        `(months=${moveOutMonths.join(', ')}) and returned floating advances for tenant=${tenantId}`
+      );
+    }
   });
 
   logger.info(`[REVERSE MOVE-OUT] tenant=${tenantId} occupantsRestored=${totalOccupantsToRestore} room=${tenant.roomId} by=${callerId}`);
