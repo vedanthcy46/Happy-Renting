@@ -9,17 +9,17 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, Alert, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Alert, View, Text, TouchableOpacity, Animated, LogBox } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
 import { markAsRead } from '../src/api/notifications';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
-import { colors } from '../src/theme';
-import { appEvents, SESSION_EXPIRED_EVENT } from '../src/utils/events';
+import { appEvents, SESSION_EXPIRED_EVENT, OPEN_DRAWER_EVENT } from '../src/utils/events';
 import { isBiometricEnabled, authenticateWithBiometric } from '../src/hooks/useBiometric';
-import { OfflineBanner } from '../src/components';
+import { OfflineBanner, AppDrawer } from '../src/components';
+import { WorkspacePicker } from '../src/components/WorkspacePicker';
 import { queryClient } from '../src/queryClient';
 import { sqlitePersister } from '../src/persist/sqlitePersister';
 import { startSyncEngine } from '../src/sync/syncEngine';
@@ -28,11 +28,9 @@ const ONBOARDING_KEY = 'onboarding_completed';
 const CACHE_BUSTER = 'v1';
 const CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 30;
 
-function CacheGate({ children }: { children: React.ReactNode }) {
-  const isRestoring = useIsRestoring();
-  if (isRestoring) return null;
-  return <>{children}</>;
-}
+LogBox.ignoreLogs([
+  "Can't perform a React state update on a component that hasn't mounted yet.",
+]);
 
 SplashScreen.preventAutoHideAsync();
 
@@ -43,8 +41,9 @@ export const unstable_settings = {
 };
 
 function AppContent() {
-  const { initialize, isLoading: isAuthLoading, user, token } = useAuthStore();
+  const { initialize, isLoading: isAuthLoading, user, token, activeWorkspace, needsWorkspacePicker } = useAuthStore();
   const { colors: themeColors } = useTheme();
+  const isRestoring = useIsRestoring();
   const [isLocked, setIsLocked] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
@@ -64,10 +63,17 @@ function AppContent() {
     const complaintId = data?.complaintId;
 
     const navigate = () => {
+      const { activeWorkspace: ws } = useAuthStore.getState();
       if (rentRecordId) {
+        // Rent detail is only meaningful for tenants
         router.navigate(`/rentDetail/${rentRecordId}` as any);
       } else if (complaintId) {
-        router.navigate('/(tabs)/complaints' as any);
+        // Route to the correct workspace's complaints tab
+        if (ws === 'owner') {
+          router.navigate('/(owner-tabs)/tenants' as any); // Phase 3: dedicated complaints tab
+        } else {
+          router.navigate('/(tabs)/complaints' as any);
+        }
       } else {
         router.navigate('/notifications' as any);
       }
@@ -90,16 +96,32 @@ function AppContent() {
       if (pending.rentRecordId) {
         router.navigate(`/rentDetail/${pending.rentRecordId}` as any);
       } else if (pending.complaintId) {
-        router.navigate('/(tabs)/complaints' as any);
+        if (activeWorkspace === 'owner') {
+          router.navigate('/(owner-tabs)/tenants' as any);
+        } else {
+          router.navigate('/(tabs)/complaints' as any);
+        }
       } else {
         router.navigate('/notifications' as any);
       }
     }
-  }, [user, token, router]);
+  }, [user, token, activeWorkspace, router]);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // After session is restored from SecureStore, redirect to the correct workspace.
+  // Skip redirect if the workspace picker is showing — user will pick themselves.
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (!user || !token) return;
+    if (needsWorkspacePicker) return;
+    if (activeWorkspace === 'owner') {
+      router.replace('/(owner-tabs)' as any);
+    }
+    // Tenant workspace lands on (tabs) which is the Expo Router default — no redirect needed.
+  }, [isAuthLoading, user, token, activeWorkspace, needsWorkspacePicker, router]);
 
   useEffect(() => {
     if (user && token) {
@@ -131,7 +153,7 @@ function AppContent() {
     }
   }, [isAuthLoading, onboardingChecked, fontsLoaded, fontError]);
 
-  const sessionExpiredShown = useRef(false);
+    const sessionExpiredShown = useRef(false);
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -157,6 +179,54 @@ function AppContent() {
       appEvents.off(SESSION_EXPIRED_EVENT, handleSessionExpired);
     };
   }, [router]);
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerTranslateX = useRef(new Animated.Value(-400)).current;
+  const drawerOverlayOpacity = useRef(new Animated.Value(0)).current;
+
+  const openDrawer = useCallback(() => {
+    setDrawerOpen(true);
+    Animated.parallel([
+      Animated.spring(drawerTranslateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }),
+      Animated.timing(drawerOverlayOpacity, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [drawerTranslateX, drawerOverlayOpacity]);
+
+  const closeDrawer = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(drawerTranslateX, {
+        toValue: -400,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }),
+      Animated.timing(drawerOverlayOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setDrawerOpen(false));
+  }, [drawerTranslateX, drawerOverlayOpacity]);
+
+  useEffect(() => {
+    appEvents.on(OPEN_DRAWER_EVENT, openDrawer);
+    return () => {
+      appEvents.off(OPEN_DRAWER_EVENT, openDrawer);
+    };
+  }, [openDrawer]);
+
+  useEffect(() => {
+    if (isLocked) closeDrawer();
+  }, [isLocked, closeDrawer]);
 
   const hasCheckedLock = useRef(false);
 
@@ -186,64 +256,18 @@ function AppContent() {
     checkLockStatus();
   }, [isAuthLoading, user, token]);
 
-  if (isAuthLoading || checkingBiometric || !onboardingChecked || (!fontsLoaded && !fontError)) {
-    return null;
-  }
-
-  if (isLocked) {
-    return (
-      <View style={[styles.lockContainer, { backgroundColor: themeColors.background }]}>
-        <StatusBar style="auto" />
-        <View style={styles.lockContent}>
-          <View style={[styles.lockIconContainer, { backgroundColor: themeColors.primary + '15' }]}>
-            <Ionicons name="lock-closed" size={48} color={themeColors.primary} />
-          </View>
-          <Text style={[styles.lockTitle, { color: themeColors.text.primary }]}>App Locked</Text>
-          <Text style={[styles.lockSubtitle, { color: themeColors.text.secondary }]}>
-            Please authenticate using biometrics to open Happy Renting
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.unlockBtn, { backgroundColor: themeColors.primary }]}
-            onPress={async () => {
-              const success = await authenticateWithBiometric();
-              if (success) {
-                setIsLocked(false);
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="finger-print" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.unlockBtnText}>Unlock App</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.lockLogoutBtn}
-            onPress={async () => {
-              await useAuthStore.getState().logout();
-              setIsLocked(false);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={{ color: themeColors.primary, fontWeight: '600', fontSize: 14 }}>
-              Sign out and login with password
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+  const isReady = !isAuthLoading && !checkingBiometric && onboardingChecked && (fontsLoaded || !!fontError) && !isRestoring;
 
   return (
     <>
       <StatusBar style="auto" />
-      <OfflineBanner />
       <Stack screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: themeColors.background },
         animation: 'slide_from_right',
       }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(owner-tabs)" />
         <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="rentDetail/[id]" options={{ animation: 'slide_from_right' }} />
@@ -255,6 +279,64 @@ function AppContent() {
         <Stack.Screen name="transaction-history" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="login" options={{ animation: 'slide_from_bottom' }} />
       </Stack>
+      {!isReady && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: themeColors.background }]} />
+      )}
+      {isReady && isLocked && (
+        <View style={[StyleSheet.absoluteFill, styles.lockContainer, { backgroundColor: themeColors.background }]}>
+          <View style={styles.lockContent}>
+            <View style={[styles.lockIconContainer, { backgroundColor: themeColors.primary + '15' }]}>
+              <Ionicons name="lock-closed" size={48} color={themeColors.primary} />
+            </View>
+            <Text style={[styles.lockTitle, { color: themeColors.text.primary }]}>App Locked</Text>
+            <Text style={[styles.lockSubtitle, { color: themeColors.text.secondary }]}>
+              Please authenticate using biometrics to open Happy Renting
+            </Text>
+            <TouchableOpacity
+              style={[styles.unlockBtn, { backgroundColor: themeColors.primary }]}
+              onPress={async () => {
+                const success = await authenticateWithBiometric();
+                if (success) setIsLocked(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="finger-print" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.unlockBtnText}>Unlock App</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.lockLogoutBtn}
+              onPress={async () => {
+                await useAuthStore.getState().logout();
+                setIsLocked(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: themeColors.primary, fontWeight: '600', fontSize: 14 }}>
+                Sign out and login with password
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {isReady && !isLocked && <OfflineBanner />}
+      {isReady && !isLocked && (
+        <WorkspacePicker
+          visible={needsWorkspacePicker}
+          required
+          onClose={() => {
+            const { activeWorkspace: ws } = useAuthStore.getState();
+            if (ws === 'owner') router.replace('/(owner-tabs)' as any);
+          }}
+        />
+      )}
+      {isReady && !isLocked && (
+        <AppDrawer
+          isOpen={drawerOpen}
+          onClose={closeDrawer}
+          translateX={drawerTranslateX}
+          overlayOpacity={drawerOverlayOpacity}
+        />
+      )}
     </>
   );
 }
@@ -272,9 +354,7 @@ export default function RootLayout() {
       >
         <ThemeProvider>
           <GestureHandlerRootView style={styles.root}>
-            <CacheGate>
-              <AppContent />
-            </CacheGate>
+            <AppContent />
           </GestureHandlerRootView>
         </ThemeProvider>
       </PersistQueryClientProvider>

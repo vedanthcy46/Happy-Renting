@@ -16,3 +16,5 @@ export { AppDrawer } from './AppDrawer';
 export { AppBottomSheet } from './AppBottomSheet';
 export { SuccessAnimation } from './SuccessAnimation';
 export { FeatureWalkthrough, TAB_BAR_HEIGHT } from './FeatureWalkthrough';
+export { WorkspacePicker } from './WorkspacePicker';
+export { WorkspaceSwitcher } from './WorkspaceSwitcher';

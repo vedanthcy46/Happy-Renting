@@ -36,7 +36,7 @@ import { APP_VERSION } from '../utils/rateApp';
 const { width } = Dimensions.get('window');
 
 interface LoginScreenProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (role: string) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
@@ -107,9 +107,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             setLoading(true);
             try {
               const response = await apiLogin(creds.email, creds.password);
-              if (response.success && response.user.role === 'tenant') {
+              if (response.success) {
+                if (response.user.role === 'superadmin' && !(response.user.roles ?? []).some((r: string) => r === 'owner' || r === 'tenant')) {
+                  setError('Admin accounts are managed via the web portal.');
+                  return;
+                }
                 await setAuth(response.user, response.token);
-                onLoginSuccess();
+                onLoginSuccess(response.user.role);
               } else {
                 setError('Biometric login failed. Please sign in with password.');
               }
@@ -140,9 +144,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       setLoading(true);
       try {
         const response = await apiLogin(creds.email, creds.password);
-        if (response.success && response.user.role === 'tenant') {
+        if (response.success) {
+          if (response.user.role === 'superadmin' && !(response.user.roles ?? []).some((r: string) => r === 'owner' || r === 'tenant')) {
+            Alert.alert('Not Available', 'Admin accounts are managed via the web portal.');
+            return;
+          }
           await setAuth(response.user, response.token);
-          onLoginSuccess();
+          onLoginSuccess(response.user.role);
         } else {
           Alert.alert('Error', 'Biometric login failed. Please use password.');
         }
@@ -164,10 +172,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     try {
       const response = await apiLogin(email.trim().toLowerCase(), password);
-      if (response.success && response.user.role === 'tenant') {
-        await setAuth(response.user, response.token);
-        
-        // Prompt for biometric enrollment
+      if (response.success) {
+          // Block superadmin from mobile app — admin portal is web-only
+          if (response.user.role === 'superadmin' && !(response.user.roles ?? []).some((r: string) => r === 'owner' || r === 'tenant')) {
+            setError('Admin accounts are managed via the web portal. Please use happyrenting.netlify.app');
+            setLoading(false);
+            return;
+          }
+          await setAuth(response.user, response.token);
+
+        // Prompt for biometric enrollment (any role can use biometrics)
         if (biometricSupported && !biometricActive) {
           Alert.alert(
             'Enable Biometric Login',
@@ -176,7 +190,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               {
                 text: 'Maybe Later',
                 style: 'cancel',
-                onPress: () => onLoginSuccess(),
+                onPress: () => onLoginSuccess(response.user.role),
               },
               {
                 text: 'Enable',
@@ -187,17 +201,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   } catch {
                     Alert.alert('Error', 'Failed to save biometric credentials.');
                   } finally {
-                    onLoginSuccess();
+                    onLoginSuccess(response.user.role);
                   }
                 },
               },
             ]
           );
         } else {
-          onLoginSuccess();
+          onLoginSuccess(response.user.role);
         }
-      } else if (response.user.role !== 'tenant') {
-        setError('This app is only for tenants. Please use the web portal.');
       } else {
         setError('Invalid credentials');
       }
@@ -234,7 +246,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 />
               </View>
               <Text style={styles.appName}>Happy Renting</Text>
-              <Text style={styles.tagline}>Tenant Portal</Text>
+              <Text style={styles.tagline}>Property Management</Text>
             </Animated.View>
           </LinearGradient>
 
@@ -242,7 +254,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             style={[styles.formSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
           >
             <Text style={styles.welcomeTitle}>Welcome back</Text>
-            <Text style={styles.welcomeSubtitle}>Sign in to manage your rent</Text>
+            <Text style={styles.welcomeSubtitle}>Sign in to your account</Text>
 
             {error ? (
               <View style={styles.errorBox}>

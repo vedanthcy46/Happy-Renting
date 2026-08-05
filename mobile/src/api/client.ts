@@ -1,7 +1,9 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
-import { useAuthStore } from '../store/useAuthStore';
 import { appEvents, SESSION_EXPIRED_EVENT } from '../utils/events';
+
+// Lazy accessor to avoid circular dependency: client ← useAuthStore ← syncEngine ← client
+const getAuthStore = () => require('../store/useAuthStore').useAuthStore;
 
 const getBaseUrl = () => {
   const configApiUrl = Constants.expoConfig?.extra?.apiUrl;
@@ -31,7 +33,7 @@ const client = axios.create({
 // Request interceptor for API calls
 client.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const token = useAuthStore.getState().token;
+    const token = getAuthStore().getState().token;
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -62,7 +64,7 @@ client.interceptors.response.use(
       if (!sessionExpiredEmitted) {
         sessionExpiredEmitted = true;
         appEvents.emit(SESSION_EXPIRED_EVENT);
-        await useAuthStore.getState().logout();
+        await getAuthStore().getState().logout();
         // Reset flag after a short delay so it works correctly if user logs in again
         setTimeout(() => { sessionExpiredEmitted = false; }, 2000);
       }

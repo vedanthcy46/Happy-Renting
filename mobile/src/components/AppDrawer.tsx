@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuthStore } from '../store/useAuthStore';
 import { LinearGradient } from 'expo-linear-gradient';
+import { WorkspacePicker } from './WorkspacePicker';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -39,10 +40,15 @@ interface DrawerProps {
 }
 
 export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, overlayOpacity }) => {
-  const { colors: themeColors, isDark } = useTheme();
+  const { colors: themeColors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, logout, activeWorkspace, setWorkspace } = useAuthStore();
+
+  const roles = user?.roles ?? (user?.role ? [user.role] : []);
+  const isOwner = roles.includes('owner');
+  const isMultiRole = roles.includes('owner') && roles.includes('tenant');
+  const [showWorkspacePicker, setShowWorkspacePicker] = useState(false);
 
   const navigate = (route: string) => {
     onClose();
@@ -63,19 +69,56 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     ]);
   };
 
-  const drawerItems: DrawerItem[] = [
+  // ── Tenant-specific nav items ──────────────────────────────────────────
+  const tenantItems: DrawerItem[] = [
     { icon: 'home', label: 'Dashboard', route: '/(tabs)' },
     { icon: 'card', label: 'Payments', route: '/(tabs)/rent', dividerAfter: true },
-    { icon: 'chatbubble', label: 'Maintenance', route: '/(tabs)/complaints' },
+    { icon: 'construct', label: 'Maintenance Requests', route: '/(tabs)/complaints' },
     { icon: 'receipt', label: 'Transaction History', route: '/transaction-history', dividerAfter: true },
+  ];
+
+  // ── Owner-specific nav items ───────────────────────────────────────────
+  const ownerItems: DrawerItem[] = [
+    { icon: 'grid', label: 'Dashboard', route: '/(owner-tabs)' },
+    { icon: 'business', label: 'Properties', route: '/(owner-tabs)/properties' },
+    { icon: 'people', label: 'Tenants', route: '/(owner-tabs)/tenants', dividerAfter: true },
+    { icon: 'person-add', label: 'Add Tenant', route: '/owner/add-tenant' },
+    { icon: 'wallet', label: 'Payments', route: '/(owner-tabs)/payments' },
+    { icon: 'checkmark-done-circle', label: 'Pending Approvals', route: '/owner/approvals' },
+    { icon: 'construct', label: 'Complaints', route: '/owner/complaints' },
+    { icon: 'trending-up', label: 'Expenses', route: '/owner/expenses' },
+    { icon: 'bar-chart', label: 'Reports', route: '/owner/reports', dividerAfter: true },
+    { icon: 'notifications', label: 'Notifications', route: '/notifications', dividerAfter: true },
+  ];
+
+  // ── Shared items for all roles ─────────────────────────────────────────
+  const sharedItems: DrawerItem[] = [
     { icon: 'help-circle', label: 'Help Center', route: '/help' },
     { icon: 'information-circle', label: 'About Happy Renting', route: '/about' },
-    { icon: 'globe', label: 'Visit Website', onPress: () => { onClose(); Linking.openURL('https://happyrenting.netlify.app'); } },
-    { icon: 'star', label: 'Rate the App', onPress: () => { onClose(); Linking.openURL('https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant'); } },
-    { icon: 'share-social', label: 'Share Happy Renting', onPress: () => { onClose(); /* share */ }, dividerAfter: true },
+    {
+      icon: 'globe',
+      label: 'Visit Website',
+      onPress: () => { onClose(); Linking.openURL('https://happyrenting.netlify.app'); },
+    },
+    {
+      icon: 'star',
+      label: 'Rate the App',
+      onPress: () => {
+        onClose();
+        Linking.openURL('https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant');
+      },
+    },
+    {
+      icon: 'share-social',
+      label: 'Share Happy Renting',
+      onPress: () => { onClose(); },
+      dividerAfter: true,
+    },
     { icon: 'shield-checkmark', label: 'Privacy Policy', route: '/privacy-policy' },
     { icon: 'document-text', label: 'Terms of Service', route: '/terms-of-service' },
   ];
+
+  const primaryItems = activeWorkspace === 'owner' ? ownerItems : tenantItems;
 
   if (!isOpen) return null;
 
@@ -112,6 +155,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
               resizeMode="contain"
             />
           </View>
+
           <View style={styles.drawerUserInfo}>
             <View style={styles.drawerAvatar}>
               <Text style={styles.drawerAvatarText}>
@@ -127,6 +171,29 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
               </Text>
             </View>
           </View>
+
+          {/* Workspace badge / switcher */}
+          {isOwner && (
+            <View style={styles.workspaceRow}>
+              <TouchableOpacity
+                style={styles.workspaceBadge}
+                onPress={() => isMultiRole && setShowWorkspacePicker(true)}
+                activeOpacity={isMultiRole ? 0.7 : 1}
+              >
+                <Ionicons
+                  name={activeWorkspace === 'owner' ? 'business' : 'home'}
+                  size={13}
+                  color="rgba(255,255,255,0.9)"
+                />
+                <Text style={styles.workspaceBadgeText}>
+                  {activeWorkspace === 'owner' ? 'Owner Workspace' : 'Tenant Workspace'}
+                </Text>
+                {isMultiRole && (
+                  <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.9)" />
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </LinearGradient>
 
         {/* Menu Items */}
@@ -135,19 +202,38 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingTop: 8 }}
         >
-          {drawerItems.map((item, index) => (
-            <React.Fragment key={index}>
+          {/* Primary nav items */}
+          {primaryItems.map((item, index) => (
+            <React.Fragment key={`primary-${index}`}>
               <TouchableOpacity
                 style={styles.drawerItem}
                 onPress={() => item.onPress ? item.onPress() : item.route && navigate(item.route)}
                 activeOpacity={0.7}
               >
                 <View style={[styles.drawerItemIcon, { backgroundColor: themeColors.primaryLight + '30' }]}>
-                  <Ionicons
-                    name={item.icon}
-                    size={24}
-                    color={item.color || themeColors.primary}
-                  />
+                  <Ionicons name={item.icon} size={22} color={item.color || themeColors.primary} />
+                </View>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.text.primary }]}>
+                  {item.label}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={themeColors.text.tertiary} />
+              </TouchableOpacity>
+              {item.dividerAfter && (
+                <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+              )}
+            </React.Fragment>
+          ))}
+
+          {/* Shared items */}
+          {sharedItems.map((item, index) => (
+            <React.Fragment key={`shared-${index}`}>
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => item.onPress ? item.onPress() : item.route && navigate(item.route)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.drawerItemIcon, { backgroundColor: themeColors.primaryLight + '30' }]}>
+                  <Ionicons name={item.icon} size={22} color={item.color || themeColors.primary} />
                 </View>
                 <Text style={[styles.drawerItemLabel, { color: themeColors.text.primary }]}>
                   {item.label}
@@ -170,6 +256,19 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>
+
+      <WorkspacePicker
+        visible={showWorkspacePicker}
+        onClose={() => {
+          setShowWorkspacePicker(false);
+          onClose();
+          const { activeWorkspace: ws } = useAuthStore.getState();
+          setTimeout(() => {
+            if (ws === 'owner') router.replace('/(owner-tabs)' as any);
+            else router.replace('/(tabs)' as any);
+          }, 300);
+        }}
+      />
     </>
   );
 };
@@ -195,7 +294,7 @@ const styles = StyleSheet.create({
   },
   drawerHeader: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
   drawerLogoRow: {
     alignItems: 'center',
@@ -232,6 +331,26 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.75)',
     fontSize: 12,
     marginTop: 2,
+  },
+  workspaceRow: {
+    marginTop: 14,
+  },
+  workspaceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  workspaceBadgeText: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 12,
+    fontWeight: '600',
   },
   drawerItem: {
     flexDirection: 'row',

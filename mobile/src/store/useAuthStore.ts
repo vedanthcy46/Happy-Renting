@@ -6,12 +6,14 @@ import { sqlitePersister } from '../persist/sqlitePersister';
 import { clearOutbox } from '../db/outbox';
 import { clearAllCaches } from '../db/cacheRepo';
 import { clearSyncCursors } from '../sync/syncEngine';
+import type { UserRole, Workspace } from '../types/auth';
 
 interface User {
   _id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
+  roles: UserRole[];
   ownerId?: string;
   mustChangePassword?: boolean;
 }
@@ -20,26 +22,69 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  activeWorkspace: Workspace;
+  // True when user has multiple workspaces and hasn't picked one yet this session
+  needsWorkspacePicker: boolean;
   setAuth: (user: User, token: string) => Promise<void>;
+  setWorkspace: (workspace: Workspace) => Promise<void>;
+  dismissWorkspacePicker: () => void;
   logout: () => Promise<void>;
   initialize: () => Promise<void>;
 }
+
+/** Normalize roles — always returns a non-empty array. */
+const normalizeRoles = (user: { role: UserRole; roles?: UserRole[] }): UserRole[] => {
+  if (user.roles && user.roles.length > 0) return user.roles;
+  return [user.role];
+};
+
+/** Derive the default workspace from a user's roles. */
+const deriveWorkspace = (roles: UserRole[]): Workspace => {
+  // superadmin alone is web-only; needs explicit 'owner' role for mobile owner workspace
+  if (roles.includes('owner')) return 'owner';
+  return 'tenant';
+};
+
+/** Whether the user has access to multiple workspaces on mobile. */
+const isMultiRole = (roles: UserRole[]): boolean => {
+  return roles.includes('owner') && roles.includes('tenant');
+};
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
   isLoading: true,
+  activeWorkspace: 'tenant',
+  needsWorkspacePicker: false,
 
   setAuth: async (user, token) => {
     try {
+      const roles = normalizeRoles(user);
+      const userWithRoles = { ...user, roles };
+      const workspace = deriveWorkspace(roles);
+      const showPicker = isMultiRole(roles);
       await SecureStore.setItemAsync('userToken', token);
-      await SecureStore.setItemAsync('userData', JSON.stringify(user));
-      set({ user, token, isLoading: false });
-      if (__DEV__) console.log('[Auth] State updated after login');
+      await SecureStore.setItemAsync('userData', JSON.stringify(userWithRoles));
+      await SecureStore.setItemAsync('activeWorkspace', workspace);
+      set({ user: userWithRoles, token, activeWorkspace: workspace, isLoading: false, needsWorkspacePicker: showPicker });
+      if (__DEV__) console.log('[Auth] State updated after login — workspace:', workspace, 'multiRole:', showPicker);
     } catch (error) {
       console.error('[Auth] Failed to save session', error);
     }
   },
+
+  setWorkspace: async (workspace) => {
+    try {
+      await SecureStore.setItemAsync('activeWorkspace', workspace);
+      set({ activeWorkspace: workspace, needsWorkspacePicker: false });
+      if (__DEV__) console.log('[Auth] Workspace switched to:', workspace);
+    } catch (error) {
+      console.error('[Auth] Failed to persist workspace', error);
+      set({ activeWorkspace: workspace, needsWorkspacePicker: false });
+    }
+  },
+
+  dismissWorkspacePicker: () => set({ needsWorkspacePicker: false }),
 
   logout: async () => {
     try {
@@ -47,26 +92,26 @@ export const useAuthStore = create<AuthState>((set) => ({
       await Promise.all([
         SecureStore.deleteItemAsync('userToken'),
         SecureStore.deleteItemAsync('userData'),
-        Promise.resolve(sqlitePersister.removeClient()).catch(() => {}),
-        Promise.resolve(clearOutbox()).catch(() => {}),
-        Promise.resolve(clearSyncCursors()).catch(() => {}),
-        Promise.resolve(clearAllCaches()).catch(() => {}),
+        SecureStore.deleteItemAsync('activeWorkspace'),
+        Promise.resolve(sqlitePersister.removeClient()).catch(() => { }),
+        Promise.resolve(clearOutbox()).catch(() => { }),
+        Promise.resolve(clearSyncCursors()).catch(() => { }),
+        Promise.resolve(clearAllCaches()).catch(() => { }),
       ]);
       await clearBiometricCredentials();
-      set({ user: null, token: null, isLoading: false });
+      set({ user: null, token: null, activeWorkspace: 'tenant', isLoading: false, needsWorkspacePicker: false });
       if (__DEV__) console.log('[Auth] Logged out and storage cleared');
     } catch (error) {
       console.error('[Auth] Failed to clear session', error);
-      // Still clear the state
       queryClient.clear();
       await Promise.all([
-        clearBiometricCredentials().catch(() => {}),
-        Promise.resolve(sqlitePersister.removeClient()).catch(() => {}),
-        Promise.resolve(clearOutbox()).catch(() => {}),
-        Promise.resolve(clearSyncCursors()).catch(() => {}),
-        Promise.resolve(clearAllCaches()).catch(() => {}),
+        clearBiometricCredentials().catch(() => { }),
+        Promise.resolve(sqlitePersister.removeClient()).catch(() => { }),
+        Promise.resolve(clearOutbox()).catch(() => { }),
+        Promise.resolve(clearSyncCursors()).catch(() => { }),
+        Promise.resolve(clearAllCaches()).catch(() => { }),
       ]);
-      set({ user: null, token: null, isLoading: false });
+      set({ user: null, token: null, activeWorkspace: 'tenant', isLoading: false, needsWorkspacePicker: false });
     }
   },
 
@@ -74,21 +119,28 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const token = await SecureStore.getItemAsync('userToken');
       const userDataStr = await SecureStore.getItemAsync('userData');
-      
+      const storedWorkspace = await SecureStore.getItemAsync('activeWorkspace');
+
       if (__DEV__) console.log('[Auth] Initializing...', { hasToken: !!token, hasUser: !!userDataStr });
 
       if (token && userDataStr) {
         try {
-          const user = JSON.parse(userDataStr);
-          set({ token, user, isLoading: false });
+          const user: User = JSON.parse(userDataStr);
+          const roles = normalizeRoles(user);
+          const userWithRoles = { ...user, roles };
+          const activeWorkspace: Workspace =
+            (storedWorkspace as Workspace) ?? deriveWorkspace(roles);
+          // Don't show picker on cold start — user already chose a workspace last session
+          set({ token, user: userWithRoles, activeWorkspace, isLoading: false, needsWorkspacePicker: false });
         } catch (e) {
           console.error('[Auth] Failed to parse user data', e);
           await SecureStore.deleteItemAsync('userToken');
           await SecureStore.deleteItemAsync('userData');
-          set({ token: null, user: null, isLoading: false });
+          await SecureStore.deleteItemAsync('activeWorkspace');
+          set({ token: null, user: null, activeWorkspace: 'tenant', isLoading: false, needsWorkspacePicker: false });
         }
       } else {
-        set({ token: null, user: null, isLoading: false });
+        set({ token: null, user: null, activeWorkspace: 'tenant', isLoading: false, needsWorkspacePicker: false });
       }
     } catch (error) {
       console.error('[Auth] Initialization failed', error);

@@ -107,11 +107,25 @@ async function registerForPushNotificationsAsync() {
 
   try {
     if (Platform.OS === 'android') {
+      // Default channel
       await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
+        name: 'General Notifications',
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: '#2563EB',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: false,
+        showBadge: true,
+      });
+      // High-priority channel for payment/urgent alerts
+      await Notifications.setNotificationChannelAsync('alerts', {
+        name: 'Rent & Payment Alerts',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 500, 200, 500],
+        lightColor: '#DC2626',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: false,
+        showBadge: true,
       });
     }
 
@@ -137,7 +151,10 @@ async function registerForPushNotificationsAsync() {
 
     token = (await Notifications.getExpoPushTokenAsync({
       projectId: Constants.expoConfig?.extra?.eas?.projectId,
+      applicationId: Constants.expoConfig?.android?.package ?? Constants.expoConfig?.ios?.bundleIdentifier,
     })).data;
+
+    if (__DEV__) console.log('[Push] Expo push token:', token);
 
     usePushStore.getState().setToken(token, envLabel);
   } catch (error: any) {

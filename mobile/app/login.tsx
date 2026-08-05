@@ -3,5 +3,14 @@ import { LoginScreen } from '../src/screens/LoginScreen';
 
 export default function LoginPage() {
   const router = useRouter();
-  return <LoginScreen onLoginSuccess={() => router.replace('/(tabs)')} />;
+
+  const handleLoginSuccess = (role: string) => {
+    if (role === 'owner' || role === 'superadmin') {
+      router.replace('/(owner-tabs)' as any);
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
+  return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
 }

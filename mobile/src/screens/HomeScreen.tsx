@@ -22,6 +22,7 @@ import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatDate, getInitials, formatMonth } from '../utils';
 import { appEvents, OPEN_DRAWER_EVENT } from '../utils/events';
+import { WorkspaceSwitcher } from '../components/WorkspaceSwitcher';
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -198,6 +199,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             <Text style={styles.propertyText}>
               {tenant.propertyId?.name} · Room {tenant.roomId?.roomNumber}
             </Text>
+          </View>
+          <View style={{ marginTop: spacing.sm, alignItems: 'flex-start' }}>
+            <WorkspaceSwitcher variant="chip" />
           </View>
         </View>
       </LinearGradient>

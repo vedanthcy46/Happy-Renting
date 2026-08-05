@@ -1,14 +1,13 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Platform, StyleSheet, TouchableOpacity, Animated, View, Dimensions } from 'react-native';
+import { Platform, StyleSheet, View, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { colors, typography } from '../../src/theme';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { useState, useRef as useReactRef, useEffect, useMemo } from 'react';
-import { AppDrawer, FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
+import { useState, useEffect, useMemo } from 'react';
+import { FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
 import { WalkthroughStep } from '../../src/components/FeatureWalkthrough';
-import { appEvents, OPEN_DRAWER_EVENT } from '../../src/utils/events';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const WALKTHROUGH_KEY_PREFIX = 'walkthrough_completed';
@@ -30,10 +29,7 @@ export default function TabLayout() {
   const { token, isLoading, user } = useAuthStore();
   const { colors: themeColors } = useTheme();
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
-  const translateX = useReactRef(new Animated.Value(-400)).current;
-  const overlayOpacity = useReactRef(new Animated.Value(0)).current;
 
   const walkthroughSteps = useMemo<WalkthroughStep[]>(
     () => [
@@ -82,16 +78,6 @@ export default function TabLayout() {
     checkWalkthrough();
   }, [user?._id]);
 
-  useEffect(() => {
-    const handleOpenDrawer = () => {
-      openDrawer();
-    };
-    appEvents.on(OPEN_DRAWER_EVENT, handleOpenDrawer);
-    return () => {
-      appEvents.off(OPEN_DRAWER_EVENT, handleOpenDrawer);
-    };
-  }, []);
-
   const finishWalkthrough = async () => {
     setShowWalkthrough(false);
     if (user?._id) {
@@ -101,51 +87,8 @@ export default function TabLayout() {
     }
   };
 
-  const openDrawer = () => {
-    setDrawerOpen(true);
-    Animated.parallel([
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const closeDrawer = () => {
-    Animated.parallel([
-      Animated.spring(translateX, {
-        toValue: -400,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => setDrawerOpen(false));
-  };
-
   if (isLoading) return null;
   if (!token) return <Redirect href="/login" />;
-
-  const headerLeft = () => (
-    <TouchableOpacity
-      onPress={openDrawer}
-      style={{ marginLeft: 16, padding: 4 }}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-    >
-      <Ionicons name="menu" size={26} color={themeColors.text.primary} />
-    </TouchableOpacity>
-  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -230,13 +173,6 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-
-      <AppDrawer
-        isOpen={drawerOpen}
-        onClose={closeDrawer}
-        translateX={translateX}
-        overlayOpacity={overlayOpacity}
-      />
 
       <FeatureWalkthrough
         visible={showWalkthrough}

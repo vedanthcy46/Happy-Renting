@@ -37,8 +37,10 @@ import {
   pruneComplaintsCache,
   pruneRentRecordsCache,
 } from '../repositories';
-import { useAuthStore } from '../store/useAuthStore';
 import { removeOutboxImage } from '../utils/outboxImages';
+
+// Lazy accessor to avoid circular dependency: syncEngine ← useAuthStore ← syncEngine
+const getAuthStore = () => require('../store/useAuthStore').useAuthStore;
 
 const LAST_RENT_SYNC_KEY = 'lastRentSyncAt';
 const LAST_COMPLAINTS_SYNC_KEY = 'lastComplaintsSyncAt';
@@ -116,9 +118,9 @@ async function dispatch(item: OutboxItem): Promise<void> {
     case 'profile.update': {
       const userData = item.payload as Record<string, unknown>;
       const res = await updateProfileRequest(userData);
-      const { user, token } = useAuthStore.getState();
+      const { user, token } = getAuthStore().getState();
       if (token && res.user) {
-        await useAuthStore.getState().setAuth(res.user, token);
+        await getAuthStore().getState().setAuth(res.user, token);
       }
       break;
     }
@@ -291,6 +293,9 @@ export async function syncTransactionHistoryDelta(): Promise<void> {
 
 export async function syncTenancy(): Promise<void> {
   if (!isOnline()) return;
+  const role = getAuthStore().getState().user?.role;
+  const roles: string[] = getAuthStore().getState().user?.roles ?? (role ? [role] : []);
+  if (!roles.includes('tenant')) return;
   try {
     const res = await getMyTenancy();
     await writeTenancyCache(res);
