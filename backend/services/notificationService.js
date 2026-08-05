@@ -4,8 +4,11 @@ const Notification = require('../models/Notification');
 const logger = require('../config/logger');
 
 // Create a new Expo SDK client
-// optionally providing an access token if you have enabled push security
-let expo = new Expo();
+// Pass access token if push security is enabled on expo.dev (set EXPO_ACCESS_TOKEN env var)
+let expo = new Expo({
+  accessToken: process.env.EXPO_ACCESS_TOKEN || undefined,
+  useFcmV1: true, // Use FCM v1 API (required after June 2024 FCM legacy API deprecation)
+});
 
 /**
  * Save a notification to the database and optionally send an Expo push notification
@@ -54,13 +57,17 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
     }
 
     // 4. Construct messages
+    const urgentTypes = ['payment', 'overdue', 'payment_reminder', 'payment_received'];
+    const channelId = urgentTypes.includes(type) ? 'alerts' : 'default';
+
     const messages = validTokens.map(token => ({
       to: token,
       sound: 'default',
       title,
       body: finalMessage,
-      channelId: 'default',
-      data: { notificationId: notification._id, ...data },
+      channelId,
+      priority: urgentTypes.includes(type) ? 'high' : 'normal',
+      data: { notificationId: notification._id, type, ...data },
     }));
 
     // 5. Chunk and send via Expo
@@ -109,7 +116,7 @@ const broadcastToTenants = async ({ ownerId, title, body, type = 'broadcast', da
   try {
     const Tenant = require('../models/Tenant');
     const tenants = await Tenant.find({ ownerId, status: 'active' }).populate('userId', 'expoPushTokens');
-    
+
     let totalSent = 0;
     for (const tenant of tenants) {
       if (tenant.userId) {
