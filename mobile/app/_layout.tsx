@@ -57,7 +57,7 @@ function AppContent() {
   const handleNotificationTap = useCallback((data: any) => {
     const notificationId = data?.notificationId;
     if (notificationId) {
-      markAsRead(notificationId).catch(() => {});
+      markAsRead(notificationId).catch(() => { });
     }
 
     const rentRecordId = data?.rentRecordId;
@@ -131,12 +131,24 @@ function AppContent() {
     }
   }, [isAuthLoading, onboardingChecked, fontsLoaded, fontError]);
 
+  const sessionExpiredShown = useRef(false);
+
   useEffect(() => {
     const handleSessionExpired = () => {
+      // Guard: only show the alert once per session expiry cycle
+      if (sessionExpiredShown.current) return;
+      sessionExpiredShown.current = true;
+
       Alert.alert(
         'Session Expired',
         'Your session has expired. Please sign in again.',
-        [{ text: 'OK', onPress: () => router.replace('/login') }]
+        [{
+          text: 'OK',
+          onPress: () => {
+            sessionExpiredShown.current = false; // Reset for future sessions
+            router.replace('/login');
+          },
+        }]
       );
     };
 
@@ -152,7 +164,7 @@ function AppContent() {
     const checkLockStatus = async () => {
       if (isAuthLoading) return;
       if (hasCheckedLock.current) return;
-      
+
       if (user && token) {
         const isEnabled = await isBiometricEnabled();
         if (isEnabled) {

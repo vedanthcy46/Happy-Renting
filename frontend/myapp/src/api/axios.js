@@ -72,6 +72,8 @@ api.interceptors.response.use(
       if (status === 401) {
         localStorage.removeItem('hr_token');
         localStorage.removeItem('hr_user');
+        // Also clear the persistent cookie so AuthContext doesn't restore the dead session
+        document.cookie = 'hr_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
         if (window.location.pathname !== '/login') {
           let url = '/login';
           if (data?.message?.toLowerCase().includes('deleted')) {

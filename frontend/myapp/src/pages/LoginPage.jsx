@@ -9,15 +9,15 @@ import { Link, useLocation } from 'react-router-dom';
 const LoginPage = () => {
   const { login } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [form,     setForm]     = useState({ email: '', password: '' });
-  const [errors,   setErrors]   = useState({});
-  const [loading,  setLoading]  = useState(false);
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
-  // Check for auto-logout reasons
+  // Check for auto-logout reasons — runs once on mount only
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     const reason = params.get('reason');
@@ -28,11 +28,16 @@ const LoginPage = () => {
     } else if (reason === 'expired') {
       toastError('Session expired. Please log in again.');
     }
-  }, [location, toastError]);
+    // Strip the ?reason= query param so a page re-render doesn't re-show the message
+    if (reason) {
+      window.history.replaceState({}, '', '/login');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validate = () => {
     const errs = {};
-    if (!form.email)   errs.email    = 'Email is required';
+    if (!form.email) errs.email = 'Email is required';
     else if (!/^\S+@\S+\.\S+$/.test(form.email)) errs.email = 'Enter a valid email';
     if (!form.password) errs.password = 'Password is required';
     else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters';

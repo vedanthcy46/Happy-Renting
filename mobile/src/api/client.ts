@@ -32,11 +32,11 @@ const client = axios.create({
 client.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const token = useAuthStore.getState().token;
-    
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     return config;
   },
   (error) => {
@@ -45,6 +45,8 @@ client.interceptors.request.use(
 );
 
 // Response interceptor for API calls
+let sessionExpiredEmitted = false;
+
 client.interceptors.response.use(
   (response) => {
     return response;
@@ -56,10 +58,16 @@ client.interceptors.response.use(
     // Skip auto-logout for the login endpoint itself
     if (error.response?.status === 401 && !originalRequest.url?.includes('/auth/login') && !originalRequest._retry) {
       originalRequest._retry = true;
-      appEvents.emit(SESSION_EXPIRED_EVENT);
-      await useAuthStore.getState().logout();
+
+      if (!sessionExpiredEmitted) {
+        sessionExpiredEmitted = true;
+        appEvents.emit(SESSION_EXPIRED_EVENT);
+        await useAuthStore.getState().logout();
+        // Reset flag after a short delay so it works correctly if user logs in again
+        setTimeout(() => { sessionExpiredEmitted = false; }, 2000);
+      }
     }
-    
+
     return Promise.reject(error);
   }
 );
