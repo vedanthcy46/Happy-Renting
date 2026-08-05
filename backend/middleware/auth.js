@@ -35,7 +35,7 @@ const authenticate = async (req, res, next) => {
 
     // Check database to ensure user still exists and hasn't been deactivated
     // since the token was issued.
-    const user = await User.findById(decoded.id).select('isActive ownerId role').lean();
+    const user = await User.findById(decoded.id).select('isActive ownerId role roles').lean();
     
     if (!user) {
       return res.status(401).json({
@@ -56,6 +56,7 @@ const authenticate = async (req, res, next) => {
     req.user = {
       _id: user._id,
       role: user.role,
+      roles: user.roles?.length > 0 ? user.roles : [user.role],
       ownerId: user.ownerId,
       isActive: user.isActive,
     };
@@ -73,9 +74,11 @@ const authenticate = async (req, res, next) => {
  * Usage: router.get('/admin', authenticate, authorize('superadmin'), handler)
  */
 const authorize = (...roles) => (req, res, next) => {
-  if (!roles.includes(req.user.role)) {
+  const userRoles = req.user.roles?.length > 0 ? req.user.roles : [req.user.role];
+  const hasRole = roles.some(r => userRoles.includes(r));
+  if (!hasRole) {
     logger.warn(
-      `Unauthorized access attempt: user=${req.user._id} role=${req.user.role} tried to access ${req.path}`
+      `Unauthorized access attempt: user=${req.user._id} roles=${userRoles.join(',')} tried to access ${req.path}`
     );
     return res.status(403).json({
       success: false,

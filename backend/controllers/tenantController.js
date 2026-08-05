@@ -6,6 +6,7 @@ const User          = require('../models/User');
 const Room          = require('../models/Room');
 const logger        = require('../config/logger');
 const tenantService = require('../services/tenantService');
+const logActivity   = require('../utils/activityLogger');
 const emailService  = require('../services/emailService');
 const MoveOutRequest = require('../models/MoveOutRequest');
 const logActivity   = require('../utils/activityLogger');
@@ -278,6 +279,27 @@ const updateTenant = async (req, res, next) => {
   }
 };
 
+// ── PATCH /api/tenants/:id/reverse-moveout ───────────────────────────────
+const reverseMoveOut = async (req, res, next) => {
+  try {
+    const tenant = await tenantService.reverseMoveOut(
+      req.params.id,
+      req.user.role,
+      req.user._id
+    );
+    res.status(200).json({
+      success: true,
+      message: 'Move-out reversed. Tenant is active again.',
+      tenant,
+    });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
 // ── PATCH /api/tenants/:id/moveout ────────────────────────────────────────
 const moveOutTenant = async (req, res, next) => {
   try {
@@ -501,6 +523,7 @@ module.exports = {
   addTenant,
   updateTenant,
   moveOutTenant,
+  reverseMoveOut,
   addCoOccupants,
   updateCoOccupant,
   deleteCoOccupant,

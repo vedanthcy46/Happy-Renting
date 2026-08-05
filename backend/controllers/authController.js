@@ -102,6 +102,7 @@ const login = async (req, res, next) => {
         name    : user.name,
         email   : user.email,
         role    : user.role,
+        roles   : user.roles.length > 0 ? user.roles : [user.role],
         ownerId : user.ownerId,
         mustChangePassword: user.mustChangePassword,
         emailVerified: user.emailVerified,

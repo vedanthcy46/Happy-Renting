@@ -34,7 +34,9 @@
         "android.permission.INTERNET",
         "android.permission.VIBRATE",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {
@@ -65,7 +67,15 @@
         }
       ],
       "expo-sharing",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#2563EB",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ],
       "expo-sqlite",
       "expo-web-browser",
       "expo-image",

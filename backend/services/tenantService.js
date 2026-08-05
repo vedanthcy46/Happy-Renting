@@ -516,4 +516,78 @@ const deleteCoOccupant = async (tenantId, coOccupantId, callerId, callerRole) =>
   return true;
 };
 
-module.exports = { moveIn, moveOut, addCoOccupants, deleteCoOccupant };
+const reverseMoveOut = async (tenantId, callerRole, callerId) => {
+  const tenant = await Tenant.findById(tenantId).select(
+    'status ownerId roomId userId exitDate'
+  );
+
+  if (!tenant) {
+    const err = new Error('Tenant record not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (tenant.status !== 'vacated') {
+    const err = new Error('Only vacated tenants can be reversed.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (callerRole === 'owner' && String(tenant.ownerId) !== String(callerId)) {
+    const err = new Error('Access denied.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const room = await Room.findById(tenant.roomId).select('capacity currentOccupancy ownerId isActive roomNumber');
+  if (!room || !room.isActive) {
+    const err = new Error('The room no longer exists or is inactive.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const activeInRoom = await Tenant.findOne({ roomId: tenant.roomId, status: 'active', _id: { $ne: tenantId } });
+  if (activeInRoom) {
+    const err = new Error('Another tenant is already active in this room. Cannot reverse move-out.');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const coOccupantCount = await CoOccupant.countDocuments({ tenantId });
+  const totalOccupantsToRestore = 1 + coOccupantCount;
+
+  if (room.currentOccupancy + totalOccupantsToRestore > room.capacity) {
+    const err = new Error(`Room ${room.roomNumber} does not have enough capacity to restore this tenancy.`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  let updatedTenant;
+
+  await withTransactionOrFallback(async (session) => {
+    updatedTenant = await Tenant.findOneAndUpdate(
+      { _id: tenantId, status: 'vacated' },
+      { $set: { status: 'active', exitDate: null, vacatedBy: null } },
+      { returnDocument: 'after', session }
+    );
+
+    if (!updatedTenant) {
+      const err = new Error('Tenant status changed concurrently. Please retry.');
+      err.statusCode = 409;
+      throw err;
+    }
+
+    await CoOccupant.updateMany({ tenantId }, { $set: { status: 'active' } }, { session });
+
+    await Room.findByIdAndUpdate(
+      tenant.roomId,
+      { $inc: { currentOccupancy: totalOccupantsToRestore } },
+      { session }
+    );
+  });
+
+  logger.info(`[REVERSE MOVE-OUT] tenant=${tenantId} occupantsRestored=${totalOccupantsToRestore} room=${tenant.roomId} by=${callerId}`);
+  await logActivity(callerId, 'TENANT_MOVE_OUT_REVERSED', tenantId, 'Tenant', `Reversed move-out for tenant ${tenantId}`);
+
+  return updatedTenant;
+};
+
+module.exports = { moveIn, moveOut, reverseMoveOut, addCoOccupants, deleteCoOccupant };

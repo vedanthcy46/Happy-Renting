@@ -33,6 +33,13 @@ const userSchema = new mongoose.Schema(
       enum    : ['superadmin', 'owner', 'tenant'],
       default : 'tenant',
     },
+     // Multi-role support — a user can be both tenant and owner.
+    // Populated from `role` on first save if empty.
+    roles: {
+      type    : [String],
+      enum    : ['superadmin', 'owner', 'tenant'],
+      default : [],
+    },
     // Links a tenant or owner to the owning account
     ownerId: {
       type : mongoose.Schema.Types.ObjectId,
@@ -129,6 +136,10 @@ const userSchema = new mongoose.Schema(
 
 // ── Pre-save: hash password ────────────────────────────────────────────────
 userSchema.pre('save', async function () {
+  // Sync roles array from role field if roles is empty (existing users / migration)
+  if (this.roles.length === 0 && this.role) {
+    this.roles = [this.role];
+  }
   if (!this.isModified('password')) return;
   this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
 });

@@ -21,6 +21,7 @@ const TenantsPage = () => {
   const [exitNotes,  setExitNotes]  = useState('');
   const [exiting,    setExiting]    = useState(false);
   const [exitError,  setExitError]  = useState('');
+  const [reversing,  setReversing]  = useState(null); // tenantId being reversed
 
   // Edit Advance modal state
   // Edit Advance/Profile modal state
@@ -52,6 +53,20 @@ const TenantsPage = () => {
   }, [tab, filters, toast]);
 
   useEffect(() => { fetchTenants(); }, [fetchTenants]);
+
+  const handleReverseMoveOut = async (tenant) => {
+    if (!window.confirm(`Restore "${tenant.userId?.name}" (Room ${tenant.roomId?.roomNumber}) back to active?\n\nThis will re-occupy the room and reactivate the tenancy.`)) return;
+    setReversing(tenant._id);
+    try {
+      await api.patch(`/tenants/${tenant._id}/reverse-moveout`);
+      toast.success(`${tenant.userId?.name} has been restored to active.`);
+      fetchTenants();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message);
+    } finally {
+      setReversing(null);
+    }
+  };
 
   const openMoveOut = (tenant) => {
     setMoveOut({ open: true, tenant });
@@ -259,6 +274,7 @@ const TenantsPage = () => {
                 <th>Status</th>
                 {tab === 'active' && <th className="text-right">Actions</th>}
                 {tab === 'vacated' && <th className="text-right">Refund</th>}
+                {tab === 'vacated' && <th className="text-right">Undo</th>}
               </tr>
             </thead>
             <tbody>
@@ -323,6 +339,18 @@ const TenantsPage = () => {
                     )}
                     {tab === 'vacated' && (
                       <td className="text-right">
+                        <button
+                          onClick={() => handleReverseMoveOut(t)}
+                          disabled={reversing === t._id}
+                          className="btn btn-sm text-[10px] uppercase font-bold tracking-wider border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Reverse move-out — restore tenant to active"
+                        >
+                          {reversing === t._id ? '…' : '↩ Restore'}
+                        </button>
+                      </td>
+                    )}
+                    {tab === 'vacated' && (
+                      <td className="text-right">
                         {(t.advanceRefundAmount > 0 || t.advancePaid > 0) ? (
                           t.refundSettled ? (
                             <span className="inline-flex flex-col items-end">
@@ -353,7 +381,7 @@ const TenantsPage = () => {
                   </tr>
                   {expanded[t._id] && (
                     <tr className="bg-surface/30 animate-fade-in border-l-2 border-brand-500">
-                      <td colSpan={8} className="p-4">
+                      <td colSpan={tab === 'vacated' ? 10 : 8} className="p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {/* Primary Details */}
                           <div className="space-y-3">
