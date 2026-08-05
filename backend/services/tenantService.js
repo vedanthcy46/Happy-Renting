@@ -555,6 +555,17 @@ const reverseMoveOut = async (tenantId, callerRole, callerId) => {
     throw err;
   }
 
+  // Reject reversal when the linked account has been deleted (anonymized).
+  const userAccount = tenant.userId ? await User.findById(tenant.userId).select('email').lean() : null;
+  const isDeletedAccount = !userAccount || /@deleted\.local$/.test(userAccount.email || '');
+  if (isDeletedAccount) {
+    const err = new Error(
+      'This tenant\u2019s account has been deleted. Move-out cannot be reversed.'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
   const room = await Room.findById(tenant.roomId).select('capacity currentOccupancy ownerId isActive roomNumber');
   if (!room || !room.isActive) {
     const err = new Error('The room no longer exists or is inactive.');
