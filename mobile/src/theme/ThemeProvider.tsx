@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { colors as lightColors } from './colors';
 
 const darkColors = {
@@ -75,12 +76,19 @@ interface ColorScheme {
 interface ThemeContextType {
   isDark: boolean;
   colors: ColorScheme;
+  /** 'system' follows the OS scheme; 'light'/'dark' are explicit overrides. */
+  themeMode: 'system' | 'light' | 'dark';
+  setThemeMode: (mode: 'system' | 'light' | 'dark') => void;
   toggleTheme: () => void;
 }
+
+const THEME_MODE_KEY = 'themeMode';
 
 const ThemeContext = createContext<ThemeContextType>({
   isDark: false,
   colors: lightColors as unknown as ColorScheme,
+  themeMode: 'system',
+  setThemeMode: () => {},
   toggleTheme: () => {},
 });
 
@@ -88,20 +96,42 @@ export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemScheme = useColorScheme();
-  const [isDark, setIsDark] = useState(systemScheme === 'dark');
+  // Default is 'system': the app follows the OS light/dark setting until the
+  // user explicitly picks a theme in Settings.
+  const [themeMode, setThemeModeState] = useState<'system' | 'light' | 'dark'>('system');
 
   useEffect(() => {
-    setIsDark(systemScheme === 'dark');
-  }, [systemScheme]);
+    (async () => {
+      try {
+        const saved = await SecureStore.getItemAsync(THEME_MODE_KEY);
+        if (saved === 'light' || saved === 'dark' || saved === 'system') {
+          setThemeModeState(saved);
+        }
+      } catch {
+        // No saved preference → keep following the system scheme.
+      }
+    })();
+  }, []);
+
+  const isDark = themeMode === 'system' ? systemScheme === 'dark' : themeMode === 'dark';
+
+  const setThemeMode = useCallback(async (mode: 'system' | 'light' | 'dark') => {
+    setThemeModeState(mode);
+    try {
+      await SecureStore.setItemAsync(THEME_MODE_KEY, mode);
+    } catch {
+      // Non-fatal: theme still applies for this session.
+    }
+  }, []);
 
   const toggleTheme = useCallback(() => {
-    setIsDark(prev => !prev);
-  }, []);
+    setThemeMode(isDark ? 'light' : 'dark');
+  }, [isDark, setThemeMode]);
 
   const colors = (isDark ? darkColors : lightColors) as unknown as ColorScheme;
 
   return (
-    <ThemeContext.Provider value={{ isDark, colors, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDark, colors, themeMode, setThemeMode, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

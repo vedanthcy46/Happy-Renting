@@ -5,7 +5,7 @@ export const DB_NAME = 'happy-renting.db';
 
 // Increment when the schema changes. All DDL below is idempotent (CREATE TABLE IF NOT EXISTS),
 // so older installs simply gain the new tables on next open.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const TABLES = {
   kvStore: 'kv_store',
@@ -17,6 +17,14 @@ export const TABLES = {
   paymentTransactions: 'payment_transactions',
   complaints: 'complaints',
   notifications: 'notifications',
+  properties: 'properties',
+  rooms: 'rooms',
+  ownerTenants: 'owner_tenants',
+  ownerRentRecords: 'owner_rent_records',
+  ownerTransactions: 'owner_transactions',
+  ownerComplaints: 'owner_complaints',
+  ownerExpenses: 'owner_expenses',
+  paymentSummary: 'payment_summary',
 } as const;
 
 export type TableName = (typeof TABLES)[keyof typeof TABLES];
@@ -95,6 +103,68 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
           _id TEXT PRIMARY KEY NOT NULL,
           data TEXT NOT NULL,
           created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS properties (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS rooms (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
+          property_id TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_rooms_property ON rooms (property_id);
+
+        CREATE TABLE IF NOT EXISTS owner_tenants (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS owner_rent_records (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
+          month TEXT NOT NULL,
+          property_id TEXT,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_owner_rent_records_month ON owner_rent_records (month);
+
+        CREATE TABLE IF NOT EXISTS owner_transactions (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
+          rent_record_id TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_owner_transactions_rent_record ON owner_transactions (rent_record_id);
+
+        CREATE TABLE IF NOT EXISTS owner_complaints (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS owner_expenses (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
+          month TEXT NOT NULL,
+          property_id TEXT,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_owner_expenses_month ON owner_expenses (month);
+
+        CREATE TABLE IF NOT EXISTS payment_summary (
+          _id TEXT PRIMARY KEY NOT NULL,
+          data TEXT NOT NULL,
           updated_at TEXT NOT NULL
         );
 

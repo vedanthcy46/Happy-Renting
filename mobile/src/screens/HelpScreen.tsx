@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeProvider';
 import { spacing, radius, shadows, typography } from '../theme';
+import { useAuthStore } from '../store/useAuthStore';
 
 // â”€â”€â”€ Enable LayoutAnimation on Android â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if (Platform.OS === 'android') {
@@ -63,6 +64,41 @@ const faqs: FAQItem[] = [
   },
 ];
 
+const ownerFaqs: FAQItem[] = [
+  {
+    q: 'How do I add a property?',
+    a: 'Go to Properties in the drawer and tap "+ Add". Enter the property name, address and city, and save. You can then add rooms and tenants to it.',
+  },
+  {
+    q: 'How do I add a tenant to a room?',
+    a: 'Open a property, tap a room, then Assign Tenant. You can also use "Add Tenant" in the drawer to create a tenant account and link them to a room.',
+  },
+  {
+    q: 'How do I verify a tenant rent payment?',
+    a: 'Go to Payments and tap "Verify" on any record awaiting verification. Confirm the proof to credit the tenant, or Reject it with a reason.',
+  },
+  {
+    q: 'How do I set / edit rent amounts?',
+    a: 'Open a room under Properties and edit the monthly rent and due date. New rent amounts apply to future bills immediately.',
+  },
+  {
+    q: 'How do I record expenses?',
+    a: 'Go to Expenses in the drawer and tap "+" to add a new expense. Categorize it, add the amount and date; it will flow into your summary and reports.',
+  },
+  {
+    q: 'How do I generate reports?',
+    a: 'Open the Reports screen to view collections, receivables and expenses. Use the date range picker to filter and tap Export to save as PDF.',
+  },
+  {
+    q: 'How do I handle a maintenance complaint?',
+    a: 'Go to Complaints, open a request to see photos and the tenant message, then change its status (e.g. In Progress, Resolved) as you act on it.',
+  },
+  {
+    q: 'When do I get paid?',
+    a: 'Tenants receive a rent due notification, and you are paid as soon as a payment is verified. Track collected and pending amounts on your Dashboard.',
+  },
+];
+
 // â”€â”€â”€ Contact Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ContactItem {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -78,7 +114,11 @@ export const HelpScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors: themeColors } = useTheme();
+  const { activeWorkspace } = useAuthStore();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const isOwner = activeWorkspace === 'owner';
+  const faqList = isOwner ? ownerFaqs : faqs;
 
   const handleToggle = (index: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -168,7 +208,9 @@ export const HelpScreen: React.FC = () => {
             <Ionicons name="help-buoy" size={40} color="#FFFFFF" />
           </View>
           <Text style={styles.heroTitle}>How can we help you?</Text>
-          <Text style={styles.heroSubtitle}>Browse our FAQ or contact us</Text>
+          <Text style={styles.heroSubtitle}>
+            {isOwner ? 'Owner FAQ, billing and property guides' : 'Browse our FAQ or contact us'}
+          </Text>
         </LinearGradient>
 
         {/* FAQ Section */}
@@ -176,7 +218,7 @@ export const HelpScreen: React.FC = () => {
           Frequently Asked Questions
         </Text>
 
-        {faqs.map((item, index) => {
+        {faqList.map((item, index) => {
           const isOpen = openIndex === index;
           return (
             <View

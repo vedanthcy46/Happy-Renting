@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   KeyboardAvoidingView,
@@ -20,10 +20,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/useAuthStore';
 import { login as apiLogin, forgotPassword } from '../api/auth';
 import { AppInput, AppButton } from '../components';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme/ThemeProvider';
 import {
   isBiometricAvailable,
   isBiometricEnabled,
@@ -40,6 +42,9 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  const { colors: themeColors } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -231,12 +236,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Modern hero */}
           <LinearGradient
-            colors={['#4B6BED', '#3D56C9']}
+            colors={themeColors.gradient.primary as any}
             style={styles.heroSection}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
+            <View style={styles.heroBlob} />
+            <View style={styles.heroBlobSmall} />
             <Animated.View style={[styles.heroContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
               <View style={styles.logoContainer}>
                 <Image
@@ -246,7 +254,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 />
               </View>
               <Text style={styles.appName}>Happy Renting</Text>
-              <Text style={styles.tagline}>Property Management</Text>
+              <Text style={styles.tagline}>Rent, receipts & property management — all in one place</Text>
             </Animated.View>
           </LinearGradient>
 
@@ -254,13 +262,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             style={[styles.formSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
           >
             <Text style={styles.welcomeTitle}>Welcome back</Text>
-            <Text style={styles.welcomeSubtitle}>Sign in to your account</Text>
+            <Text style={styles.welcomeSubtitle}>
+              Sign in to continue to your dashboard
+            </Text>
 
             {error ? (
-              <View style={styles.errorBox}>
-                <View style={styles.errorIcon}>
-                  <Ionicons name="alert-circle" size={18} color={colors.error} />
-                </View>
+              <View style={[styles.errorBox, { backgroundColor: themeColors.errorLight, borderLeftColor: themeColors.error }]}>
+                <Ionicons name="alert-circle" size={18} color={themeColors.error} style={{ marginRight: spacing.sm }} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -269,11 +277,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <View style={styles.inputContainer}>
-                  <Ionicons name="mail-outline" size={20} color={colors.text.tertiary} style={styles.inputIcon} />
+                  <Ionicons name="mail-outline" size={20} color={themeColors.text.tertiary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputField}
                     placeholder="Enter your email"
-                    placeholderTextColor={colors.text.tertiary}
+                    placeholderTextColor={themeColors.text.tertiary}
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
@@ -284,13 +292,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.passwordLabelRow}>
+                  <Text style={styles.inputLabel}>Password</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setForgotSuccess(false);
+                      setForgotEmail('');
+                      setShowForgotModal(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.forgotInline}>Forgot?</Text>
+                  </TouchableOpacity>
+                </View>
                 <View style={styles.inputContainer}>
-                  <Ionicons name="lock-closed-outline" size={20} color={colors.text.tertiary} style={styles.inputIcon} />
+                  <Ionicons name="lock-closed-outline" size={20} color={themeColors.text.tertiary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputField}
                     placeholder="Enter your password"
-                    placeholderTextColor={colors.text.tertiary}
+                    placeholderTextColor={themeColors.text.tertiary}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -300,7 +320,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     <Ionicons
                       name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                       size={20}
-                      color={colors.text.tertiary}
+                      color={themeColors.text.tertiary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -310,7 +330,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <View style={styles.buttonRow}>
               <TouchableOpacity style={[styles.signInButton, biometricActive ? { flex: 1 } : { width: '100%' }]} onPress={handleLogin} disabled={loading} activeOpacity={0.9}>
                 <LinearGradient
-                  colors={['#4B6BED', '#3D56C9']}
+                  colors={themeColors.gradient.primary as any}
                   style={styles.signInGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -318,37 +338,55 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Text style={styles.signInText}>Sign In</Text>
+                    <>
+                      <Ionicons name="log-in-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.signInText}>Sign In</Text>
+                    </>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
 
               {biometricSupported && biometricActive && (
                 <TouchableOpacity style={styles.biometricButton} onPress={handleBiometricLogin} disabled={loading} activeOpacity={0.8}>
-                  <Ionicons name="finger-print" size={28} color={colors.primary} />
+                  <Ionicons name="finger-print" size={28} color={themeColors.primary} />
                 </TouchableOpacity>
               )}
             </View>
 
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>New to Happy Renting?</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Owner access request */}
             <TouchableOpacity
-              onPress={() => {
-                setForgotSuccess(false);
-                setForgotEmail('');
-                setShowForgotModal(true);
-              }}
-              activeOpacity={0.7}
+              onPress={() => router.push('/owner-request' as any)}
+              activeOpacity={0.85}
+              style={[styles.ownerRequestCard, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.border }]}
             >
-              <Text style={styles.forgotPassword}>Forgot Password?</Text>
+              <View style={[styles.ownerRequestIcon, { backgroundColor: themeColors.surface }]}>
+                <Ionicons name="business" size={24} color={themeColors.primary} />
+              </View>
+              <View style={styles.ownerRequestText}>
+                <Text style={styles.ownerRequestTitle}>
+                  Are you a property owner?
+                </Text>
+                <Text style={styles.ownerRequestSub}>
+                  Request owner access and manage your properties
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={themeColors.primary} />
             </TouchableOpacity>
 
-            {/* Professional Footer */}
+            {/* Footer */}
             <View style={styles.loginFooter}>
               <TouchableOpacity
                 onPress={() => Linking.openURL('https://happyrenting.netlify.app')}
                 activeOpacity={0.7}
                 style={styles.websiteBtn}
               >
-                <Ionicons name="globe-outline" size={14} color={colors.primary} />
+                <Ionicons name="globe-outline" size={14} color={themeColors.primary} />
                 <Text style={styles.websiteBtnText}>happyrenting.netlify.app</Text>
               </TouchableOpacity>
               <View style={styles.footerLinks}>
@@ -371,7 +409,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <View style={styles.forgotModal}>
             {forgotSuccess ? (
               <View style={styles.forgotSuccessContent}>
-                <Ionicons name="mail-open-outline" size={48} color={colors.success} />
+                <Ionicons name="mail-open-outline" size={48} color={themeColors.success} />
                 <Text style={styles.forgotTitle}>Email Sent!</Text>
                 <Text style={styles.forgotBody}>
                   If that email exists, a password reset link has been sent to your inbox.
@@ -389,7 +427,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             ) : (
               <View style={styles.forgotFormContent}>
                 <View style={styles.forgotIconWrap}>
-                  <Ionicons name="key-outline" size={28} color={colors.primary} />
+                  <Ionicons name="key-outline" size={28} color={themeColors.primary} />
                 </View>
                 <Text style={styles.forgotTitle}>Forgot Password</Text>
                 <Text style={styles.forgotBody}>
@@ -402,7 +440,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   leftIcon={
-                    <Ionicons name="mail-outline" size={20} color={colors.text.tertiary} />
+                    <Ionicons name="mail-outline" size={20} color={themeColors.text.tertiary} />
                   }
                   containerStyle={{ backgroundColor: 'transparent' }}
                   style={{ backgroundColor: 'transparent' }}
@@ -431,7 +469,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
@@ -448,47 +486,68 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl + spacing.xxl,
     borderBottomLeftRadius: radius.xxl + 4,
     borderBottomRightRadius: radius.xxl + 4,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  heroBlob: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    top: -60,
+    right: -60,
+  },
+  heroBlobSmall: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    bottom: -40,
+    left: -40,
   },
   heroContent: {
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   logoContainer: {
-    width: 90,
-    height: 90,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    width: 88,
+    height: 88,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
   },
   logoImage: {
-    width: 70,
-    height: 70,
+    width: 66,
+    height: 66,
   },
   appName: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     fontFamily: Platform.OS === 'ios' ? 'System' : undefined,
   },
   tagline: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.75)',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 21,
     backgroundColor: 'transparent',
+    maxWidth: 280,
   },
   formSection: {
     flex: 1,
     paddingHorizontal: spacing.xxl,
     paddingTop: spacing.xxl + 4,
     paddingBottom: spacing.huge,
-    marginTop: -spacing.xxl - 4,
+    marginTop: -spacing.xxl + 2,
     backgroundColor: colors.background,
     borderTopLeftRadius: radius.xxl + 4,
     borderTopRightRadius: radius.xxl + 4,
@@ -496,34 +555,29 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: colors.text.primary,
     letterSpacing: -0.3,
     marginBottom: spacing.xs,
+    color: colors.text.primary,
   },
   welcomeSubtitle: {
     fontSize: 15,
-    color: colors.text.secondary,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
     lineHeight: 22,
+    color: colors.text.secondary,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.errorLight,
     padding: spacing.md + 2,
     borderRadius: radius.md,
     marginBottom: spacing.xl,
     borderLeftWidth: 3,
-    borderLeftColor: colors.error,
-  },
-  errorIcon: {
-    marginRight: spacing.sm,
   },
   errorText: {
     ...typography.bodySmall,
-    color: colors.error,
     flex: 1,
     fontWeight: '500',
+    color: colors.error,
   },
   formFields: {
     gap: spacing.lg,
@@ -532,22 +586,32 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: spacing.sm,
   },
+  passwordLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.text.secondary,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
+    color: colors.text.secondary,
+  },
+  forgotInline: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: spacing.lg,
     height: 52,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     ...shadows.sm,
   },
   inputIcon: {
@@ -556,9 +620,9 @@ const styles = StyleSheet.create({
   inputField: {
     flex: 1,
     fontSize: 16,
-    color: colors.text.primary,
     fontWeight: '500',
     paddingVertical: 0,
+    color: colors.text.primary,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -575,14 +639,15 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: radius.lg,
     borderWidth: 1.5,
-    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderColor: colors.primary,
     backgroundColor: colors.surface,
     ...shadows.sm,
   },
   signInGradient: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -592,12 +657,51 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     letterSpacing: 0.3,
   },
-  forgotPassword: {
-    fontSize: 14,
-    color: colors.primary,
-    textAlign: 'center',
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xxl,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.text.tertiary,
+  },
+  ownerRequestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    padding: spacing.lg,
     marginTop: spacing.xl,
-    fontWeight: '600',
+  },
+  ownerRequestIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownerRequestText: {
+    flex: 1,
+  },
+  ownerRequestTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+    color: colors.text.primary,
+  },
+  ownerRequestSub: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.text.secondary,
   },
   modalOverlay: {
     flex: 1,

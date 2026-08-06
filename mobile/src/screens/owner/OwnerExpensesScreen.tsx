@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,14 +20,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
+import { isOnline } from '../../sync/networkStatus';
+import { enqueueOutbox } from '../../db/outbox';
 import {
-  getExpenses,
+  cachedOwnerExpenses,
+  cachedOwnerProperties,
+  mergeOwnerExpenses,
+  deleteOwnerExpenseCache,
+  readOwnerExpenseCache,
+} from '../../repositories';
+import {
   getRecurringExpenses,
   getExpenseSummary,
   createExpense,
   updateExpense,
   deleteExpense,
-  getProperties,
   type OwnerExpense,
   type Property,
 } from '../../api/owner';
@@ -447,13 +454,13 @@ export const OwnerExpensesScreen: React.FC = () => {
 
   const { data: propsData } = useQuery({
     queryKey: ['ownerProperties'],
-    queryFn: getProperties,
+    queryFn: cachedOwnerProperties,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: expData, isLoading: expLoading, refetch: refetchExp } = useQuery({
     queryKey: ['ownerExpenses', month, selectedProperty],
-    queryFn: () => getExpenses({ month, propertyId: selectedProperty }),
+    queryFn: cachedOwnerExpenses(month, selectedProperty),
     staleTime: 60 * 1000,
   });
 
@@ -474,6 +481,34 @@ export const OwnerExpensesScreen: React.FC = () => {
   const summary = summaryData?.summary;
   const recurring = recData?.expenses ?? [];
 
+  // A recurring template is keyed by (property, category, title). Logged entries
+  // are isRecurring: false, so "already logged this month" = a matching expense
+  // exists in the current month's list. Also dedupe the recurring list itself so
+  // legacy entries created before this fix (isRecurring: true) don't show twice.
+  const recurringKey = (r: OwnerExpense) =>
+    `${toPropId(r.propertyId)}::${r.category}::${r.title ?? ''}`;
+
+  const recurringLoggedKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const e of expenses) {
+      if (e.isRecurring) continue;
+      keys.add(recurringKey(e));
+    }
+    return keys;
+  }, [expenses]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isRecurringLogged = (r: OwnerExpense) => recurringLoggedKeys.has(recurringKey(r));
+
+  const uniqueRecurring = useMemo(() => {
+    const seen = new Set<string>();
+    return recurring.filter(r => {
+      const k = recurringKey(r);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [recurring]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([refetchExp(), refetchSum(), refetchRec(), qc.refetchQueries({ queryKey: ['ownerProperties'] })]);
@@ -492,52 +527,147 @@ export const OwnerExpensesScreen: React.FC = () => {
   };
 
   const createMutation = useMutation({
-    mutationFn: createExpense,
-    onSuccess: () => {
+    mutationFn: async (payload: Parameters<typeof createExpense>[0]) => {
+      if (isOnline()) {
+        await createExpense(payload);
+        return { offline: false };
+      }
+      const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      await enqueueOutbox('owner.expense.create', null, payload);
+      await mergeOwnerExpenses([{
+        _id: id,
+        category: payload.category,
+        title: payload.title,
+        amount: Number(payload.amount),
+        month: payload.month,
+        isRecurring: !!payload.isRecurring,
+        notes: payload.notes,
+        expenseDate: payload.expenseDate ?? todayISO(),
+        propertyId: payload.propertyId,
+      }]);
+      return { offline: true };
+    },
+    onSuccess: (res) => {
+      if (res?.offline) {
+        Alert.alert('Saved offline', 'Expense saved on this device. It will sync automatically when back online.');
+      } else {
+        Alert.alert('Added', 'Expense has been recorded.');
+      }
       invalidateExpenses();
       setFormVisible(false);
       setEditingExpense(null);
-      Alert.alert('Added', 'Expense has been recorded.');
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to add expense.'),
+    onError: (err: any) => {
+      if (!isOnline()) {
+        Alert.alert('Saved offline', 'Expense saved on this device. It will sync automatically when back online.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to add expense.');
+      }
+    },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof updateExpense>[1] }) =>
-      updateExpense(id, payload),
-    onSuccess: () => {
+    mutationFn: async ({ id, payload }: { id: string; payload: Parameters<typeof updateExpense>[1] }) => {
+      if (isOnline()) {
+        await updateExpense(id, payload);
+        return { offline: false };
+      }
+      await enqueueOutbox('owner.expense.update', id, payload);
+      const existing = await readOwnerExpenseCache(id);
+      if (existing) {
+        await mergeOwnerExpenses([{ ...existing, ...(payload as Partial<OwnerExpense>) }]);
+      }
+      return { offline: true };
+    },
+    onSuccess: (res) => {
+      if (res?.offline) {
+        Alert.alert('Saved offline', 'Changes saved on this device. They will sync automatically when back online.');
+      } else {
+        Alert.alert('Updated', 'Expense has been updated.');
+      }
       invalidateExpenses();
       setFormVisible(false);
       setEditingExpense(null);
-      Alert.alert('Updated', 'Expense has been updated.');
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to update expense.'),
+    onError: (err: any) => {
+      if (!isOnline()) {
+        Alert.alert('Saved offline', 'Changes saved on this device. They will sync automatically when back online.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to update expense.');
+      }
+    },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteExpense,
-    onSuccess: () => {
-      invalidateExpenses();
-      Alert.alert('Deleted', 'Expense has been removed.');
+    mutationFn: async (id: string) => {
+      if (isOnline()) {
+        await deleteExpense(id);
+        return { offline: false };
+      }
+      await enqueueOutbox('owner.expense.delete', id, {});
+      await deleteOwnerExpenseCache(id);
+      return { offline: true };
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to delete expense.'),
+    onSuccess: (res) => {
+      if (res?.offline) {
+        Alert.alert('Deleted offline', 'Expense removed on this device. It will sync automatically when back online.');
+      } else {
+        Alert.alert('Deleted', 'Expense has been removed.');
+      }
+      invalidateExpenses();
+    },
+    onError: (err: any) => {
+      if (!isOnline()) {
+        Alert.alert('Deleted offline', 'Expense removed on this device. It will sync automatically when back online.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to delete expense.');
+      }
+    },
   });
 
   const logRecurringMutation = useMutation({
-    mutationFn: (recurringExpense: OwnerExpense) =>
-      createExpense({
+    mutationFn: async (recurringExpense: OwnerExpense) => {
+      const payload = {
         propertyId: toPropId(recurringExpense.propertyId),
         category: recurringExpense.category,
         title: recurringExpense.title,
         amount: recurringExpense.amount,
         month,
-        isRecurring: true,
-      }),
-    onSuccess: () => {
-      invalidateExpenses();
-      Alert.alert('Logged', 'Recurring expense added for this month.');
+        isRecurring: false,
+      };
+      if (isOnline()) {
+        await createExpense(payload);
+        return { offline: false };
+      }
+      const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      await enqueueOutbox('owner.expense.create', null, payload);
+      await mergeOwnerExpenses([{
+        _id: id,
+        category: payload.category,
+        title: payload.title,
+        amount: Number(payload.amount),
+        month: payload.month,
+        isRecurring: false,
+        expenseDate: todayISO(),
+        propertyId: payload.propertyId,
+      }]);
+      return { offline: true };
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to log recurring expense.'),
+    onSuccess: (res) => {
+      if (res?.offline) {
+        Alert.alert('Saved offline', 'Recurring expense added for this month on this device. It will sync when back online.');
+      } else {
+        Alert.alert('Logged', 'Recurring expense added for this month.');
+      }
+      invalidateExpenses();
+    },
+    onError: (err: any) => {
+      if (!isOnline()) {
+        Alert.alert('Saved offline', 'Recurring expense saved on this device. It will sync when back online.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to log recurring expense.');
+      }
+    },
   });
 
   const handleSubmit = (values: ExpenseFormValues, id?: string) => {
@@ -576,6 +706,10 @@ export const OwnerExpensesScreen: React.FC = () => {
   const handleLogRecurring = (recurringExpense: OwnerExpense) => {
     if (!toPropId(recurringExpense.propertyId)) {
       Alert.alert('Missing Property', 'This recurring expense has no property. Please add it manually.');
+      return;
+    }
+    if (isRecurringLogged(recurringExpense)) {
+      Alert.alert('Already logged', `This recurring expense is already logged for ${month}.`);
       return;
     }
     logRecurringMutation.mutate(recurringExpense);
@@ -724,7 +858,7 @@ export const OwnerExpensesScreen: React.FC = () => {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Recurring Monthly</Text>
           </View>
-          {recurring.length === 0 ? (
+          {uniqueRecurring.length === 0 ? (
             <View style={[styles.recurringCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
               <Text style={[styles.recurringEmpty, { color: colors.text.tertiary }]}>
                 No recurring expenses set up.
@@ -732,36 +866,39 @@ export const OwnerExpensesScreen: React.FC = () => {
             </View>
           ) : (
             <View style={styles.recurringList}>
-              {recurring.map(r => (
-                <View key={r._id} style={[styles.recurringCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
-                  <View style={styles.recurringCardLeft}>
-                    <View style={styles.recurringCardTop}>
-                      <Text style={[styles.recurringCardTitle, { color: colors.text.primary }]} numberOfLines={1}>
-                        {(r.title || CATEGORY_LABELS[r.category]) ?? 'Recurring expense'}
+              {uniqueRecurring.map(r => {
+                const logged = isRecurringLogged(r);
+                return (
+                  <View key={r._id} style={[styles.recurringCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
+                    <View style={styles.recurringCardLeft}>
+                      <View style={styles.recurringCardTop}>
+                        <Text style={[styles.recurringCardTitle, { color: colors.text.primary }]} numberOfLines={1}>
+                          {(r.title || CATEGORY_LABELS[r.category]) ?? 'Recurring expense'}
+                        </Text>
+                        <CategoryBadge category={r.category} />
+                      </View>
+                      <Text style={[styles.recurringCardSub, { color: colors.text.tertiary }]}>
+                        {month} · {formatCurrency(r.amount)}
                       </Text>
-                      <CategoryBadge category={r.category} />
                     </View>
-                    <Text style={[styles.recurringCardSub, { color: colors.text.tertiary }]}>
-                      {month} · {formatCurrency(r.amount)}
-                    </Text>
+                    <TouchableOpacity
+                      style={[styles.logBtn, { backgroundColor: logged ? colors.success : colors.primary }]}
+                      onPress={() => handleLogRecurring(r)}
+                      activeOpacity={0.8}
+                      disabled={logged || logRecurringMutation.isPending}
+                    >
+                      {logRecurringMutation.isPending ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Ionicons name={logged ? 'checkmark' : 'add'} size={16} color="#FFFFFF" />
+                          <Text style={styles.logBtnText}>{logged ? 'Logged' : 'Log this month'}</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    style={[styles.logBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => handleLogRecurring(r)}
-                    activeOpacity={0.8}
-                    disabled={logRecurringMutation.isPending}
-                  >
-                    {logRecurringMutation.isPending ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <>
-                        <Ionicons name="add" size={16} color="#FFFFFF" />
-                        <Text style={styles.logBtnText}>Log this month</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 

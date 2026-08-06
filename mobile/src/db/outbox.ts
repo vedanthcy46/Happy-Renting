@@ -7,7 +7,26 @@ export type OutboxKind =
   | 'notification.clearAll'
   | 'complaint.create'
   | 'payment.create'
-  | 'profile.update';
+  | 'profile.update'
+  // Owner workspace mutations
+  | 'owner.property.create'
+  | 'owner.property.update'
+  | 'owner.property.delete'
+  | 'owner.room.create'
+  | 'owner.room.update'
+  | 'owner.room.delete'
+  | 'owner.tenant.add'
+  | 'owner.tenant.update'
+  | 'owner.tenant.moveOut'
+  | 'owner.tenant.reverseMoveOut'
+  | 'owner.tenant.markRefundSettled'
+  | 'owner.transaction.verify'
+  | 'owner.transaction.reject'
+  | 'owner.transaction.reverse'
+  | 'owner.complaint.update'
+  | 'owner.expense.create'
+  | 'owner.expense.update'
+  | 'owner.expense.delete';
 
 export interface OutboxItem {
   id: number;

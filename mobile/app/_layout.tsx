@@ -278,6 +278,7 @@ function AppContent() {
         <Stack.Screen name="terms-of-service" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="transaction-history" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="login" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="owner-request" options={{ animation: 'slide_from_right' }} />
       </Stack>
       {!isReady && (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: themeColors.background }]} />

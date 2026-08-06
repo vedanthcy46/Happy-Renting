@@ -7,6 +7,7 @@ import {
   ScrollView,
   Image,
   Linking,
+  Share,
   Alert,
   Animated,
   Dimensions,
@@ -111,7 +112,18 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     {
       icon: 'share-social',
       label: 'Share Happy Renting',
-      onPress: () => { onClose(); },
+      onPress: async () => {
+        onClose();
+        try {
+          await Share.share({
+            title: 'Happy Renting',
+            message:
+              'Manage rent, pay bills, and track your property hassle-free with Happy Renting! Download the app: https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant',
+          });
+        } catch (err) {
+          Alert.alert('Error', 'Could not share the app link. Please try again.');
+        }
+      },
       dividerAfter: true,
     },
     { icon: 'shield-checkmark', label: 'Privacy Policy', route: '/privacy-policy' },

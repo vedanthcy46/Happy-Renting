@@ -1,28 +1,22 @@
 import { useState, useEffect } from 'react';
-import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
+import { isOnline, subscribeToOnline } from '../sync/networkStatus';
 
+/**
+ * Hooked view over the shared network-status singleton used by the sync
+ * engine. Using one source of truth avoids the banner disagreeing with
+ * sync behavior (e.g. showing offline while the engine is online).
+ */
 export function useNetworkStatus() {
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const [isInternetReachable, setIsInternetReachable] = useState<boolean | null>(null);
+  const [online, setOnline] = useState(isOnline());
 
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      setIsConnected(state.isConnected);
-      setIsInternetReachable(state.isInternetReachable);
-    });
-
-    // Get initial state
-    NetInfo.fetch().then((state: NetInfoState) => {
-      setIsConnected(state.isConnected);
-      setIsInternetReachable(state.isInternetReachable);
-    });
-
+    const unsubscribe = subscribeToOnline(setOnline);
     return unsubscribe;
   }, []);
 
   return {
-    isConnected,
-    isInternetReachable,
-    isOffline: isConnected === false,
+    isConnected: online,
+    isInternetReachable: online,
+    isOffline: !online,
   };
 }

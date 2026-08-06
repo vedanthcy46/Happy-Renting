@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
   ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Modal, Alert,
@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import {
-  getRooms, getAvailableUsers, sendOtp, verifyOtp, registerTenantUser, addTenant,
+  getRooms, getAvailableUsers, getOwnerTenants, sendOtp, verifyOtp, registerTenantUser, addTenant,
   type Room,
 } from '../../api/owner';
 
@@ -212,12 +212,31 @@ export const OwnerAddTenantScreen: React.FC = () => {
     staleTime: 60 * 1000,
     enabled: mode === 'existing',
   });
+  const { data: tenantsData } = useQuery({
+    queryKey: ['ownerTenants'],
+    queryFn: () => getOwnerTenants(),
+    staleTime: 60 * 1000,
+    enabled: mode === 'existing',
+  });
 
   const rooms = roomsData?.rooms ?? [];
   const users = usersData?.users ?? [];
 
   const selectedRoom = useMemo(() => rooms.find(r => r._id === selectedRoomId) ?? null, [rooms, selectedRoomId]);
   const selectedUser = useMemo(() => users.find(u => u._id === selectedUserId) ?? null, [users, selectedUserId]);
+
+  // Users who already hold an active tenancy can't be moved in again.
+  const activeTenantUserIds = useMemo(
+    () => new Set((tenantsData?.tenants ?? []).filter(t => t.status === 'active').map(t => t.userId._id)),
+    [tenantsData]
+  );
+
+  // Security deposit comes straight from the selected room's configuration.
+  useEffect(() => {
+    if (selectedRoom) {
+      setSecurityDeposit(selectedRoom.securityDeposit ? String(selectedRoom.securityDeposit) : '');
+    }
+  }, [selectedRoomId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendOtpMutation = useMutation({
     mutationFn: sendOtp,
@@ -266,12 +285,15 @@ export const OwnerAddTenantScreen: React.FC = () => {
       };
     });
 
-  const userOptions = users.map(u => ({
-    key: u._id,
-    label: u.name,
-    sub: u.email,
-    disabled: false,
-  }));
+  const userOptions = users.map(u => {
+    const alreadyActive = activeTenantUserIds.has(u._id);
+    return {
+      key: u._id,
+      label: u.name,
+      sub: alreadyActive ? 'Already an active tenant' : u.email,
+      disabled: alreadyActive,
+    };
+  });
 
   const canSendOtp = newEmail.trim().length > 3;
   const otpVerified = !!verificationToken;

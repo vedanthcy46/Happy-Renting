@@ -26,6 +26,33 @@ import {
 } from '../api/payment';
 import { updateProfileRequest } from '../api/user';
 import { getMyTenancy } from '../api/tenant';
+import {
+  createProperty,
+  updateProperty,
+  deleteProperty,
+  createRoom,
+  updateRoom,
+  deleteRoom,
+  addTenant,
+  updateTenant,
+  moveOutTenant,
+  reverseMoveOutTenant,
+  markRefundSettled,
+  verifyTransaction,
+  rejectTransaction,
+  reverseTransaction,
+  updateComplaint,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  getProperties,
+  getRooms,
+  getOwnerTenants,
+  getOwnerRentRecords,
+  getPendingApprovals,
+  getComplaints as getOwnerComplaints,
+  getPaymentSummary,
+} from '../api/owner';
 import { RentRecord } from '../types/payment';
 import { initNetworkMonitor, isOnline, subscribeToOnline } from './networkStatus';
 import {
@@ -36,6 +63,19 @@ import {
   writeTransactionHistoryCache,
   pruneComplaintsCache,
   pruneRentRecordsCache,
+  mergeProperties,
+  mergeRooms,
+  mergeOwnerTenants,
+  mergeOwnerRentRecords,
+  mergeOwnerTransactions,
+  mergeOwnerComplaints,
+  writePaymentSummaryCache,
+  prunePropertiesCache,
+  pruneRoomsCache,
+  pruneOwnerTenantsCache,
+  pruneOwnerRentRecordsCache,
+  pruneOwnerComplaintsCache,
+  pruneOwnerExpensesCache,
 } from '../repositories';
 import { removeOutboxImage } from '../utils/outboxImages';
 
@@ -124,6 +164,78 @@ async function dispatch(item: OutboxItem): Promise<void> {
       }
       break;
     }
+    case 'owner.property.create':
+      await createProperty(item.payload as any);
+      break;
+    case 'owner.property.update':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await updateProperty(item.entityId, item.payload as any);
+      break;
+    case 'owner.property.delete':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await deleteProperty(item.entityId);
+      break;
+    case 'owner.room.create':
+      await createRoom(item.payload as any);
+      break;
+    case 'owner.room.update':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await updateRoom(item.entityId, item.payload as any);
+      break;
+    case 'owner.room.delete':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await deleteRoom(item.entityId);
+      break;
+    case 'owner.tenant.add':
+      await addTenant(item.payload as any);
+      break;
+    case 'owner.tenant.update':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await updateTenant(item.entityId, item.payload as any);
+      break;
+    case 'owner.tenant.moveOut': {
+      if (!item.entityId) throw new Error('Missing entityId');
+      await moveOutTenant(item.entityId, {
+        exitDate: String(item.payload.exitDate ?? new Date().toISOString()),
+        notes: item.payload.notes ? String(item.payload.notes) : undefined,
+      });
+      break;
+    }
+    case 'owner.tenant.reverseMoveOut':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await reverseMoveOutTenant(item.entityId);
+      break;
+    case 'owner.tenant.markRefundSettled':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await markRefundSettled(item.entityId, item.payload.note ? String(item.payload.note) : undefined);
+      break;
+    case 'owner.transaction.verify':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await verifyTransaction(item.entityId);
+      break;
+    case 'owner.transaction.reject':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await rejectTransaction(item.entityId, String(item.payload.reason ?? 'Rejected by owner'));
+      break;
+    case 'owner.transaction.reverse':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await reverseTransaction(item.entityId, String(item.payload.reason ?? 'Reversed by owner'));
+      break;
+    case 'owner.complaint.update':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await updateComplaint(item.entityId, item.payload as any);
+      break;
+    case 'owner.expense.create':
+      await createExpense(item.payload as any);
+      break;
+    case 'owner.expense.update':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await updateExpense(item.entityId, item.payload as any);
+      break;
+    case 'owner.expense.delete':
+      if (!item.entityId) throw new Error('Missing entityId');
+      await deleteExpense(item.entityId);
+      break;
     default:
       throw new Error(`Unknown outbox kind: ${String((item as any).kind)}`);
   }
@@ -158,6 +270,12 @@ export async function flushOutbox(): Promise<void> {
   // Uploaded local rows are no longer pending — prune them from the SQLite cache.
   await pruneComplaintsCache();
   await pruneRentRecordsCache();
+  await prunePropertiesCache();
+  await pruneRoomsCache();
+  await pruneOwnerTenantsCache();
+  await pruneOwnerRentRecordsCache();
+  await pruneOwnerComplaintsCache();
+  await pruneOwnerExpensesCache();
 
   for (const id of affectedRentRecords) {
     queryClient.invalidateQueries({ queryKey: ['rentRecordDetail', id] });
@@ -167,6 +285,15 @@ export async function flushOutbox(): Promise<void> {
   queryClient.invalidateQueries({ queryKey: ['notifications'] });
   queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] });
   queryClient.invalidateQueries({ queryKey: ['transactionHistory'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerProperties'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerRooms'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerTenants'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerComplaints'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerPendingApprovals'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerExpenses'] });
+  queryClient.invalidateQueries({ queryKey: ['ownerPaymentDetail'] });
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -306,10 +433,140 @@ export async function syncTenancy(): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Owner workspace sync (full-merge, guarded by activeWorkspace === 'owner')
+// ─────────────────────────────────────────────────────────────────────────
+
+function isOwnerWorkspace(): boolean {
+  return getAuthStore().getState().activeWorkspace === 'owner';
+}
+
+function ownerSetQuery<T>(key: unknown[], data: T): void {
+  queryClient.setQueryData(key, data);
+}
+
+export async function syncOwnerPropertiesDelta(): Promise<void> {
+  if (!isOnline() || !isOwnerWorkspace()) return;
+  try {
+    const res = await getProperties();
+    if (res?.properties?.length) {
+      await mergeProperties(res.properties);
+      ownerSetQuery(['ownerProperties'], res);
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[Sync] Owner properties sync failed', error);
+  }
+}
+
+export async function syncOwnerRoomsDelta(): Promise<void> {
+  if (!isOnline() || !isOwnerWorkspace()) return;
+  try {
+    const res = await getRooms();
+    if (res?.rooms?.length) {
+      await mergeRooms(res.rooms);
+      ownerSetQuery(['ownerRooms'], res);
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[Sync] Owner rooms sync failed', error);
+  }
+}
+
+export async function syncOwnerTenantsDelta(): Promise<void> {
+  if (!isOnline() || !isOwnerWorkspace()) return;
+  try {
+    const res = await getOwnerTenants();
+    if (res?.tenants?.length) {
+      await mergeOwnerTenants(res.tenants);
+      ownerSetQuery(['ownerTenants'], res);
+      ownerSetQuery(['ownerTenants', 'active'], {
+        ...res,
+        tenants: res.tenants.filter((t) => t.status === 'active'),
+      });
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[Sync] Owner tenants sync failed', error);
+  }
+}
+
+export async function syncOwnerRentRecordsDelta(): Promise<void> {
+  if (!isOnline() || !isOwnerWorkspace()) return;
+  try {
+    const res = await getOwnerRentRecords();
+    if (res?.rentRecords?.length) {
+      await mergeOwnerRentRecords(res.rentRecords);
+      ownerSetQuery(['ownerRentRecords', 'all'], res);
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[Sync] Owner rent records sync failed', error);
+  }
+}
+
+export async function syncOwnerComplaintsDelta(): Promise<void> {
+  if (!isOnline() || !isOwnerWorkspace()) return;
+  try {
+    const res = await getOwnerComplaints();
+    if (res?.complaints?.length) {
+      await mergeOwnerComplaints(res.complaints);
+      ownerSetQuery(['ownerComplaints'], res);
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[Sync] Owner complaints sync failed', error);
+  }
+}
+
+export async function syncOwnerApprovalsDelta(): Promise<void> {
+  if (!isOnline() || !isOwnerWorkspace()) return;
+  try {
+    const res = await getPendingApprovals();
+    if (res?.transactions?.length) {
+      await mergeOwnerTransactions(res.transactions);
+      ownerSetQuery(['ownerPendingApprovals'], res);
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[Sync] Owner approvals sync failed', error);
+  }
+}
+
+export async function syncOwnerPaymentSummaryDelta(): Promise<void> {
+  if (!isOnline() || !isOwnerWorkspace()) return;
+  try {
+    const res = await getPaymentSummary();
+    await writePaymentSummaryCache(res);
+    ownerSetQuery(['ownerPaymentSummary'], res);
+  } catch (error) {
+    if (__DEV__) console.warn('[Sync] Owner payment summary sync failed', error);
+  }
+}
+
+export async function syncOwnerWorkspace(): Promise<void> {
+  await Promise.allSettled([
+    syncOwnerPropertiesDelta(),
+    syncOwnerRoomsDelta(),
+    syncOwnerTenantsDelta(),
+    syncOwnerRentRecordsDelta(),
+    syncOwnerComplaintsDelta(),
+    syncOwnerApprovalsDelta(),
+    syncOwnerPaymentSummaryDelta(),
+  ]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Full sync (launch / reconnect / foreground)
 // ─────────────────────────────────────────────────────────────────────────
 
-const SYNCED_KEYS = new Set(['rentRecords', 'complaints', 'notifications', 'transactionHistory', 'myTenancy']);
+const SYNCED_KEYS = new Set([
+  'rentRecords',
+  'complaints',
+  'notifications',
+  'transactionHistory',
+  'myTenancy',
+  'ownerProperties',
+  'ownerRooms',
+  'ownerTenants',
+  'ownerRentRecords',
+  'ownerComplaints',
+  'ownerPendingApprovals',
+  'ownerPaymentSummary',
+]);
 
 export async function syncAll(): Promise<void> {
   if (running) return;
@@ -324,6 +581,7 @@ export async function syncAll(): Promise<void> {
       syncNotificationsDelta(),
       syncTransactionHistoryDelta(),
       syncTenancy(),
+      syncOwnerWorkspace(),
     ]);
     await queryClient.invalidateQueries({
       predicate: (query) => !SYNCED_KEYS.has(String(query.queryKey[0])),

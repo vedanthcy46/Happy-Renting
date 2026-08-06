@@ -151,6 +151,14 @@ export async function clearAllCaches(): Promise<void> {
     clearTable(TABLES.paymentTransactions),
     clearTable(TABLES.complaints),
     clearTable(TABLES.notifications),
+    clearTable(TABLES.properties),
+    clearTable(TABLES.rooms),
+    clearTable(TABLES.ownerTenants),
+    clearTable(TABLES.ownerRentRecords),
+    clearTable(TABLES.ownerTransactions),
+    clearTable(TABLES.ownerComplaints),
+    clearTable(TABLES.ownerExpenses),
+    clearTable(TABLES.paymentSummary),
     clearTable(TABLES.syncMetadata),
   ]);
 }

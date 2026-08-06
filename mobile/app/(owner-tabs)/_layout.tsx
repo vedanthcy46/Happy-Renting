@@ -1,12 +1,97 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
+import { WalkthroughStep } from '../../src/components/FeatureWalkthrough';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const WALKTHROUGH_KEY_PREFIX = 'owner_walkthrough_completed';
+
+const tabTargets = (() => {
+  const tabWidth = SCREEN_WIDTH / 5;
+  const top = SCREEN_HEIGHT - TAB_BAR_HEIGHT + 6;
+  const width = tabWidth - 8;
+  const height = TAB_BAR_HEIGHT - 14;
+  return [0, 1, 2, 3, 4].map((i) => ({
+    left: tabWidth * i + 4,
+    top,
+    width,
+    height,
+  }));
+})();
 
 export default function OwnerTabLayout() {
   const { token, isLoading, user } = useAuthStore();
   const { colors: themeColors } = useTheme();
+
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
+
+  const walkthroughSteps = useMemo<WalkthroughStep[]>(
+    () => [
+      {
+        id: 'dashboard',
+        title: 'Dashboard',
+        description: 'See a snapshot of rent collected, pending dues and net profit for the month.',
+        icon: 'grid',
+        target: tabTargets[0],
+      },
+      {
+        id: 'properties',
+        title: 'Properties',
+        description: 'Manage all your buildings, add new properties and keep details up to date.',
+        icon: 'business',
+        target: tabTargets[1],
+      },
+      {
+        id: 'tenants',
+        title: 'Tenants',
+        description: 'View active tenants, handle move-ins, move-outs and refunds.',
+        icon: 'people',
+        target: tabTargets[2],
+      },
+      {
+        id: 'payments',
+        title: 'Payments',
+        description: 'Review rent records, verify transactions and track what is collected vs due.',
+        icon: 'wallet',
+        target: tabTargets[3],
+      },
+      {
+        id: 'profile',
+        title: 'Profile',
+        description: 'Manage your account, UPI/QR details, settings and privacy.',
+        icon: 'person',
+        target: tabTargets[4],
+      },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    const checkWalkthrough = async () => {
+      if (!user?._id) return;
+      try {
+        const completed = await SecureStore.getItemAsync(`${WALKTHROUGH_KEY_PREFIX}_${user._id}`);
+        if (!completed) {
+          setShowWalkthrough(true);
+        }
+      } catch {}
+    };
+    checkWalkthrough();
+  }, [user?._id]);
+
+  const finishWalkthrough = async () => {
+    setShowWalkthrough(false);
+    if (user?._id) {
+      try {
+        await SecureStore.setItemAsync(`${WALKTHROUGH_KEY_PREFIX}_${user._id}`, 'true');
+      } catch {}
+    }
+  };
 
   if (isLoading) return null;
   if (!token) return <Redirect href="/login" />;
@@ -111,6 +196,12 @@ export default function OwnerTabLayout() {
           }}
         />
       </Tabs>
+
+      <FeatureWalkthrough
+        visible={showWalkthrough}
+        steps={walkthroughSteps}
+        onFinish={finishWalkthrough}
+      />
     </View>
   );
 }
