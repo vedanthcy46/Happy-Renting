@@ -55,7 +55,11 @@ exports.getExpenses = async (req, res, next) => {
 // ── GET /api/v2/expenses/recurring ────────────────────────────────────────
 exports.getRecurringExpenses = async (req, res, next) => {
   try {
-    const expenses = await Expense.find({ ownerId: req.user._id, isRecurring: true })
+    const filter = { ownerId: req.user._id, isRecurring: true };
+    if (req.query.propertyId && /^[a-f\d]{24}$/i.test(req.query.propertyId)) {
+      filter.propertyId = req.query.propertyId;
+    }
+    const expenses = await Expense.find(filter)
       .populate('propertyId', 'name address')
       .sort({ category: 1, title: 1 });
     res.status(200).json({ success: true, count: expenses.length, expenses });
