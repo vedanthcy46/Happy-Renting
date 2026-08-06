@@ -73,8 +73,15 @@ exports.getExpenseSummary = async (req, res, next) => {
     const { start, end } = monthRange(month);
 
     const expenseFilter = { ownerId: req.user._id, month };
+    const txnFilter = {
+      ownerId: req.user._id,
+      status: 'completed',
+      paymentDate: { $gte: start, $lt: end },
+      transactionType: { $nin: NON_CASH_TRANSACTION_TYPES },
+    };
     if (req.query.propertyId && /^[a-f\d]{24}$/i.test(req.query.propertyId)) {
       expenseFilter.propertyId = req.query.propertyId;
+      txnFilter.propertyId = req.query.propertyId;
     }
 
     const [expensesAgg, txnAgg, expenseCount] = await Promise.all([
@@ -83,14 +90,7 @@ exports.getExpenseSummary = async (req, res, next) => {
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       PaymentTransaction.aggregate([
-        {
-          $match: {
-            ownerId: req.user._id,
-            status: 'completed',
-            paymentDate: { $gte: start, $lt: end },
-            transactionType: { $nin: NON_CASH_TRANSACTION_TYPES },
-          },
-        },
+        { $match: txnFilter },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       Expense.countDocuments(expenseFilter),
