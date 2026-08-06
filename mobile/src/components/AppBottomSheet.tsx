@@ -23,7 +23,7 @@ import { spacing, radius } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const OVERLAY_COLOR = 'rgba(15, 23, 42, 0.92)';
+const OVERLAY_COLOR = 'rgba(15, 23, 42, 0.55)';
 
 const clamp = (value: number, min: number, max: number) => {
   'worklet';
