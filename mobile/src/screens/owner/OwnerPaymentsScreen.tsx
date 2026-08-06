@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert, Modal, TextInput,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,8 +68,9 @@ const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, 
 
   return (
     <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
           <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>Reject Payment</Text>
           <Text style={[styles.rejectSub, { color: colors.text.secondary }]}>
             Provide a reason so the tenant knows why their proof was rejected.
@@ -92,13 +94,14 @@ const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, 
               onPress={() => reason.trim() && onConfirm(reason.trim())}
               activeOpacity={0.8}
               disabled={saving || !reason.trim()}
-            >
-              {saving ? <ActivityIndicator color="#FFF" size="small" /> :
-                <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Reject</Text>}
-            </TouchableOpacity>
+          >
+            {saving ? <ActivityIndicator color="#FFF" size="small" /> :
+              <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Reject</Text>}
+          </TouchableOpacity>
           </View>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -208,7 +211,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
   const qc = useQueryClient();
   const router = useRouter();
 
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('overdue');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [search, setSearch] = useState('');
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
@@ -289,11 +292,11 @@ export const OwnerPaymentsScreen: React.FC = () => {
   };
 
   const tabs: { key: FilterStatus; label: string; count?: number }[] = [
+    { key: 'all', label: 'All' },
     { key: 'overdue', label: 'Overdue', count: metrics?.overdueCount },
     { key: 'pending', label: 'Pending', count: metrics?.pendingCount },
     { key: 'partial', label: 'Partial', count: metrics?.partialCount },
     { key: 'paid', label: 'Paid', count: metrics?.paidCount },
-    { key: 'all', label: 'All' },
   ];
 
 
@@ -341,7 +344,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
       )}
 
       {/* Status filter tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabScroll, { borderBottomColor: colors.border }]} contentContainerStyle={styles.tabContent}>
+      <View style={[styles.tabRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         {tabs.map(t => (
           <TouchableOpacity
             key={t.key}
@@ -354,7 +357,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       {/* Search */}
       <View style={[styles.searchWrap, { backgroundColor: colors.background }]}>
@@ -439,8 +442,14 @@ const styles = StyleSheet.create({
   stripLabel: { fontSize: 11, marginTop: 2 },
   stripDivider: { width: 1, height: 28 },
 
-  tabScroll: { borderBottomWidth: StyleSheet.hairlineWidth },
-  tabContent: { paddingHorizontal: spacing.xl },
+  tabRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   tab: { paddingVertical: spacing.md, marginRight: spacing.xl, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabText: { fontSize: 13, fontWeight: '600' },
 
@@ -486,7 +495,7 @@ const styles = StyleSheet.create({
     flex: 1, justifyContent: 'center', alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)', padding: spacing.xl,
   },
-  rejectSheet: { width: '100%', borderRadius: radius.xxl, padding: spacing.xxl },
+  rejectSheet: { width: '100%', maxHeight: '90%', borderRadius: radius.xxl, padding: spacing.xxl },
   rejectTitle: { fontSize: 18, fontWeight: '700', marginBottom: spacing.xs },
   rejectSub: { fontSize: 13, marginBottom: spacing.xl, lineHeight: 19 },
   rejectInput: {

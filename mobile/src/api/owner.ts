@@ -301,8 +301,10 @@ export const getExpenses = async (params: { month: string; propertyId?: string }
   return data as { success: boolean; expenses: OwnerExpense[] };
 };
 
-export const getRecurringExpenses = async () => {
-  const { data } = await client.get('/v2/expenses/recurring');
+export const getRecurringExpenses = async (propertyId?: string) => {
+  const { data } = await client.get('/v2/expenses/recurring', {
+    params: propertyId ? { propertyId } : undefined,
+  });
   return data as { success: boolean; expenses: OwnerExpense[] };
 };
 

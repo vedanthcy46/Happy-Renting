@@ -215,7 +215,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
     <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
       <KeyboardAvoidingView
         style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>Move Out Tenant</Text>
@@ -223,6 +223,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
             {tenant.userId.name} · Room {tenant.roomId.roomNumber}
           </Text>
 
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
           <View style={styles.formField}>
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Exit Date *</Text>
             <TextInput
@@ -248,6 +249,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
               maxLength={500}
             />
           </View>
+          </ScrollView>
 
           <View style={styles.modalActions}>
             <TouchableOpacity
@@ -343,7 +345,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <KeyboardAvoidingView
         style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>Edit Tenant</Text>
@@ -351,6 +353,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
             {tenant.userId.name} · Room {tenant.roomId.roomNumber}
           </Text>
 
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
           {/* Tabs */}
           <View style={[styles.editTabRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
             {(['finance', 'profile'] as const).map(t => (
@@ -446,6 +449,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
               </View>
             </>
           )}
+          </ScrollView>
 
           <View style={styles.modalActions}>
             <TouchableOpacity
@@ -502,7 +506,7 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
     <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
       <KeyboardAvoidingView
         style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>Mark Refund Settled</Text>
@@ -510,6 +514,7 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
             {tenant.userId.name} · ₹{amount.toLocaleString('en-IN')}
           </Text>
 
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
           <View style={styles.formField}>
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Note (optional)</Text>
             <TextInput
@@ -523,6 +528,7 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
               maxLength={500}
             />
           </View>
+          </ScrollView>
 
           <View style={styles.modalActions}>
             <TouchableOpacity
@@ -1003,6 +1009,7 @@ const styles = StyleSheet.create({
   // Move-out modal
   moveOutSheet: {
     margin: spacing.xl,
+    maxHeight: '90%',
     borderRadius: radius.xxl,
     padding: spacing.xxl,
   },

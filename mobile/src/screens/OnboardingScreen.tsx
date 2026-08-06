@@ -33,7 +33,7 @@ const slides: Slide[] = [
   {
     id: '1',
     icon: 'home',
-    gradientColors: ['#2563EB', '#1D4ED8'],
+    gradientColors: ['#4B6BED', '#3D56C9'],
     title: 'Manage Properties',
     subtitle: 'Track tenants, rent and payments all in one beautiful dashboard.',
     features: ['View current bill', 'Track due dates', 'Payment history'],
@@ -188,7 +188,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
         {/* Next / Get Started */}
         {isLast ? (
           <LinearGradient
-            colors={['#2563EB', '#1D4ED8']}
+            colors={['#4B6BED', '#3D56C9']}
             style={styles.getStartedBtn}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 8,
     elevation: 4,
-    shadowColor: '#2563EB',
+    shadowColor: '#4B6BED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 16,
     elevation: 4,
-    shadowColor: '#2563EB',
+    shadowColor: '#4B6BED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

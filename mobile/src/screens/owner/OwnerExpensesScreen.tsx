@@ -173,7 +173,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <KeyboardAvoidingView
         style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
@@ -187,7 +187,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
             {/* Property picker */}
             <View style={styles.formField}>
               <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Property *</Text>
@@ -464,8 +464,8 @@ export const OwnerExpensesScreen: React.FC = () => {
   });
 
   const { data: recData, refetch: refetchRec } = useQuery({
-    queryKey: ['ownerRecurringExpenses'],
-    queryFn: getRecurringExpenses,
+    queryKey: ['ownerRecurringExpenses', selectedProperty],
+    queryFn: () => getRecurringExpenses(selectedProperty),
     staleTime: 2 * 60 * 1000,
   });
 

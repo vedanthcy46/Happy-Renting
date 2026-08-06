@@ -11,6 +11,7 @@ import {
   Text,
   View,
   Image,
+  KeyboardAvoidingView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { FlashList } from '@shopify/flash-list';
@@ -159,7 +160,7 @@ export const ComplaintScreen: React.FC = () => {
       </TouchableOpacity>
 
       <Modal visible={showAddModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeaderRow}>
@@ -169,7 +170,7 @@ export const ComplaintScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
               <AppInput
                 label="Title"
                 placeholder="e.g. Leaking Tap"
@@ -242,7 +243,7 @@ export const ComplaintScreen: React.FC = () => {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

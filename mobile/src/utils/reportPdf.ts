@@ -52,14 +52,14 @@ export async function generateOwnerReportPdf(data: OwnerReportData): Promise<voi
       <style>
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1e293b; background-color: #f8fafc; }
         .box { max-width: 720px; margin: auto; background: white; padding: 32px; border-radius: 12px; border: 1px solid #e2e8f0; }
-        .header { background: #2563EB; color: white; padding: 24px; border-radius: 8px; margin-bottom: 28px; text-align: center; }
+        .header { background: #4B6BED; color: white; padding: 24px; border-radius: 8px; margin-bottom: 28px; text-align: center; }
         .header h1 { margin: 0; font-size: 24px; }
         .header p { margin: 6px 0 0 0; opacity: 0.85; font-size: 13px; }
         .summary { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
         .card { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }
         .card .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; }
         .card .val { font-size: 20px; font-weight: 800; margin-top: 4px; }
-        .income { color: #16a34a; } .expense { color: #ef4444; } .profit { color: #2563EB; }
+        .income { color: #16a34a; } .expense { color: #ef4444; } .profit { color: #4B6BED; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th { background: #f1f5f9; text-align: left; padding: 8px; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
         td { padding: 8px; border-bottom: 1px solid #f1f5f9; }

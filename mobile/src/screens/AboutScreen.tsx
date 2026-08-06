@@ -17,11 +17,11 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useRouter } from 'expo-router';
 import { APP_VERSION, APP_BUILD_NUMBER } from '../utils/rateApp';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type BackendStatus = 'checking' | 'online' | 'offline';
 
-// ─── Info Row ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Info Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface InfoRowProps {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -56,7 +56,7 @@ const InfoRow: React.FC<InfoRowProps> = ({
   </>
 );
 
-// ─── Link Row ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Link Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface LinkRowProps {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -91,7 +91,7 @@ const LinkRow: React.FC<LinkRowProps> = ({
   </>
 );
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const AboutScreen: React.FC = () => {
   const router = useRouter();
@@ -100,7 +100,7 @@ export const AboutScreen: React.FC = () => {
 
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking');
 
-  // ── Backend health check ──────────────────────────────────────────────────
+  // â”€â”€ Backend health check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchHealth = () => {
     setBackendStatus('checking');
     const controller = new AbortController();
@@ -125,7 +125,7 @@ export const AboutScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Link helpers ─────────────────────────────────────────────────────────
+  // â”€â”€ Link helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const openLink = async (url: string) => {
     try {
       const supported = await Linking.canOpenURL(url);
@@ -139,7 +139,7 @@ export const AboutScreen: React.FC = () => {
     }
   };
 
-  // ── Derived card style ───────────────────────────────────────────────────
+  // â”€â”€ Derived card style â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const cardStyle = [
     styles.card,
     {
@@ -151,7 +151,7 @@ export const AboutScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <View
         style={[
           styles.topBar,
@@ -177,14 +177,14 @@ export const AboutScreen: React.FC = () => {
         <View style={styles.topBarSpacer} />
       </View>
 
-      {/* ── Scrollable body ────────────────────────────────────────────── */}
+      {/* â”€â”€ Scrollable body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
       >
-        {/* ── Hero card ─────────────────────────────────────────────── */}
+        {/* â”€â”€ Hero card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <LinearGradient
-          colors={['#2563EB', '#1D4ED8']}
+          colors={['#4B6BED', '#3D56C9']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
@@ -200,7 +200,7 @@ export const AboutScreen: React.FC = () => {
           <Text style={styles.heroSubtitle}>Smart Rental Management</Text>
         </LinearGradient>
 
-        {/* ── App Info card ────────────────────────────────────────── */}
+        {/* â”€â”€ App Info card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <View style={cardStyle}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="phone-portrait-outline" size={18} color={themeColors.primary} />
@@ -248,7 +248,7 @@ export const AboutScreen: React.FC = () => {
           />
         </View>
 
-        {/* ── Backend Status card ──────────────────────────────────── */}
+        {/* â”€â”€ Backend Status card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <View style={cardStyle}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="server-outline" size={18} color={themeColors.primary} />
@@ -294,7 +294,7 @@ export const AboutScreen: React.FC = () => {
           )}
         </View>
 
-        {/* ── Links card ───────────────────────────────────────────── */}
+        {/* â”€â”€ Links card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <View style={cardStyle}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="link-outline" size={18} color={themeColors.primary} />
@@ -353,7 +353,7 @@ export const AboutScreen: React.FC = () => {
           />
         </View>
 
-        {/* ── Footer ───────────────────────────────────────────────── */}
+        {/* â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <Text style={[styles.footer, { color: themeColors.text.tertiary }]}>
           {'Made with \u2764\ufe0f in India\n\u00a9 2025 Happy Renting'}
         </Text>
@@ -362,7 +362,7 @@ export const AboutScreen: React.FC = () => {
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const styles = StyleSheet.create({
   container: {

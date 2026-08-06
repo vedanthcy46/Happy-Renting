@@ -10,6 +10,8 @@ import {
   View,
   Switch,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -348,8 +350,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
       </ScrollView>
 
       <Modal visible={showPassModal} transparent animationType="fade">
-        <View style={styles.passOverlay}>
-          <View style={styles.passModal}>
+        <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
               <Text style={styles.passTitle}>Change Password</Text>
               <TouchableOpacity onPress={() => setShowPassModal(false)}>
@@ -398,13 +400,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={showBiometricModal} transparent animationType="fade">
-        <View style={styles.passOverlay}>
-          <View style={styles.passModal}>
+        <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
               <Text style={styles.passTitle}>Confirm Biometrics</Text>
               <TouchableOpacity onPress={handleCancelBiometric}>
@@ -437,8 +439,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
                 <Text style={styles.passChangeText}>Confirm</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

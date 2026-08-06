@@ -12,6 +12,7 @@ import {
   Text,
   View,
   RefreshControl,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
@@ -279,7 +280,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
           />
         }
       >
-        <GradientCard gradient={['#2563EB', '#1D4ED8'] as const} style={styles.summaryCard}>
+        <GradientCard gradient={['#4B6BED', '#3D56C9'] as const} style={styles.summaryCard}>
           <View style={styles.summaryContent}>
             <View style={styles.summaryTop}>
               <Text style={styles.summaryLabel}>Total Rent</Text>
@@ -389,7 +390,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
       </ScrollView>
 
       <Modal visible={showManualModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
@@ -399,7 +400,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
               <AppInput
                 label="Amount Paid"
                 placeholder="Enter amount"
@@ -478,7 +479,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {paying && (

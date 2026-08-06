@@ -15,6 +15,22 @@ import { getProfile, updateProfile } from '../../api/user';
 import { uploadQrCode } from '../../api/owner';
 import { getInitials } from '../../utils';
 
+const Field = ({ label, value, onChange }: { label: string; value: string; onChange: (t: string) => void }) => {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{label}</Text>
+      <TextInput
+        style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+        value={value}
+        onChangeText={onChange}
+        placeholderTextColor={colors.text.tertiary}
+        autoCapitalize="none"
+      />
+    </View>
+  );
+};
+
 export const OwnerProfileScreen: React.FC = () => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -37,12 +53,16 @@ export const OwnerProfileScreen: React.FC = () => {
         if (res.success) {
           setProfile(res.user);
           const p: any = res.user;
-          setUpi({ upiId: p?.upiId ?? '', upiName: p?.upiName ?? '', upiNumber: p?.upiNumber ?? '' });
+          setUpi({
+            upiId: p?.upiId ?? '',
+            upiName: p?.upiDetails?.upiName ?? '',
+            upiNumber: p?.upiNumber ?? '',
+          });
           setBank({
-            bankAccountHolder: p?.bankAccountHolder ?? '',
-            bankAccountNumber: p?.bankAccountNumber ?? '',
-            bankName: p?.bankName ?? '',
-            ifsc: p?.ifsc ?? '',
+            bankAccountHolder: p?.bankDetails?.accountHolder ?? '',
+            bankAccountNumber: p?.bankDetails?.accountNumber ?? '',
+            bankName: p?.bankDetails?.bankName ?? '',
+            ifsc: p?.bankDetails?.ifscCode ?? '',
           });
         }
       } catch (e) {
@@ -59,9 +79,18 @@ export const OwnerProfileScreen: React.FC = () => {
   const saveUpi = async () => {
     setSavingUpi(true);
     try {
-      const res = await updateProfile({ upiDetails: upi } as any);
+      const res = await updateProfile({
+        upiDetails: { upiId: upi.upiId, upiName: upi.upiName },
+        upiNumber: upi.upiNumber,
+      } as any);
       if (res.success) {
+        const p: any = res.user;
         setProfile(res.user);
+        setUpi({
+          upiId: p?.upiId ?? '',
+          upiName: p?.upiDetails?.upiName ?? '',
+          upiNumber: p?.upiNumber ?? '',
+        });
         Alert.alert('Saved', 'UPI payment details updated.');
       }
     } catch (e: any) {
@@ -74,9 +103,23 @@ export const OwnerProfileScreen: React.FC = () => {
   const saveBank = async () => {
     setSavingBank(true);
     try {
-      const res = await updateProfile({ bankDetails: bank } as any);
+      const res = await updateProfile({
+        bankDetails: {
+          accountHolder: bank.bankAccountHolder,
+          accountNumber: bank.bankAccountNumber,
+          bankName: bank.bankName,
+          ifscCode: bank.ifsc,
+        },
+      } as any);
       if (res.success) {
+        const p: any = res.user;
         setProfile(res.user);
+        setBank({
+          bankAccountHolder: p?.bankDetails?.accountHolder ?? '',
+          bankAccountNumber: p?.bankDetails?.accountNumber ?? '',
+          bankName: p?.bankDetails?.bankName ?? '',
+          ifsc: p?.bankDetails?.ifscCode ?? '',
+        });
         Alert.alert('Saved', 'Bank details updated.');
       }
     } catch (e: any) {
@@ -103,19 +146,6 @@ export const OwnerProfileScreen: React.FC = () => {
       setUploadingQr(false);
     }
   };
-
-  const Field = ({ label, value, onChange }: { label: string; value: string; onChange: (t: string) => void }) => (
-    <View style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{label}</Text>
-      <TextInput
-        style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
-        value={value}
-        onChangeText={onChange}
-        placeholderTextColor={colors.text.tertiary}
-        autoCapitalize="none"
-      />
-    </View>
-  );
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>

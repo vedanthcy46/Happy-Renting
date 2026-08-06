@@ -17,6 +17,119 @@ import {
 const formatCurrency = (n?: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const DAYS = ['S','M','T','W','T','F','S'];
+
+const toISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+interface CalendarModalProps {
+  visible: boolean;
+  value: string;
+  onSelect: (iso: string) => void;
+  onClose: () => void;
+}
+
+const CalendarModal: React.FC<CalendarModalProps> = ({ visible, value, onSelect, onClose }) => {
+  const { colors } = useTheme();
+  const initial = value ? new Date(`${value}T00:00:00`) : new Date();
+  const [viewYear, setViewYear] = useState(initial.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initial.getMonth());
+  const [selYear, setSelYear] = useState(initial.getFullYear());
+  const [selMonth, setSelMonth] = useState(initial.getMonth());
+  const [selDay, setSelDay] = useState(initial.getDate());
+
+  React.useEffect(() => {
+    if (!visible) return;
+    const base = value ? new Date(`${value}T00:00:00`) : new Date();
+    setViewYear(base.getFullYear());
+    setViewMonth(base.getMonth());
+    setSelYear(base.getFullYear());
+    setSelMonth(base.getMonth());
+    setSelDay(base.getDate());
+  }, [visible, value]);
+
+  const today = new Date();
+  const todayISOStr = toISO(today);
+
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1);
+  };
+
+  const pick = (day: number) => {
+    onSelect(toISO(new Date(viewYear, viewMonth, day)));
+    onClose();
+  };
+
+  const isSel = (day: number) => viewYear === selYear && viewMonth === selMonth && day === selDay;
+  const isToday = (day: number) => toISO(new Date(viewYear, viewMonth, day)) === todayISOStr;
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
+      <TouchableOpacity style={styles.calendarOverlay} onPress={onClose} activeOpacity={1}>
+        <View style={[styles.calendarSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.calendarTitle, { color: colors.text.primary }]}>Select Join Date</Text>
+
+          <View style={styles.calendarNav}>
+            <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+            <Text style={[styles.calendarMonthLabel, { color: colors.text.primary }]}>
+              {MONTH_NAMES[viewMonth]} {viewYear}
+            </Text>
+            <TouchableOpacity onPress={nextMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.calendarWeekRow}>
+            {DAYS.map((d, i) => (
+              <Text key={i} style={[styles.calendarWeekDay, { color: colors.text.tertiary }]}>{d}</Text>
+            ))}
+          </View>
+
+          <View style={styles.calendarGrid}>
+            {Array.from({ length: firstDow }).map((_, i) => (
+              <View key={`pad-${i}`} style={styles.calendarCell} />
+            ))}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              return (
+                <TouchableOpacity
+                  key={day}
+                  style={[
+                    styles.calendarCell,
+                    isSel(day) && { backgroundColor: colors.primary },
+                    isToday(day) && !isSel(day) && { borderWidth: 1, borderColor: colors.primary },
+                  ]}
+                  onPress={() => pick(day)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.calendarDay,
+                      { color: isSel(day) ? '#FFFFFF' : colors.text.primary },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 interface SelectSheetProps {
   visible: boolean;
   title: string;
@@ -87,6 +200,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [idProof, setIdProof] = useState('');
   const [joinDate, setJoinDate] = useState(today);
+  const [joinDatePickerVisible, setJoinDatePickerVisible] = useState(false);
   const [securityDeposit, setSecurityDeposit] = useState('');
   const [advancePaid, setAdvancePaid] = useState('');
   const [notes, setNotes] = useState('');
@@ -120,7 +234,13 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const registerMutation = useMutation({
     mutationFn: registerTenantUser,
     onSuccess: (res) => { setSelectedUserId(res.user._id); },
-    onError: (err: any) => { if (__DEV__) console.error('Register failed', err); },
+    onError: (err: any) => {
+      if (__DEV__) console.error('Register failed', err);
+      Alert.alert(
+        'Register failed',
+        err?.response?.data?.message || err?.message || 'Failed to create account.'
+      );
+    },
   });
 
   const addTenantMutation = useMutation({
@@ -164,6 +284,15 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const handleVerifyOtp = () => { if (otp.trim()) verifyOtpMutation.mutate({ email: newEmail.trim(), otp: otp.trim() }); };
 
   const handleRegister = () => {
+    if (!newName.trim()) return Alert.alert('Missing details', 'Please enter the tenant name.');
+    if (newName.trim().length < 2) return Alert.alert('Invalid name', 'Name must be at least 2 characters.');
+    if (newPassword.length < 8) return Alert.alert('Weak password', 'Password must be at least 8 characters.');
+    if (!/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/\d/.test(newPassword) || !/[@$!%*?&]/.test(newPassword)) {
+      return Alert.alert(
+        'Weak password',
+        'Password must contain uppercase, lowercase, number, and special character (@$!%*?&).'
+      );
+    }
     registerMutation.mutate({
       name: newName.trim(),
       email: newEmail.trim(),
@@ -200,10 +329,13 @@ export const OwnerAddTenantScreen: React.FC = () => {
         </View>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           {/* Room */}
           <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
@@ -290,6 +422,9 @@ export const OwnerAddTenantScreen: React.FC = () => {
                   <>
                     <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Temporary Password *</Text>
                     <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={newPassword} onChangeText={setNewPassword} placeholder="Set a password" placeholderTextColor={colors.text.tertiary} secureTextEntry />
+                    <Text style={[styles.passwordHint, { color: colors.text.tertiary }]}>
+                      Min 8 chars with uppercase, lowercase, number & special character (@$!%*?&)
+                    </Text>
                     <TouchableOpacity style={[styles.fullBtn, { backgroundColor: newPassword ? colors.primary : colors.border }]} onPress={handleRegister} disabled={!newPassword || registerMutation.isPending || !!selectedUserId} activeOpacity={0.8}>
                       {registerMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>{selectedUserId ? 'Account created' : 'Create Account'}</Text>}
                     </TouchableOpacity>
@@ -310,7 +445,16 @@ export const OwnerAddTenantScreen: React.FC = () => {
               <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={idProof} onChangeText={setIdProof} placeholder="Aadhaar / Govt ID number" placeholderTextColor={colors.text.tertiary} />
 
               <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Join Date *</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={joinDate} onChangeText={setJoinDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.text.tertiary} />
+              <TouchableOpacity
+                style={[styles.input, styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setJoinDatePickerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: joinDate ? colors.text.primary : colors.text.tertiary, fontSize: 15 }}>
+                  {joinDate ? joinDate : 'Select date…'}
+                </Text>
+                <Ionicons name="calendar-outline" size={18} color={colors.text.tertiary} />
+              </TouchableOpacity>
 
               <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Security Deposit (₹)</Text>
               <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={securityDeposit} onChangeText={setSecurityDeposit} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.text.tertiary} />
@@ -352,6 +496,13 @@ export const OwnerAddTenantScreen: React.FC = () => {
         onSelect={setSelectedUserId}
         onClose={() => setUserSheet(false)}
       />
+
+      <CalendarModal
+        visible={joinDatePickerVisible}
+        value={joinDate}
+        onSelect={setJoinDate}
+        onClose={() => setJoinDatePickerVisible(false)}
+      />
     </View>
   );
 };
@@ -380,8 +531,10 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 13, fontWeight: '600' },
   formBody: { gap: spacing.sm },
   fieldLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: spacing.xs },
+  passwordHint: { fontSize: 11, marginTop: 4, lineHeight: 15 },
   input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, fontSize: 15 },
   inputMultiline: { height: 80, textAlignVertical: 'top', paddingTop: spacing.sm },
+  dateField: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   outlineBtn: { borderWidth: 1, borderRadius: radius.lg, height: 46, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
   outlineBtnText: { fontSize: 14, fontWeight: '700' },
   otpRow: { flexDirection: 'row', gap: spacing.sm },
@@ -405,4 +558,16 @@ const styles = StyleSheet.create({
   selectOptionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
   selectLabel: { fontSize: 15, fontWeight: '600' },
   selectSub: { fontSize: 12, marginTop: 2 },
+
+  // Calendar modal
+  calendarOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', padding: spacing.xl },
+  calendarSheet: { width: '100%', maxWidth: 360, borderRadius: radius.xxl, padding: spacing.xl, borderWidth: 1 },
+  calendarTitle: { fontSize: 18, fontWeight: '700', marginBottom: spacing.lg },
+  calendarNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  calendarMonthLabel: { fontSize: 16, fontWeight: '700' },
+  calendarWeekRow: { flexDirection: 'row' },
+  calendarWeekDay: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', paddingVertical: spacing.sm },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  calendarDay: { fontSize: 14, fontWeight: '600' },
 });

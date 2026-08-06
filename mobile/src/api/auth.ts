@@ -9,8 +9,8 @@ export const login = async (email: string, password: string): Promise<LoginRespo
   return data;
 };
 
-export const getMe = async (): Promise<{ success: boolean; user: any }> => {
-  const { data } = await client.get('/auth/me');
+export const getMe = async (token?: string): Promise<{ success: boolean; user: any }> => {
+  const { data } = await client.get('/auth/me', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
   return data;
 };
 

@@ -57,11 +57,15 @@ client.interceptors.response.use(
     const originalRequest = error.config;
 
     // Handle unauthorized errors
-    // Skip auto-logout for the login endpoint itself
+    // Skip auto-logout for the login endpoint itself.
+    // Only treat a 401 as "session expired" when the app actually has a session.
+    // A 401 with no token in the store just means "not authenticated" (e.g. a
+    // background sync fired after logout) — it must not trigger the alert.
     if (error.response?.status === 401 && !originalRequest.url?.includes('/auth/login') && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      if (!sessionExpiredEmitted) {
+      const { token } = getAuthStore().getState();
+      if (token && !sessionExpiredEmitted) {
         sessionExpiredEmitted = true;
         appEvents.emit(SESSION_EXPIRED_EVENT);
         await getAuthStore().getState().logout();

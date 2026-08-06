@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { getMe } from '../api/auth';
 import { clearBiometricCredentials } from '../hooks/useBiometric';
 import { queryClient } from '../queryClient';
 import { sqlitePersister } from '../persist/sqlitePersister';
 import { clearOutbox } from '../db/outbox';
 import { clearAllCaches } from '../db/cacheRepo';
-import { clearSyncCursors } from '../sync/syncEngine';
+import { clearSyncCursors, stopSyncEngine } from '../sync/syncEngine';
 import type { UserRole, Workspace } from '../types/auth';
 
 interface User {
@@ -88,6 +89,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     try {
+      stopSyncEngine();
       queryClient.clear();
       await Promise.all([
         SecureStore.deleteItemAsync('userToken'),
@@ -130,6 +132,32 @@ export const useAuthStore = create<AuthState>((set) => ({
           const userWithRoles = { ...user, roles };
           const activeWorkspace: Workspace =
             (storedWorkspace as Workspace) ?? deriveWorkspace(roles);
+
+          // Validate the stored token before restoring the session. A stale or
+          // expired token would otherwise be restored, kick the sync engine, and
+          // surface a confusing "session expired" alert on every launch. We do this
+          // here (rather than trusting the SecureStore copy) so invalid sessions are
+          // cleared silently.
+          let valid = false;
+          try {
+            const res = await getMe(token);
+            valid = !!res?.success;
+          } catch (e: any) {
+            // Network/offline errors are not auth failures — keep the stored session.
+            valid = !(e?.response?.status === 401);
+          }
+
+          if (!valid) {
+            await Promise.all([
+              SecureStore.deleteItemAsync('userToken'),
+              SecureStore.deleteItemAsync('userData'),
+              SecureStore.deleteItemAsync('activeWorkspace'),
+            ]);
+            set({ token: null, user: null, activeWorkspace: 'tenant', isLoading: false, needsWorkspacePicker: false });
+            if (__DEV__) console.log('[Auth] Stored session invalid/expired — cleared silently');
+            return;
+          }
+
           // Don't show picker on cold start — user already chose a workspace last session
           set({ token, user: userWithRoles, activeWorkspace, isLoading: false, needsWorkspacePicker: false });
         } catch (e) {

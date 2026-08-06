@@ -65,7 +65,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
 
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -76,7 +76,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1, maxHeight: 460 }}>
             {initial && (
               <View style={[styles.infoBanner, { backgroundColor: colors.infoLight }]}>
                 <Text style={[styles.infoText, { color: colors.info }]}>
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   occFill: { height: '100%', borderRadius: 3 },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
-  modalSheet: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xxxl + spacing.xxl },
+  modalSheet: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xxxl + spacing.xxl, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   infoBanner: { padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg },

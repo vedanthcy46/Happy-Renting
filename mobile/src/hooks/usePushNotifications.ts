@@ -112,7 +112,7 @@ async function registerForPushNotificationsAsync() {
         name: 'General Notifications',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#2563EB',
+        lightColor: '#4B6BED',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         bypassDnd: false,
         showBadge: true,

@@ -19,6 +19,7 @@ import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { WorkspaceSwitcher } from '../../components/WorkspaceSwitcher';
 import {
   getPaymentSummary,
+  getExpenseSummary,
   getProperties,
   getOwnerTenants,
   getRooms,
@@ -27,6 +28,11 @@ import {
 
 const formatCurrency = (n: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+const currentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -81,7 +87,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
   const insets = useSafeAreaInsets();
   const firstName = user?.name?.split(' ')[0] ?? 'Owner';
 
-  // ── Data fetching ──────────────────────────────────────────────────────
+  // â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const {
     data: summaryData,
     isLoading: loadingSummary,
@@ -90,6 +96,17 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
   } = useQuery({
     queryKey: ['ownerPaymentSummary'],
     queryFn: () => getPaymentSummary(),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const {
+    data: expenseSummaryData,
+    isLoading: loadingExpenseSummary,
+    refetch: refetchExpenseSummary,
+    isError: errorExpenseSummary,
+  } = useQuery({
+    queryKey: ['ownerExpenseSummary', currentMonthKey()],
+    queryFn: () => getExpenseSummary({ month: currentMonthKey() }),
     staleTime: 2 * 60 * 1000,
   });
 
@@ -123,13 +140,19 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = loadingSummary || loadingProperties || loadingTenants || loadingRooms;
+  const isLoading = loadingSummary || loadingExpenseSummary || loadingProperties || loadingTenants || loadingRooms;
 
   const onRefresh = useCallback(async () => {
-    await Promise.all([refetchSummary(), refetchProperties(), refetchTenants(), refetchRooms()]);
-  }, [refetchSummary, refetchProperties, refetchTenants, refetchRooms]);
+    await Promise.all([
+      refetchSummary(),
+      refetchExpenseSummary(),
+      refetchProperties(),
+      refetchTenants(),
+      refetchRooms(),
+    ]);
+  }, [refetchSummary, refetchExpenseSummary, refetchProperties, refetchTenants, refetchRooms]);
 
-  // ── Derived values ─────────────────────────────────────────────────────
+  // â”€â”€ Derived values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const metrics: PaymentSummaryMetrics | undefined = summaryData?.metrics;
   const properties = propertiesData?.properties ?? [];
   const activeTenants = tenantsData?.count ?? 0;
@@ -139,11 +162,14 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
   const occupancyPct =
     totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
 
+  const expenseSummary = expenseSummaryData?.summary;
+  const netCollection = expenseSummary?.netProfit ?? 0;
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <LinearGradient
-        colors={['#2563EB', '#1D4ED8']}
+        colors={['#4B6BED', '#3D56C9']}
         style={[styles.header, { paddingTop: insets.top + 12 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -178,7 +204,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
           <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* ── Collection summary card ── */}
+        {/* â”€â”€ Collection summary card â”€â”€ */}
         <View style={[styles.summaryCard, { backgroundColor: colors.surface }, shadows.md]}>
           <Text style={[styles.summaryCardTitle, { color: colors.text.secondary }]}>
             Total Collected
@@ -215,14 +241,67 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
           </View>
         </View>
 
-        {/* ── Stats grid ── */}
+        {/* â”€â”€ Net collection & expenses card â”€â”€ */}
+        <View style={[styles.netCard, { backgroundColor: colors.surface }, shadows.md]}>
+          <View style={styles.netHeader}>
+            <View style={styles.netHeaderLeft}>
+              <Text style={[styles.netCardTitle, { color: colors.text.secondary }]}>
+                Net Collection (this month)
+              </Text>
+              {loadingExpenseSummary ? (
+                <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} />
+              ) : (
+                <Text style={[styles.netCardValue, { color: netCollection >= 0 ? colors.success : colors.error }]}>
+                  {formatCurrency(netCollection)}
+                </Text>
+              )}
+            </View>
+            <View
+              style={[
+                styles.netIconWrap,
+                { backgroundColor: (netCollection >= 0 ? colors.success : colors.error) + '18' },
+              ]}
+            >
+              <Ionicons
+                name={netCollection >= 0 ? 'trending-up' : 'trending-down'}
+                size={22}
+                color={netCollection >= 0 ? colors.success : colors.error}
+              />
+            </View>
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryItemValue, { color: colors.success }]}>
+                {loadingExpenseSummary ? '…' : formatCurrency(expenseSummary?.totalIncome ?? 0)}
+              </Text>
+              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Collected</Text>
+            </View>
+            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryItemValue, { color: colors.error }]}>
+                {loadingExpenseSummary ? '…' : formatCurrency(expenseSummary?.totalExpenses ?? 0)}
+              </Text>
+              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Expenses</Text>
+            </View>
+            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryItemValue, { color: colors.text.primary }]}>
+                {loadingExpenseSummary ? '…' : String(expenseSummary?.expenseCount ?? 0)}
+              </Text>
+              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Entries</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* â”€â”€ Stats grid â”€â”€ */}
         <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Overview</Text>
         <View style={styles.statsGrid}>
           <StatCard
             icon="business-outline"
             label="Properties"
             value={loadingProperties ? '…' : String(properties.length)}
-            accent="#2563EB"
+            accent="#4B6BED"
             onPress={() => onNavigate('properties')}
           />
           <StatCard
@@ -261,7 +340,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
           />
         </View>
 
-        {/* ── Payment breakdown card ── */}
+        {/* â”€â”€ Payment breakdown card â”€â”€ */}
         <View style={[styles.breakdownCard, { backgroundColor: colors.surface }, shadows.sm]}>
           <Text style={[styles.breakdownTitle, { color: colors.text.primary }]}>
             Payment Breakdown
@@ -297,7 +376,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
           )}
         </View>
 
-        {/* ── Properties quick list ── */}
+        {/* â”€â”€ Properties quick list â”€â”€ */}
         {properties.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
@@ -371,6 +450,23 @@ const styles = StyleSheet.create({
   summaryItemValue: { fontSize: 16, fontWeight: '700' },
   summaryItemLabel: { fontSize: 11, marginTop: 2 },
   summaryDivider: { width: 1, height: 32 },
+
+  // Net collection & expenses card
+  netCard: {
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+  },
+  netHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  netHeaderLeft: { flex: 1 },
+  netCardTitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  netCardValue: { fontSize: 32, fontWeight: '700', letterSpacing: -1, marginTop: spacing.xs },
+  netIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Stat grid
   sectionTitle: { fontSize: 16, fontWeight: '700' },

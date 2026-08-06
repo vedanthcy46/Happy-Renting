@@ -23,7 +23,7 @@ export async function generateAndShareReceipt(data: ReceiptData): Promise<void> 
       <style>
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1e293b; background-color: #f8fafc; }
         .receipt-box { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; }
-        .header { background: #2563EB; color: white; padding: 24px; border-radius: 8px; margin-bottom: 32px; text-align: center; }
+        .header { background: #4B6BED; color: white; padding: 24px; border-radius: 8px; margin-bottom: 32px; text-align: center; }
         .header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
         .header p { margin: 6px 0 0 0; opacity: 0.85; font-size: 14px; }
         .row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px dashed #e2e8f0; }

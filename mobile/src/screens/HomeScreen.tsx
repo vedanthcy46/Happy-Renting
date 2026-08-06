@@ -219,7 +219,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         }
       >
         {latestRecord ? (
-          <GradientCard gradient={['#2563EB', '#1D4ED8'] as const} style={styles.billCard}>
+          <GradientCard gradient={['#4B6BED', '#3D56C9'] as const} style={styles.billCard}>
             <View style={styles.billCardContent}>
               <View style={styles.billTopRow}>
                 <View>
@@ -245,7 +245,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                   activeOpacity={0.8}
                 >
                   <Text style={styles.payNowText}>Pay Rent</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#2563EB" />
+                  <Ionicons name="arrow-forward" size={18} color="#4B6BED" />
                 </TouchableOpacity>
               )}
             </View>
@@ -576,7 +576,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#2563EB',
+    borderColor: '#4B6BED',
   },
   badgeText: {
     color: '#FFFFFF',

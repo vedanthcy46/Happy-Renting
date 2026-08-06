@@ -17,12 +17,12 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeProvider';
 import { spacing, radius, shadows, typography } from '../theme';
 
-// ─── Enable LayoutAnimation on Android ───────────────────────────────────────
+// â”€â”€â”€ Enable LayoutAnimation on Android â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
-// ─── FAQ Data ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ FAQ Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface FAQItem {
   q: string;
   a: string;
@@ -63,7 +63,7 @@ const faqs: FAQItem[] = [
   },
 ];
 
-// ─── Contact Items ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Contact Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ContactItem {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   iconColor: string;
@@ -73,7 +73,7 @@ interface ContactItem {
   onPress: () => void;
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const HelpScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -101,8 +101,8 @@ export const HelpScreen: React.FC = () => {
   const contactItems: ContactItem[] = [
     {
       icon: 'mail',
-      iconColor: '#2563EB',
-      iconBg: '#2563EB18',
+      iconColor: '#4B6BED',
+      iconBg: '#4B6BED18',
       label: 'Email Support',
       subtitle: 'support@happyrenting.co.in',
       onPress: () => openEmail(),
@@ -157,7 +157,7 @@ export const HelpScreen: React.FC = () => {
       >
         {/* Hero Banner */}
         <LinearGradient
-          colors={['#2563EB', '#1D4ED8']}
+          colors={['#4B6BED', '#3D56C9']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -285,7 +285,7 @@ export const HelpScreen: React.FC = () => {
   );
 };
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const styles = StyleSheet.create({
   container: {
     flex: 1,

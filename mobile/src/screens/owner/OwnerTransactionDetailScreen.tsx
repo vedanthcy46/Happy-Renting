@@ -78,7 +78,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
 
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Record Payment</Text>
@@ -87,7 +87,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Amount (₹) *</Text>
             <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.text.tertiary} />
 
@@ -384,8 +384,9 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
 
       {/* Reverse modal */}
       <Modal visible={!!reverseTarget} animationType="fade" transparent presentationStyle="overFullScreen">
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.reverseSheet, { backgroundColor: colors.surface }]}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
             <Text style={[styles.reverseTitle, { color: colors.text.primary }]}>Reverse Payment</Text>
             <Text style={[styles.reverseSub, { color: colors.text.secondary }]}>
               {reverseTarget ? `${formatCurrency(reverseTarget.amount)} recorded on ${formatDate(reverseTarget.paymentDate || reverseTarget.createdAt)}` : ''}
@@ -413,8 +414,9 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
                 {reverseMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={[styles.modalBtnText, { color: '#FFF' }]}>Reverse</Text>}
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -464,7 +466,7 @@ const styles = StyleSheet.create({
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 50, borderRadius: radius.lg },
   addBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
-  modalSheet: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xxxl + spacing.xxl },
+  modalSheet: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xxxl + spacing.xxl, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   fieldLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: spacing.sm, marginTop: spacing.xs },
@@ -480,7 +482,7 @@ const styles = StyleSheet.create({
   modalBtn: { flex: 1, height: 50, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
   modalBtnText: { fontSize: 15, fontWeight: '600' },
   modalBtnSaveText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  reverseSheet: { margin: spacing.xl, borderRadius: radius.xxl, padding: spacing.xxl },
+  reverseSheet: { margin: spacing.xl, maxHeight: '90%', borderRadius: radius.xxl, padding: spacing.xxl },
   reverseTitle: { fontSize: 18, fontWeight: '700', marginBottom: spacing.xs },
   reverseSub: { fontSize: 13, marginBottom: spacing.xl },
   reverseInput: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, fontSize: 14, height: 80, textAlignVertical: 'top', paddingTop: spacing.sm, marginBottom: spacing.lg },

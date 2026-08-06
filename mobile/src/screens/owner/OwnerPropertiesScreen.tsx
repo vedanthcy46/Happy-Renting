@@ -61,7 +61,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <KeyboardAvoidingView
         style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
@@ -73,6 +73,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             </TouchableOpacity>
           </View>
 
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            style={{ flexShrink: 1 }}
+          >
           <View style={styles.formField}>
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Property Name *</Text>
             <TextInput
@@ -110,6 +116,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               maxLength={60}
             />
           </View>
+          </ScrollView>
 
           <View style={styles.modalActions}>
             <TouchableOpacity
@@ -455,6 +462,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xxl,
     padding: spacing.xxl,
     paddingBottom: spacing.xxxl + spacing.xxl,
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',

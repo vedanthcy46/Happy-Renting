@@ -3,10 +3,12 @@ import { useColorScheme } from 'react-native';
 import { colors as lightColors } from './colors';
 
 const darkColors = {
-  primary: '#3B82F6',
-  primaryLight: '#1E3A5F',
-  primaryDark: '#60A5FA',
-  secondary: '#22C55E',
+  primary: '#6D8BFF',
+  primaryLight: '#2A3350',
+  primaryDark: '#9BB1FF',
+  accent: '#818CF8',
+  accentLight: '#2B2B45',
+  secondary: '#4ADE80',
   secondaryLight: '#1A3A2A',
   secondaryDark: '#4ADE80',
   background: '#0F172A',
@@ -26,16 +28,18 @@ const darkColors = {
   warningLight: '#3A2A1A',
   error: '#F87171',
   errorLight: '#3A1A1A',
-  info: '#60A5FA',
+  info: '#9BB1FF',
   infoLight: '#1A2A3A',
   overlay: 'rgba(0, 0, 0, 0.6)',
   tabInactive: '#64748B',
   skeleton: '#334155',
   gradient: {
-    primary: ['#3B82F6', '#2563EB'],
+    primary: ['#6D8BFF', '#4B6BED'],
+    accent: ['#818CF8', '#6D8BFF'],
     secondary: ['#22C55E', '#16A34A'],
-    card: ['#3B82F6', '#2563EB'],
+    card: ['#6D8BFF', '#4B6BED'],
     premium: ['#1E293B', '#0F172A'],
+    soft: ['#2A3350', '#1E293B'],
   },
 };
 
@@ -43,6 +47,8 @@ interface ColorScheme {
   readonly primary: string;
   readonly primaryLight: string;
   readonly primaryDark: string;
+  readonly accent: string;
+  readonly accentLight: string;
   readonly secondary: string;
   readonly secondaryLight: string;
   readonly secondaryDark: string;
@@ -63,7 +69,7 @@ interface ColorScheme {
   readonly overlay: string;
   readonly tabInactive: string;
   readonly skeleton: string;
-  readonly gradient: { readonly primary: readonly string[]; readonly secondary: readonly string[]; readonly card: readonly string[]; readonly premium: readonly string[] };
+  readonly gradient: { readonly primary: readonly string[]; readonly accent: readonly string[]; readonly secondary: readonly string[]; readonly card: readonly string[]; readonly premium: readonly string[]; readonly soft: readonly string[] };
 }
 
 interface ThemeContextType {

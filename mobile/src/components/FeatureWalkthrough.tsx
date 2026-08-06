@@ -186,7 +186,7 @@ export const FeatureWalkthrough: React.FC<FeatureWalkthroughProps> = ({
         <View style={[styles.card, { width: CARD_WIDTH, left: (SCREEN_WIDTH - CARD_WIDTH) / 2, top: CARD_TOP }]}>
           {/* Icon */}
           <LinearGradient
-            colors={['#2563EB', '#1D4ED8']}
+            colors={['#4B6BED', '#3D56C9']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.iconCircle}
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
     elevation: 6,
-    shadowColor: '#2563EB',
+    shadowColor: '#4B6BED',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 12,

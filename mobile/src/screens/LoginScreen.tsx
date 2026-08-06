@@ -232,7 +232,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           showsVerticalScrollIndicator={false}
         >
           <LinearGradient
-            colors={['#2563EB', '#1D4ED8']}
+            colors={['#4B6BED', '#3D56C9']}
             style={styles.heroSection}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -310,7 +310,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <View style={styles.buttonRow}>
               <TouchableOpacity style={[styles.signInButton, biometricActive ? { flex: 1 } : { width: '100%' }]} onPress={handleLogin} disabled={loading} activeOpacity={0.9}>
                 <LinearGradient
-                  colors={['#2563EB', '#1D4ED8']}
+                  colors={['#4B6BED', '#3D56C9']}
                   style={styles.signInGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -367,7 +367,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       </KeyboardAvoidingView>
 
       <Modal visible={showForgotModal} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.forgotModal}>
             {forgotSuccess ? (
               <View style={styles.forgotSuccessContent}>
@@ -425,7 +425,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               </View>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

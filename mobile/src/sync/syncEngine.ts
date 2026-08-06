@@ -393,8 +393,17 @@ export function startSyncEngine(): () => void {
   }, 0);
 
   return () => {
-    unsubscribe();
-    appStateSubRef.remove();
-    stopPeriodicSync();
+    stopSyncEngine();
   };
+}
+
+/** Stop all sync activity. Used on logout so token-less requests aren't fired. */
+export function stopSyncEngine(): void {
+  if (!started) return;
+  started = false;
+  stopPeriodicSync();
+  if (appStateSub) {
+    appStateSub.remove();
+    appStateSub = null;
+  }
 }

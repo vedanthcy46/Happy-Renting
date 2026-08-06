@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
   RefreshControl, Alert, Modal, TextInput, Image,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -120,8 +121,9 @@ export const OwnerApprovalsScreen: React.FC = () => {
       )}
 
       <Modal visible={!!rejectTarget} animationType="fade" transparent presentationStyle="overFullScreen">
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
             <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>Reject Payment</Text>
             <Text style={[styles.rejectSub, { color: colors.text.secondary }]}>Provide a reason so the tenant knows why their proof was rejected.</Text>
             <TextInput
@@ -147,8 +149,9 @@ export const OwnerApprovalsScreen: React.FC = () => {
                 {rejectMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={[styles.modalBtnText, { color: '#FFF' }]}>Reject</Text>}
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -179,7 +182,7 @@ const styles = StyleSheet.create({
   btn: { flex: 1, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   btnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', padding: spacing.xl },
-  rejectSheet: { width: '100%', borderRadius: radius.xxl, padding: spacing.xxl },
+  rejectSheet: { width: '100%', maxHeight: '90%', borderRadius: radius.xxl, padding: spacing.xxl },
   rejectTitle: { fontSize: 18, fontWeight: '700', marginBottom: spacing.xs },
   rejectSub: { fontSize: 13, marginBottom: spacing.xl, lineHeight: 19 },
   rejectInput: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, fontSize: 14, height: 80, textAlignVertical: 'top', paddingTop: spacing.sm, marginBottom: spacing.lg },
