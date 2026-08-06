@@ -1,6 +1,7 @@
 'use strict';
 
 const { body } = require('express-validator');
+const mongoose = require('mongoose');
 const Expense = require('../models/Expense');
 const Property = require('../models/Property');
 const PaymentTransaction = require('../models/PaymentTransaction');
@@ -84,8 +85,9 @@ exports.getExpenseSummary = async (req, res, next) => {
       transactionType: { $nin: NON_CASH_TRANSACTION_TYPES },
     };
     if (req.query.propertyId && /^[a-f\d]{24}$/i.test(req.query.propertyId)) {
-      expenseFilter.propertyId = req.query.propertyId;
-      txnFilter.propertyId = req.query.propertyId;
+      const propertyObjectId = new mongoose.Types.ObjectId(req.query.propertyId);
+      expenseFilter.propertyId = propertyObjectId;
+      txnFilter.propertyId = propertyObjectId;
     }
 
     const [expensesAgg, txnAgg, expenseCount] = await Promise.all([
