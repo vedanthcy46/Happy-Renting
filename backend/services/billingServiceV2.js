@@ -6,6 +6,9 @@
  * Automated billing for the new ledger-based payment system
  */
 
+require('../models/User');
+require('../models/Room');
+require('../models/Property');
 const Tenant = require('../models/Tenant');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const MigrationHistory = require('../models/MigrationHistory');
