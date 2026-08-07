@@ -766,7 +766,7 @@ async function groqChat(messages, tools) {
   if (!res.ok) {
     logger.error('[AI] Groq error ' + res.status + ': ' + text);
     const err = new Error('The AI service is temporarily unavailable.');
-    err.statusCode = 502;
+    err.statusCode = res.status || 502;
     throw err;
   }
   const data = text ? JSON.parse(text) : {};
@@ -783,6 +783,23 @@ async function groqChat(messages, tools) {
 function jsonInterp(v) {
   if (typeof v !== 'string') return v;
   try { return JSON.parse(v); } catch (e) { return {}; }
+}
+
+// OpenAPI-style schemas (used by OpenAI/Groq) contain keys that the Gemini
+// function declaration format does not recognise (e.g. "additionalProperties").
+// Recursively strip the unsupported keys so the payload validates.
+function sanitizeGeminiSchema(node) {
+  if (Array.isArray(node)) return node.map(sanitizeGeminiSchema);
+  if (node && typeof node === 'object') {
+    const out = {};
+    for (const key of Object.keys(node)) {
+      if (key === 'additionalProperties') continue;
+      if (key === 'required' && Array.isArray(node[key]) && node[key].length === 0) continue;
+      out[key] = sanitizeGeminiSchema(node[key]);
+    }
+    return out;
+  }
+  return node;
 }
 
 // Convert the normalized OpenAI-style message list into Gemini contents.
@@ -836,7 +853,7 @@ async function geminiChat(messages, schemas) {
         return {
           name: s.function.name,
           description: s.function.description,
-          parameters: s.function.parameters,
+          parameters: sanitizeGeminiSchema(s.function.parameters),
         };
       }),
     }];
@@ -855,7 +872,7 @@ async function geminiChat(messages, schemas) {
   if (!res.ok) {
     logger.error('[AI] Gemini error ' + res.status + ': ' + text);
     const err = new Error('The AI service is temporarily unavailable.');
-    err.statusCode = 502;
+    err.statusCode = res.status || 502;
     throw err;
   }
 
