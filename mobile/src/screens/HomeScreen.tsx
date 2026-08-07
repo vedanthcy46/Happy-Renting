@@ -459,6 +459,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           <Ionicons name="calendar-outline" size={12} color={colors.text.tertiary} />
           <Text style={styles.joinedText}>Joined {formatDate(tenant.joinDate)}</Text>
         </View>
+
+        <Text style={styles.aiDisclosure}>
+          🤖 Powered by AI — Happy Renting&apos;s Copilot may assist with queries. Always confirm payment and tenancy details with your owner.
+        </Text>
       </ScrollView>
 
       <AppBottomSheet
@@ -943,6 +947,14 @@ const makeStyles = (colors: any) => StyleSheet.create({
   joinedText: {
     fontSize: 12,
     color: colors.text.tertiary,
+  },
+  aiDisclosure: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   modalTitle: {
     fontSize: 20,

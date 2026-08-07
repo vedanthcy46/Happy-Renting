@@ -399,6 +399,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </TouchableOpacity>
               </View>
               <Text style={styles.footerVersion}>v{APP_VERSION} · Made with ❤️ in India 🇮🇳</Text>
+              <Text style={styles.aiDisclosure}>
+                🤖 Powered by AI — Happy Renting&apos;s Copilot may assist with queries. Always confirm payment and tenancy details with your owner.
+              </Text>
             </View>
           </Animated.View>
         </ScrollView>
@@ -795,5 +798,12 @@ const makeStyles = (colors: any) => StyleSheet.create({
     fontSize: 12,
     color: colors.text.tertiary,
     textAlign: 'center',
+  },
+  aiDisclosure: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
   },
 });

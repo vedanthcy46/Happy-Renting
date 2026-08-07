@@ -34,6 +34,9 @@ interface RentDetailScreenProps {
   onBack: () => void;
 }
 
+// Payment gateway (Cashfree online checkout) is currently blocked.
+const PAYMENT_GATEWAY_ENABLED = false;
+
 export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId, onBack }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -101,6 +104,13 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
 
   const handlePayOnline = async () => {
     if (!data?.rentRecord) return;
+    if (!PAYMENT_GATEWAY_ENABLED) {
+      Alert.alert(
+        'Gateway Unavailable',
+        'Online gateway payments are temporarily disabled. Please pay via UPI / Bank Transfer or upload a payment proof.'
+      );
+      return;
+    }
     setPaying(true);
     
     // The deep link scheme that Cashfree will redirect back to after payment
@@ -338,10 +348,24 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.payOnlineButton} onPress={handlePayOnline} disabled={polling || paying} activeOpacity={0.8}>
-              <Ionicons name="globe-outline" size={20} color={colors.text.secondary} />
-              <Text style={styles.payOnlineText}>{paying ? 'Initiating...' : polling ? 'Checking...' : 'Pay Online (Gateway)'}</Text>
+            <TouchableOpacity
+              style={[styles.payOnlineButton, !PAYMENT_GATEWAY_ENABLED && styles.payOnlineDisabled]}
+              onPress={handlePayOnline}
+              disabled={!PAYMENT_GATEWAY_ENABLED || polling || paying}
+              activeOpacity={0.8}
+            >
+              <Ionicons name={PAYMENT_GATEWAY_ENABLED ? 'globe-outline' : 'lock-closed-outline'} size={20} color={PAYMENT_GATEWAY_ENABLED ? colors.text.secondary : colors.text.tertiary} />
+              <Text style={[styles.payOnlineText, !PAYMENT_GATEWAY_ENABLED && styles.payOnlineTextDisabled]}>
+                {PAYMENT_GATEWAY_ENABLED
+                  ? paying ? 'Initiating...' : polling ? 'Checking...' : 'Pay Online (Gateway)'
+                  : 'Online Gateway Unavailable'}
+              </Text>
             </TouchableOpacity>
+            {!PAYMENT_GATEWAY_ENABLED && (
+              <Text style={styles.gatewayNotice}>
+                Gateway payments are temporarily disabled. Use Pay via UPI / Bank instead.
+              </Text>
+            )}
           </View>
         ) : (
           <TouchableOpacity style={styles.downloadReceiptButton} onPress={handleDownloadReceipt} activeOpacity={0.8}>
@@ -693,6 +717,21 @@ const makeStyles = (colors: any) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.text.secondary,
+  },
+  payOnlineDisabled: {
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surfaceHover,
+    opacity: 0.8,
+  },
+  payOnlineTextDisabled: {
+    color: colors.text.tertiary,
+  },
+  gatewayNotice: {
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    color: colors.warning,
+    paddingHorizontal: spacing.md,
   },
   sectionTitle: {
     fontSize: 13,

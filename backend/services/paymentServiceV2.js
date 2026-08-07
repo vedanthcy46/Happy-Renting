@@ -334,7 +334,7 @@ const addPaymentTransaction = async (params, caller) => {
     await rentRecord.save(); // Pre-save hook will recalculate status, remaining, and advanceBalance
 
     // Automatically apply advance balance to subsequent bills
-    await applyAdvanceBalance(tenantId).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
+    await applyAdvanceBalance(tenantId, transaction._id).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
   }
 
   if (caller.role === 'owner') {
@@ -536,6 +536,82 @@ const updateMonthlyRentRecord = async (rentRecordId, updateData, caller) => {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
+ * unwindAdvanceDistribution(transaction, sourceRecord)
+ * When an overpaid payment is reversed, the system-generated advance_applied /
+ * advance_deducted transactions it spawned must also be reversed so pending
+ * months fall back to their true outstanding balance instead of keeping the
+ * now-gone advance.
+ */
+const unwindAdvanceDistribution = async (transaction, sourceRecord) => {
+  let applied = await PaymentTransaction.find({
+    tenantId: transaction.tenantId,
+    transactionType: 'advance_applied',
+    sourceTransactionId: transaction._id,
+    status: 'completed',
+  });
+
+  // Legacy fallback (rows created before sourceTransactionId existed):
+  // match by the source month referenced in the note.
+  if (applied.length === 0 && sourceRecord) {
+    const monthStr = String(sourceRecord.month || '').trim();
+    if (monthStr) {
+      const esc = monthStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      applied = await PaymentTransaction.find({
+        tenantId: transaction.tenantId,
+        transactionType: 'advance_applied',
+        status: 'completed',
+        sourceTransactionId: { $exists: false },
+        note: { $regex: new RegExp(`from month ${esc}$`), $options: 'i' },
+      });
+    }
+  }
+
+  if (applied.length === 0) return;
+
+  const reason = `Advance unwound - source payment reversed (txn ${transaction._id})`;
+
+  for (const app of applied) {
+    // 1. Receiving month loses the advance credit
+    const recv = await MonthlyRentRecord.findById(app.rentRecordId);
+    if (recv) {
+      recv.totalPaid = Math.max(0, recv.totalPaid - app.amount);
+      await recv.save();
+    }
+
+    // 2. Reverse the matching advance_deducted on the source month
+    await PaymentTransaction.updateOne(
+      {
+        tenantId: transaction.tenantId,
+        transactionType: 'advance_deducted',
+        status: 'completed',
+        rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
+        amount: -app.amount,
+        ...(app.sourceTransactionId
+          ? { sourceTransactionId: app.sourceTransactionId }
+          : { sourceTransactionId: { $exists: false } }),
+      },
+      { $set: { status: 'reversed', statusReason: reason } }
+    );
+
+    // 3. Return the deducted advance to the source month
+    if (sourceRecord && sourceRecord.totalPaid != null) {
+      sourceRecord.totalPaid = Math.max(0, sourceRecord.totalPaid + app.amount);
+    }
+
+    // 4. Reverse the advance_applied transaction itself
+    app.status = 'reversed';
+    app.statusReason = reason;
+    await app.save();
+  }
+
+  if (sourceRecord) await sourceRecord.save();
+
+  logger.info(
+    `[TRANSACTION] Unwound ${applied.length} advance application(s) for tenant ${transaction.tenantId}`
+  );
+};
+
+/**
  * reverseTransaction(transactionId, reason, caller)
  * Marks transaction as reversed (doesn't delete, maintains history)
  */
@@ -568,7 +644,15 @@ const reverseTransaction = async (transactionId, reason, caller) => {
   transaction.statusReason = isReversing ? (reason || 'Transaction reversed') : 'Reversal undone / Re-activated';
   await transaction.save();
 
-  // Update rent record to adjust totalPaid
+  // Update rent records: when reversing an overpaid payment, first unwind any
+  // auto-applied advance it spawned, then adjust the source month's totalPaid.
+  const rented = await MonthlyRentRecord.findById(transaction.rentRecordId);
+  if (isReversing && rented) {
+    await unwindAdvanceDistribution(transaction, rented).catch(err =>
+      logger.error(`Failed to unwind advance distribution: ${err.message}`)
+    );
+  }
+
   if (process.env.LEDGER_V3_ENABLED === 'true') {
     const { enqueueRebuild } = require('./ledgerQueueService');
     await enqueueRebuild({
@@ -577,14 +661,13 @@ const reverseTransaction = async (transactionId, reason, caller) => {
       priority: 'high'
     });
   } else {
-    const rentRecord = await MonthlyRentRecord.findById(transaction.rentRecordId);
-    if (rentRecord) {
+    if (rented) {
       if (isReversing) {
-        rentRecord.totalPaid = Math.max(0, rentRecord.totalPaid - transaction.amount);
+        rented.totalPaid = Math.max(0, rented.totalPaid - transaction.amount);
       } else {
-        rentRecord.totalPaid += transaction.amount;
+        rented.totalPaid += transaction.amount;
       }
-      await rentRecord.save();
+      await rented.save();
     }
   }
 
@@ -610,7 +693,7 @@ const reverseTransaction = async (transactionId, reason, caller) => {
 // UTILITY: Chronologically distribute advance balances to subsequent outstanding rent records
 // ─────────────────────────────────────────────────────────────────────────
 
-const applyAdvanceBalance = async (tenantId) => {
+const applyAdvanceBalance = async (tenantId, sourceTransactionId) => {
   if (process.env.LEDGER_V3_ENABLED === 'true') {
     const { enqueueRebuild } = require('./ledgerQueueService');
     await enqueueRebuild({
@@ -653,10 +736,9 @@ const applyAdvanceBalance = async (tenantId) => {
         createdBy: rec.ownerId,
         createdByRole: 'system',
         entrySource: 'auto_adjustment',
+        sourceTransactionId: sourceTransactionId || null,
         status: 'completed'
       });
-
-      // Update receiving balance
       nextRec.totalPaid += applyAmount;
       await nextRec.save();
 
@@ -675,6 +757,7 @@ const applyAdvanceBalance = async (tenantId) => {
         createdBy: rec.ownerId,
         createdByRole: 'system',
         entrySource: 'auto_adjustment',
+        sourceTransactionId: sourceTransactionId || null,
         status: 'completed'
       });
 
@@ -742,7 +825,7 @@ const verifyTransaction = async (transactionId, caller) => {
     await rentRecord.save();
 
     // Automatically apply advance balance to subsequent bills
-    await applyAdvanceBalance(transaction.tenantId).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
+    await applyAdvanceBalance(transaction.tenantId, transaction._id).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
   }
 
   if (caller.role === 'owner') {

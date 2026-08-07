@@ -181,8 +181,8 @@ const startCronJobs = () => {
     }
   });
 
-  // Daily Digest Publishers
-  const ownerCron = process.env.OWNER_DIGEST_CRON || '0 8 * * *';
+  // Daily Digest Publishers (sent in the evening so "today" collections are meaningful)
+  const ownerCron = process.env.OWNER_DIGEST_CRON || '0 21 * * *';
   cron.schedule(ownerCron, async () => {
     try {
       await dailyDigestService.generateOwnerDigests();
@@ -191,7 +191,7 @@ const startCronJobs = () => {
     }
   }, { timezone: 'Asia/Kolkata' });
 
-  const adminCron = process.env.ADMIN_DIGEST_CRON || '0 8 * * *';
+  const adminCron = process.env.ADMIN_DIGEST_CRON || '0 21 * * *';
   cron.schedule(adminCron, async () => {
     try {
       await dailyDigestService.generateAdminDigests();
@@ -248,6 +248,22 @@ const startCronJobs = () => {
     }
   }, { timezone: 'Asia/Kolkata' });
   logger.info(`[CRON] AI automation initialized (${reminderCron}).`);
+
+  // Phase 4 - Monthly business report PDFs (default: 1st of month, 10 AM IST)
+  const monthlyCron = process.env.MONTHLY_REPORT_CRON || '0 10 1 * *';
+  cron.schedule(monthlyCron, async () => {
+    try {
+      const monthlyReportService = require('../services/monthlyReportService');
+      const res = await monthlyReportService.runMonthlyAutomation();
+      if (res && res.skipped) return;
+      logger.info(
+        `[CRON] Monthly report automation ran: sent=${res?.sent ?? 0} month=${res?.month ?? ''}`
+      );
+    } catch (err) {
+      logger.error(`[CRON ERROR] monthly report automation failed: ${err.message}`);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+  logger.info(`[CRON] Monthly report automation initialized (${monthlyCron}).`);
 };
 
 module.exports = { startCronJobs, runDailyJobs };

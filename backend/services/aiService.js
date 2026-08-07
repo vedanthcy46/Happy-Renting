@@ -199,6 +199,12 @@ const TOOLS = [
     allow: ['owner'],
     schema: { type: 'object', properties: {}, additionalProperties: false },
   },
+  {
+    name: 'send_monthly_report',
+    description: 'Generate and email the monthly business report PDF to the owner for a given month (default current). The PDF includes income, expenses, net, pending rent, occupancy, new tenants and complaints. This actually emails the owner. Confirm before calling.',
+    allow: ['owner'],
+    schema: { type: 'object', properties: { month: { type: 'string', description: 'YYYY-MM' } }, additionalProperties: false },
+  },
 ];
 
 function buildSystemPrompt(user, workspace) {
@@ -697,6 +703,14 @@ async function executor(toolName, args, ctx) {
       }
       logger.info('[AI AUTOMATION] Rent reminders sent to ' + sent.length + ' tenant(s).');
       return { month: cur, sent: sent.length, details: sent.length > 0 ? sent : [] };
+    }
+
+    case 'send_monthly_report': {
+      if (!oid) return { error: 'No owner context.' };
+      const m = args.month || monthKey();
+      const monthlyReportService = require('./monthlyReportService');
+      const res = await monthlyReportService.emailMonthlyReport(owner, m);
+      return { month: m, emailedTo: res.emailedTo || null, skipped: res.skipped || null };
     }
 
     default:

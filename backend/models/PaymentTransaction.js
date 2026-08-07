@@ -134,6 +134,14 @@ const paymentTransactionSchema = new mongoose.Schema(
       trim     : true,
       maxlength: [500, 'Admin comment cannot exceed 500 characters'],
     },
+    // Link between a real payment and the system-generated advance_applied /
+    // advance_deducted transactions it spawned. Enables precise cascade
+    // reversal when an overpaid payment is reversed.
+    sourceTransactionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref : 'PaymentTransaction',
+      default: null,
+    },
     
     // ─────────────────────────────────────────────────────────────────────
     // STATUS

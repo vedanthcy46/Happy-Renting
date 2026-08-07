@@ -242,6 +242,9 @@ const DashboardPage = () => {
               Hello, {user?.name?.split(' ')[0]}
             </h1>
             <p className="text-slate-400 text-sm mt-1">Welcome to your tenant dashboard</p>
+            <p className="text-slate-500 text-[11px] mt-1">
+              🤖 Powered by AI — Happy Renting&apos;s Copilot may assist with queries. Always confirm payment and tenancy details with your owner.
+            </p>
           </div>
           <StatusBadge status="active" />
         </div>

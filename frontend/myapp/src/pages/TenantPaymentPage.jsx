@@ -21,6 +21,9 @@ const PAYMENT_STATE = {
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 20; // 60 seconds total
 
+// Payment gateway (Cashfree online checkout) is currently blocked.
+const PAYMENT_GATEWAY_ENABLED = false;
+
 // ─────────────────────────────────────────────────────────────────────────
 
 const TenantPaymentPage = () => {
@@ -141,6 +144,9 @@ const TenantPaymentPage = () => {
 
   // ── Handle Cashfree Payment ──────────────────────────────────────────────
   const handleCashfreePayment = async () => {
+    if (!PAYMENT_GATEWAY_ENABLED) {
+      return toast.error('Online gateway payments are temporarily disabled. Please submit a payment proof instead.');
+    }
     const amount = Number(form.amount);
     if (!amount || amount < 1 || amount > rentRecord.remainingAmount) {
       return toast.error(`Enter a valid amount between ₹1 and ₹${rentRecord.remainingAmount}`);
@@ -455,12 +461,19 @@ const TenantPaymentPage = () => {
                 <button
                   type="button"
                   onClick={handleCashfreePayment}
-                  disabled={submitting || isGatewayBusy}
+                  disabled={!PAYMENT_GATEWAY_ENABLED || submitting || isGatewayBusy}
+                  title={PAYMENT_GATEWAY_ENABLED ? '' : 'Gateway payments are temporarily disabled'}
                   className="w-full bg-surface hover:bg-surface-hover border border-surface-border text-slate-300 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isGatewayBusy ? <LoadingSpinner size="sm" label="" /> : '🌐'}
-                  {gatewayButtonLabel()}
+                  {isGatewayBusy ? <LoadingSpinner size="sm" label="" /> : PAYMENT_GATEWAY_ENABLED ? '🌐' : '🔒'}
+                  {PAYMENT_GATEWAY_ENABLED ? gatewayButtonLabel() : 'Online Gateway Unavailable'}
                 </button>
+
+                {!PAYMENT_GATEWAY_ENABLED && (
+                  <p className="text-center text-amber-400/90 text-[11px] mt-2">
+                    Gateway payments are temporarily disabled. Please use the form above to submit a payment proof.
+                  </p>
+                )}
 
                 <p className="text-center text-slate-500 text-[10px]">
                   Secured by Cashfree Payments. UPI, Cards, Net Banking accepted.

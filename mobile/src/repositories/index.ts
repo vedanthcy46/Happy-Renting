@@ -19,6 +19,7 @@ import {
 } from './complaintRepository';
 import { readNotificationsCache, writeNotificationsCache } from './notificationRepository';
 import { readTenancyCache, writeTenancyCache } from './tenantRepository';
+import { useAuthStore } from '../store/useAuthStore';
 import {
   readPropertiesCache,
   writePropertiesCache,
@@ -105,7 +106,16 @@ export const cachedTenancy = cacheFirst({
   queryKey: ['myTenancy'],
   read: readTenancyCache,
   write: writeTenancyCache,
-  fetch: () => getMyTenancy(),
+  fetch: () => {
+    const { user } = useAuthStore.getState();
+    const role = user?.role;
+    const roles: string[] = user?.roles ?? (role ? [role] : []);
+    // `/tenants/my` is a tenant-only route; owners must not hit it.
+    if (!roles.includes('tenant')) {
+      return Promise.resolve({ success: true, tenant: null });
+    }
+    return getMyTenancy();
+  },
 });
 
 // ─── Owner workspace ──────────────────────────────────────────────────────

@@ -188,6 +188,10 @@ const LoginPage = () => {
             </button>
           </form>
         </div>
+
+        <p className="text-center text-slate-500 dark:text-slate-500 text-[11px] mt-5 px-2">
+          🤖 Powered by AI — Happy Renting&apos;s Copilot may assist with queries. Always confirm payment and tenancy details with your owner.
+        </p>
       </div>
     </div>
   );
