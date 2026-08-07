@@ -36,9 +36,9 @@ export const AiLauncher = () => {
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    // Positioned bottom-LEFT so it never overlaps right-aligned action
-    // buttons (e.g. "Add" complaint FAB, rent/payment buttons).
-    left: spacing.lg,
+    // Positioned bottom-RIGHT. The tenant complaints screen keeps its "Add"
+    // button in the header (top), so there is no overlap on that screen.
+    right: spacing.lg,
     bottom: 96,
     flexDirection: 'row',
     alignItems: 'center',

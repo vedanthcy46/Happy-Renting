@@ -17,6 +17,7 @@ import {
   Image,
   Linking,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +43,7 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  const { t } = useTranslation();
   const { colors: themeColors } = useTheme();
   const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
   const router = useRouter();
@@ -61,7 +63,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const handleForgotPassword = async () => {
     Keyboard.dismiss();
     if (!forgotEmail.trim()) {
-      Alert.alert('Error', 'Please enter your email address');
+      Alert.alert(t('common.error'), t('login.enterEmailError'));
       return;
     }
     setForgotLoading(true);
@@ -70,11 +72,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       if (res.success) {
         setForgotSuccess(true);
       } else {
-        Alert.alert('Error', res.message || 'Failed to send reset email');
+        Alert.alert(t('common.error'), res.message || t('login.failedReset'));
       }
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to send reset email';
-      Alert.alert('Error', message);
+      const message = err.response?.data?.message || t('login.failedReset');
+      Alert.alert(t('common.error'), message);
     } finally {
       setForgotLoading(false);
     }
@@ -114,16 +116,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               const response = await apiLogin(creds.email, creds.password);
               if (response.success) {
                 if (response.user.role === 'superadmin' && !(response.user.roles ?? []).some((r: string) => r === 'owner' || r === 'tenant')) {
-                  setError('Admin accounts are managed via the web portal.');
+                  setError(t('login.adminWebOnly'));
                   return;
                 }
                 await setAuth(response.user, response.token);
                 onLoginSuccess(response.user.role);
               } else {
-                setError('Biometric login failed. Please sign in with password.');
+                setError(t('login.biometricSignInFailed'));
               }
             } catch (err: any) {
-              setError(err.response?.data?.message || 'Biometric login failed. Use password.');
+              setError(err.response?.data?.message || t('login.biometricUsePassword'));
             } finally {
               setLoading(false);
             }
@@ -141,7 +143,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     if (!biometricSupported || !biometricActive) return;
     const creds = await getBiometricCredentials();
     if (!creds) {
-      Alert.alert('Error', 'No biometric credentials found. Please sign in with password first.');
+      Alert.alert(t('common.error'), t('login.biometricNotConfigured'));
       return;
     }
     const success = await authenticateWithBiometric();
@@ -151,16 +153,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         const response = await apiLogin(creds.email, creds.password);
         if (response.success) {
           if (response.user.role === 'superadmin' && !(response.user.roles ?? []).some((r: string) => r === 'owner' || r === 'tenant')) {
-            Alert.alert('Not Available', 'Admin accounts are managed via the web portal.');
+            Alert.alert(t('common.error'), t('login.adminWebOnly'));
             return;
           }
           await setAuth(response.user, response.token);
           onLoginSuccess(response.user.role);
         } else {
-          Alert.alert('Error', 'Biometric login failed. Please use password.');
+          Alert.alert(t('common.error'), t('login.biometricLoginFailed'));
         }
       } catch (err: any) {
-        Alert.alert('Error', err.response?.data?.message || 'Biometric login failed. Use password.');
+        Alert.alert(t('common.error'), err.response?.data?.message || t('login.biometricLoginFailed'));
       } finally {
         setLoading(false);
       }
@@ -171,7 +173,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     Keyboard.dismiss();
     setError('');
     if (!email || !password) {
-      setError('Please enter email and password');
+      setError(t('login.enterBothError'));
       return;
     }
     setLoading(true);
@@ -180,7 +182,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       if (response.success) {
           // Block superadmin from mobile app — admin portal is web-only
           if (response.user.role === 'superadmin' && !(response.user.roles ?? []).some((r: string) => r === 'owner' || r === 'tenant')) {
-            setError('Admin accounts are managed via the web portal. Please use happyrenting.netlify.app');
+            setError(t('login.adminWebOnlyLink'));
             setLoading(false);
             return;
           }
@@ -189,22 +191,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         // Prompt for biometric enrollment (any role can use biometrics)
         if (biometricSupported && !biometricActive) {
           Alert.alert(
-            'Enable Biometric Login',
-            'Would you like to enable fingerprint/face ID login for quicker access next time?',
+            t('login.enableBiometricTitle'),
+            t('login.enableBiometricBody'),
             [
               {
-                text: 'Maybe Later',
+                text: t('login.maybeLater'),
                 style: 'cancel',
                 onPress: () => onLoginSuccess(response.user.role),
               },
               {
-                text: 'Enable',
+                text: t('login.enable'),
                 onPress: async () => {
                   try {
                     await saveBiometricCredentials(email.trim().toLowerCase(), password);
-                    Alert.alert('Success', 'Biometric login enabled successfully!');
+                    Alert.alert(t('login.success'), t('login.biometricEnabled'));
                   } catch {
-                    Alert.alert('Error', 'Failed to save biometric credentials.');
+                    Alert.alert(t('common.error'), t('login.biometricFailedSave'));
                   } finally {
                     onLoginSuccess(response.user.role);
                   }
@@ -216,10 +218,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           onLoginSuccess(response.user.role);
         }
       } else {
-        setError('Invalid credentials');
+        setError(t('login.invalidCredentials'));
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      setError(err.response?.data?.message || t('login.genericError'));
     } finally {
       setLoading(false);
     }
@@ -253,17 +255,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   resizeMode="contain"
                 />
               </View>
-              <Text style={styles.appName}>Happy Renting</Text>
-              <Text style={styles.tagline}>Rent, receipts & property management — all in one place</Text>
+              <Text style={styles.appName}>{t('common.appName')}</Text>
+              <Text style={styles.tagline}>{t('login.tagline')}</Text>
             </Animated.View>
           </LinearGradient>
 
           <Animated.View
             style={[styles.formSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
           >
-            <Text style={styles.welcomeTitle}>Welcome back</Text>
+            <Text style={styles.welcomeTitle}>{t('login.title')}</Text>
             <Text style={styles.welcomeSubtitle}>
-              Sign in to continue to your dashboard
+              {t('login.subtitle')}
             </Text>
 
             {error ? (
@@ -275,12 +277,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
             <View style={styles.formFields}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email</Text>
+                <Text style={styles.inputLabel}>{t('login.email')}</Text>
                 <View style={styles.inputContainer}>
                   <Ionicons name="mail-outline" size={20} color={themeColors.text.tertiary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputField}
-                    placeholder="Enter your email"
+                    placeholder={t('login.emailPlaceholder')}
                     placeholderTextColor={themeColors.text.tertiary}
                     value={email}
                     onChangeText={setEmail}
@@ -293,7 +295,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
               <View style={styles.inputGroup}>
                 <View style={styles.passwordLabelRow}>
-                  <Text style={styles.inputLabel}>Password</Text>
+                  <Text style={styles.inputLabel}>{t('login.password')}</Text>
                   <TouchableOpacity
                     onPress={() => {
                       setForgotSuccess(false);
@@ -302,14 +304,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.forgotInline}>Forgot?</Text>
+                    <Text style={styles.forgotInline}>{t('login.forgot')}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.inputContainer}>
                   <Ionicons name="lock-closed-outline" size={20} color={themeColors.text.tertiary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.inputField}
-                    placeholder="Enter your password"
+                    placeholder={t('login.passwordPlaceholder')}
                     placeholderTextColor={themeColors.text.tertiary}
                     value={password}
                     onChangeText={setPassword}
@@ -340,7 +342,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   ) : (
                     <>
                       <Ionicons name="log-in-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.signInText}>Sign In</Text>
+                      <Text style={styles.signInText}>{t('login.signIn')}</Text>
                     </>
                   )}
                 </LinearGradient>
@@ -355,7 +357,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>New to Happy Renting?</Text>
+              <Text style={styles.dividerText}>{t('login.newHere')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -370,10 +372,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               </View>
               <View style={styles.ownerRequestText}>
                 <Text style={styles.ownerRequestTitle}>
-                  Are you a property owner?
+                  {t('login.ownerTitle')}
                 </Text>
                 <Text style={styles.ownerRequestSub}>
-                  Request owner access and manage your properties
+                  {t('login.ownerSub')}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={themeColors.primary} />
@@ -391,11 +393,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               </TouchableOpacity>
               <View style={styles.footerLinks}>
                 <TouchableOpacity onPress={() => Linking.openURL('https://happy-renting.onrender.com/privacy')}>
-                  <Text style={styles.footerLink}>Privacy Policy</Text>
+                  <Text style={styles.footerLink}>{t('login.privacyPolicy')}</Text>
                 </TouchableOpacity>
                 <Text style={styles.footerDot}>·</Text>
                 <TouchableOpacity onPress={() => Linking.openURL('https://happy-renting.onrender.com/terms')}>
-                  <Text style={styles.footerLink}>Terms</Text>
+                  <Text style={styles.footerLink}>{t('login.terms')}</Text>
                 </TouchableOpacity>
               </View>
               <Text style={styles.footerVersion}>v{APP_VERSION} · Made with ❤️ in India 🇮🇳</Text>
@@ -413,12 +415,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             {forgotSuccess ? (
               <View style={styles.forgotSuccessContent}>
                 <Ionicons name="mail-open-outline" size={48} color={themeColors.success} />
-                <Text style={styles.forgotTitle}>Email Sent!</Text>
+                <Text style={styles.forgotTitle}>{t('login.emailSentTitle')}</Text>
                 <Text style={styles.forgotBody}>
-                  If that email exists, a password reset link has been sent to your inbox.
+                  {t('login.emailSentBody')}
                 </Text>
                 <AppButton
-                  title="Done"
+                  title={t('login.done')}
                   onPress={() => {
                     setShowForgotModal(false);
                     setForgotSuccess(false);
@@ -432,9 +434,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <View style={styles.forgotIconWrap}>
                   <Ionicons name="key-outline" size={28} color={themeColors.primary} />
                 </View>
-                <Text style={styles.forgotTitle}>Forgot Password</Text>
+                <Text style={styles.forgotTitle}>{t('login.forgotTitle')}</Text>
                 <Text style={styles.forgotBody}>
-                  Enter your registered email and we'll send you a reset link.
+                  {t('login.forgotDesc')}
                 </Text>
                 <AppInput
                   placeholder="your@email.com"
@@ -450,14 +452,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 />
                 <View style={styles.modalButtons}>
                   <AppButton
-                    title="Cancel"
+                    title={t('login.cancel')}
                     variant="ghost"
                     onPress={() => setShowForgotModal(false)}
                     fullWidth
                   />
                   <View style={styles.modalBtnSpacer} />
                   <AppButton
-                    title="Send Link"
+                    title={t('login.sendLink')}
                     onPress={handleForgotPassword}
                     loading={forgotLoading}
                     fullWidth

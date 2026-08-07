@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   StyleSheet,
   View,
@@ -27,12 +28,15 @@ import {
 } from '../hooks/useBiometric';
 import { useAuthStore } from '../store/useAuthStore';
 import { AppCard, AppButton, AppInput } from '../components';
+import { LanguageSelector } from '../localization';
+import { setPreferredLanguage } from '../api/user';
 import { useRouter } from 'expo-router';
 import { requestDeletion, getMyDeletionStatus, cancelDeletion, DeletionStatusData } from '../api/deletion';
 import { login } from '../api/auth';
 import { rateApp, APP_VERSION, APP_BUILD_NUMBER } from '../utils/rateApp';
 
 export const SettingsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -102,20 +106,20 @@ export const SettingsScreen: React.FC = () => {
     } else {
       await clearBiometricCredentials();
       setBiometricActive(false);
-      Alert.alert('Success', 'Biometric login disabled.');
+      Alert.alert(t('common.success'), t('settings.bioDisabled'));
     }
   };
 
   const handleConfirmBiometric = async () => {
     if (!password) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert(t('common.error'), t('settings.bioEnterPassword'));
       return;
     }
 
     setSubmittingBiometric(true);
     try {
       if (!user?.email) {
-        Alert.alert('Error', 'User email not found. Please log in again.');
+        Alert.alert(t('common.error'), t('settings.bioEmailNotFound'));
         return;
       }
       await login(user.email, password);
@@ -123,9 +127,9 @@ export const SettingsScreen: React.FC = () => {
       setBiometricActive(true);
       setShowBiometricModal(false);
       setPassword('');
-      Alert.alert('Success', 'Biometric login enabled successfully.');
+      Alert.alert(t('common.success'), t('settings.bioEnabled'));
     } catch {
-      Alert.alert('Error', 'Invalid password. Biometric login was not enabled.');
+      Alert.alert(t('common.error'), t('settings.bioInvalidPassword'));
       setBiometricActive(false);
     } finally {
       setSubmittingBiometric(false);
@@ -140,24 +144,21 @@ export const SettingsScreen: React.FC = () => {
 
   const handleClearCache = () => {
     Alert.alert(
-      'Clear Cache & Reset',
-      'Are you sure you want to clear the cache and log out? This will reset all local sessions and biometric settings.',
+      t('settings.clearCacheTitle'),
+      t('settings.clearCacheBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Clear & Log Out',
+          text: t('settings.clearLogout'),
           style: 'destructive',
           onPress: async () => {
             try {
-              // Clear react query cache
               await queryClient.clear();
-              // Invalidate and reset push settings
               await SecureStore.deleteItemAsync('push_notifications_enabled');
-              // Log out (which also clears userToken, userData, and biometric credentials)
               await logout();
               router.replace('/login');
             } catch (e) {
-              Alert.alert('Error', 'Failed to clear cache fully.');
+              Alert.alert(t('common.error'), t('settings.clearFailed'));
             }
           },
         },
@@ -177,31 +178,31 @@ export const SettingsScreen: React.FC = () => {
     try {
       const res = await requestDeletion({ reason: deletionReason || undefined });
       if (res.success) {
-        Alert.alert('Request Submitted', 'Your deletion request has been sent to your owner for review.');
+        Alert.alert(t('settings.deleteSubmitted'), t('settings.deleteSubmittedBody'));
         setShowDeletionModal(false);
         await fetchDeletionStatus();
       } else {
-        Alert.alert('Error', res.message || 'Failed to submit request.');
+        Alert.alert(t('common.error'), res.message || t('settings.deleteFailed'));
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message || err.message || 'Something went wrong.');
+      Alert.alert(t('common.error'), err?.response?.data?.message || err.message || t('errors.generic'));
     } finally {
       setDeletionLoading(false);
     }
   };
 
   const handleCancelDeletion = () => {
-    Alert.alert('Cancel Deletion', 'Are you sure you want to cancel your deletion request?', [
-      { text: 'No', style: 'cancel' },
+    Alert.alert(t('settings.deleteCancelTitle'), t('settings.deleteCancelBody'), [
+      { text: t('common.no'), style: 'cancel' },
       {
-        text: 'Yes, Cancel', style: 'destructive',
+        text: t('settings.deleteYesCancel'), style: 'destructive',
         onPress: async () => {
           try {
             await cancelDeletion();
             await fetchDeletionStatus();
-            Alert.alert('Cancelled', 'Your deletion request has been cancelled.');
+            Alert.alert(t('common.success'), t('settings.deleteCancelled'));
           } catch (err: any) {
-            Alert.alert('Error', err?.response?.data?.message || err.message || 'Failed to cancel.');
+            Alert.alert(t('common.error'), err?.response?.data?.message || err.message || t('settings.deleteCancelFailed'));
           }
         },
       },
@@ -214,11 +215,11 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const deletionStatusLabels: Record<string, { label: string; color: string }> = {
-    pending_owner: { label: 'Awaiting Owner Review', color: '#F59E0B' },
-    owner_approved: { label: 'Approved — 30 Day Grace', color: '#4B6BED' },
-    owner_rejected: { label: 'Not Approved', color: '#EF4444' },
-    cancelled: { label: 'Cancelled', color: '#94A3B8' },
-    completed: { label: 'Completed', color: '#10B981' },
+    pending_owner: { label: t('settings.statusPendingOwner'), color: '#F59E0B' },
+    owner_approved: { label: t('settings.statusOwnerApproved'), color: '#4B6BED' },
+    owner_rejected: { label: t('settings.statusOwnerRejected'), color: '#EF4444' },
+    cancelled: { label: t('settings.statusCancelled'), color: '#94A3B8' },
+    completed: { label: t('settings.statusCompleted'), color: '#10B981' },
   };
 
   return (
@@ -228,13 +229,13 @@ export const SettingsScreen: React.FC = () => {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={themeColors.text.primary} />
         </TouchableOpacity>
-        <Text style={[styles.topBarTitle, { color: themeColors.text.primary }]}>Settings</Text>
+        <Text style={[styles.topBarTitle, { color: themeColors.text.primary }]}>{t('settings.title')}</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Preferences Section */}
-        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>Preferences</Text>
+        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>{t('settings.preferences')}</Text>
         <AppCard variant="elevated" style={[styles.card, { backgroundColor: themeColors.surface }]}>
           {/* Dark Mode */}
           <View style={styles.row}>
@@ -243,8 +244,8 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="moon-outline" size={20} color={isDark ? '#60A5FA' : '#4B6BED'} />
               </View>
               <View>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Dark Mode</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>Toggle light and dark themes</Text>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.darkMode')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>{t('settings.darkModeDesc')}</Text>
               </View>
             </View>
             <Switch
@@ -264,8 +265,8 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="notifications-outline" size={20} color="#EF4444" />
               </View>
               <View>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Push Notifications</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>Get updates about bills and complaints</Text>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.pushNotifications')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>{t('settings.pushDesc')}</Text>
               </View>
             </View>
             <Switch
@@ -286,8 +287,8 @@ export const SettingsScreen: React.FC = () => {
                     <Ionicons name="finger-print-outline" size={20} color="#10B981" />
                   </View>
                   <View>
-                    <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Biometric Login</Text>
-                    <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>Enable Face ID or Fingerprint</Text>
+                    <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.biometricLogin')}</Text>
+                    <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>{t('settings.biometricDesc')}</Text>
                   </View>
                 </View>
                 <Switch
@@ -299,6 +300,24 @@ export const SettingsScreen: React.FC = () => {
               </View>
             </>
           )}
+
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+          {/* Language Preference */}
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#6366F115' }]}>
+                <Ionicons name="language-outline" size={20} color="#6366F1" />
+              </View>
+              <View>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Language</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>Choose your preferred language</Text>
+              </View>
+            </View>
+          </View>
+          <View style={{ paddingVertical: spacing.sm }}>
+            <LanguageSelector onLanguageChange={(lang) => { if (lang !== 'device') setPreferredLanguage(lang).catch(() => {}); }} />
+          </View>
         </AppCard>
 
         {/* Support & Storage Section */}

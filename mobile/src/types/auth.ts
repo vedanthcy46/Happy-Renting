@@ -12,6 +12,7 @@ export interface User {
   ownerId?: string;
   mustChangePassword?: boolean;
   emailVerified?: boolean;
+  preferredLanguage?: string;
 }
 
 export interface LoginResponse {

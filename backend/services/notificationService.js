@@ -2,6 +2,7 @@ const { Expo } = require('expo-server-sdk');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const logger = require('../config/logger');
+const { t, normalizeLanguage } = require('./i18n');
 
 // Create a new Expo SDK client
 // Pass access token if push security is enabled on expo.dev (set EXPO_ACCESS_TOKEN env var)
@@ -18,22 +19,35 @@ let expo = new Expo({
  * @param {string} params.body - Notification body content
  * @param {string} [params.type='general'] - Categorization type
  * @param {Object} [params.data={}] - Additional payload data
+ * @param {string} [params.i18nKey] - Translation dictionary key for title
+ * @param {string} [params.i18nBodyKey] - Translation dictionary key for body
+ * @param {Object} [params.i18nVars] - Variables for i18n interpolation
+ * @param {Object} [params.lang] - Explicit language override (else read from user)
  */
-const sendPushNotification = async ({ userId, title, body, message, type = 'general', data = {} }) => {
+const sendPushNotification = async ({ userId, title, body, message, type = 'general', data = {}, i18nKey, i18nBodyKey, i18nVars = {}, lang }) => {
   try {
-    const finalMessage = message || body || 'A new notification is available.';
+    // Resolve the user's preferred language so the notification is localized.
+    let language = lang;
+    if (!language) {
+      const prefUser = await User.findById(userId).select('preferredLanguage');
+      language = prefUser ? prefUser.preferredLanguage : 'en';
+    }
+    language = normalizeLanguage(language);
+
+    const finalTitle = i18nKey ? t(i18nKey, i18nVars, language) : title;
+    const finalMessage = i18nBodyKey ? t(i18nBodyKey, i18nVars, language) : (message || body || 'A new notification is available.');
 
     logger.info('[NOTIFICATION DEBUG]', {
       user: userId,
       type,
-      title,
+      title: finalTitle,
       message: finalMessage
     });
 
     // 1. Save to database history
     const notification = await Notification.create({
       userId,
-      title,
+      title: finalTitle,
       message: finalMessage,
       type,
       data,
@@ -63,7 +77,7 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
     const messages = validTokens.map(token => ({
       to: token,
       sound: 'default',
-      title,
+      title: finalTitle,
       body: finalMessage,
       channelId,
       priority: urgentTypes.includes(type) ? 'high' : 'normal',

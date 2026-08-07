@@ -106,6 +106,7 @@ const login = async (req, res, next) => {
         ownerId : user.ownerId,
         mustChangePassword: user.mustChangePassword,
         emailVerified: user.emailVerified,
+        preferredLanguage: user.preferredLanguage || 'en',
       },
     });
   } catch (err) {

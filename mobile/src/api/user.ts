@@ -52,3 +52,13 @@ export const changePassword = async (passwordData: any): Promise<{ success: bool
   const { data } = await client.post('/auth/change-password', passwordData);
   return data;
 };
+
+/** Sync the user's preferred language to the backend (best effort). */
+export const setPreferredLanguage = async (language: string): Promise<boolean> => {
+  try {
+    const { data } = await client.patch<{ success: boolean }>('/users/profile/language', { language });
+    return !!data?.success;
+  } catch {
+    return false;
+  }
+};

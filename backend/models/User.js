@@ -106,6 +106,11 @@ const userSchema = new mongoose.Schema(
     ],
 
     // ── Preferences ─────────────────────────────────────────────────────────
+    preferredLanguage: {
+      type   : String,
+      enum   : ['en', 'kn', 'hi', 'ta', 'te', 'ml'],
+      default: 'en',
+    },
     notificationPreferences: {
       loginAlerts: { type: Boolean, default: true },
       paymentReceivedEmails: { type: Boolean, default: true },

@@ -8,6 +8,7 @@ export interface AiChatMessage {
 export interface AiChatRequest {
   message: string;
   workspace: Workspace;
+  language?: string;
   history: AiChatMessage[];
 }
 

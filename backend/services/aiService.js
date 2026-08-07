@@ -228,16 +228,22 @@ const TOOLS = [
   },
 ];
 
-function buildSystemPrompt(user, workspace) {
+function buildSystemPrompt(user, workspace, language) {
   const scope = workspace === 'owner'
     ? 'You are the analytical copilot for the OWNER workspace of Happy Renting, a property management app. You understand the owner properties, tenants, income, expenses, complaints, occupancy and collections. You answer business questions, produce summaries and draft reminders.'
     : 'You are the copilot for a TENANT on Happy Renting, a property management app. You help the tenant understand their own rent, due dates, receipts, payments, complaints and notifications - always about their own tenancy only.';
+  const langName = (function () {
+    const map = { en: 'English', kn: 'Kannada (ಕನ್ನಡ)', hi: 'Hindi (हिन्दी)', ta: 'Tamil (தமிழ்)', te: 'Telugu (తెలుగు)', ml: 'Malayalam (മലയാളം)' };
+    return map[language] || 'English';
+  })();
   return [
     scope,
     '',
     'CURRENT WORKSPACE: ' + workspace.toUpperCase() + ' (roles: ' + (user.roles || [user.role]).join(', ') + ')',
     'TODAY (calendar month): ' + monthKey(),
     'CURRENT BILLING PERIOD: ' + billingMonthKey(),
+    '',
+    'LANGUAGE: Respond to the user in ' + langName + '. Always reply in the same language the user writes in, preferring this language. Keep numbers as they are and keep property names, room numbers and addresses untranslated.',
     '',
     'BILLING MODE: This app uses POST-PAID billing. A rent bill for a month is generated on the 1st of the NEXT month. So the bill that is currently due (the "current month" rent) is always for the PREVIOUS calendar month, e.g. on ' + fmtDate(new Date()) + ' the due bill is for month "' + billingMonthKey() + '". When a user asks "have I paid rent this month", interpret "this month" as the CURRENT BILLING PERIOD, not the calendar month today.',
     '',
@@ -375,7 +381,8 @@ async function executor(toolName, args, ctx) {
       try {
         const notificationService = require('./notificationService');
         notificationService.sendPushNotification({
-          userId: active.ownerId, title: 'New Complaint', body: complaint.title,
+          userId: active.ownerId, i18nKey: 'complaint.new.title', i18nBodyKey: 'complaint.new.body',
+          i18nVars: { title: complaint.title },
           type: 'complaint_raised', data: { complaintId: complaint._id },
         }).catch(function () {});
       } catch (e) { logger.error('[AI] owner push failed: ' + e.message); }
@@ -721,10 +728,11 @@ async function executor(toolName, args, ctx) {
           const notificationService = require('./notificationService');
           await notificationService.sendPushNotification({
             userId: userId,
-            title: 'Rent Reminder',
-            message: 'Your rent of Rs.' + r.remainingAmount + ' for ' + cur + ' is still pending. Please pay at the earliest.',
+            i18nKey: 'reminder.rentReminder.title',
+            i18nBodyKey: 'reminder.rentReminder.body',
+            i18nVars: { amount: r.remainingAmount, month: r.month },
             type: 'rent_reminder',
-            data: { rentRecordId: String(r._id), month: cur },
+            data: { rentRecordId: String(r._id), month: r.month },
           });
           sent.push({ tenantId: String(userId), amount: r.remainingAmount });
         } catch (e) {
@@ -1208,11 +1216,14 @@ function resolveWorkspace(user, requested) {
   return canOwner ? 'owner' : 'tenant';
 }
 
-async function chat({ user, workspace, history }) {
+async function chat({ user, workspace, history, language }) {
   const providerOrder = enabledProviderOrder();
   const activeWorkspace = resolveWorkspace(user, workspace);
   const allowed = allowedToolsFor(activeWorkspace);
   const schemas = toolSchemas(allowed);
+
+  const i18n = require('./i18n');
+  const activeLanguage = i18n.normalizeLanguage(language || (user && user.preferredLanguage));
 
   const tenant = activeWorkspace === 'owner'
     ? null
@@ -1239,7 +1250,7 @@ async function chat({ user, workspace, history }) {
     return { reply: reply, workspace: activeWorkspace, provider: 'offline', model: 'rule-based', offline: true };
   }
 
-  const messages = [{ role: 'system', content: buildSystemPrompt(user, activeWorkspace) }];
+  const messages = [{ role: 'system', content: buildSystemPrompt(user, activeWorkspace, activeLanguage) }];
   if (Array.isArray(history)) {
     for (const m of history) {
       if (m && m.role && typeof m.content === 'string') {

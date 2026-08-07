@@ -390,8 +390,9 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
           if (ownerAlertData) ownerAlertData.dueTomorrow++;
           notificationService.sendPushNotification({
             userId: record.userId._id || record.userId,
-            title: 'Rent Due Tomorrow',
-            body: `Your rent of ₹${record.totalRent} is due tomorrow.`,
+            i18nKey: 'reminder.dueTomorrow.title',
+            i18nBodyKey: 'reminder.dueTomorrow.body',
+            i18nVars: { amount: record.remainingAmount || record.totalRent, month: record.month },
             type: 'rent_reminder',
             data: { rentRecordId: record._id }
           }).catch(() => null);
@@ -400,8 +401,9 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
           if (ownerAlertData) ownerAlertData.dueToday++;
           notificationService.sendPushNotification({
             userId: record.userId._id || record.userId,
-            title: 'Rent Due Today',
-            body: `Your rent of ₹${record.totalRent} is due today.`,
+            i18nKey: 'reminder.dueToday.title',
+            i18nBodyKey: 'reminder.dueTomorrow.body',
+            i18nVars: { amount: record.totalAmount || record.totalRent, month: record.month },
             type: 'rent_reminder',
             data: { rentRecordId: record._id }
           }).catch(() => null);
@@ -410,8 +412,9 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
           if (ownerAlertData) ownerAlertData.overdue++;
           notificationService.sendPushNotification({
             userId: record.userId._id || record.userId,
-            title: 'Rent Overdue',
-            body: `Your rent of ₹${record.totalRent} is overdue. Please pay immediately.`,
+            i18nKey: 'reminder.overdue.title',
+            i18nBodyKey: 'reminder.overdue.body',
+            i18nVars: { amount: record.totalAmount || record.totalRent, month: record.month },
             type: 'rent_overdue',
             data: { rentRecordId: record._id }
           }).catch(() => null);

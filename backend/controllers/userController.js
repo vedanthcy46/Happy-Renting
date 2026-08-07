@@ -140,13 +140,20 @@ const getProfile = async (req, res, next) => {
 // ── PATCH /api/users/profile ───────────────────────────────────────────────
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, email, upiId, upiNumber, bankDetails, upiDetails } = req.body;
+    const { name, phone, email, upiId, upiNumber, bankDetails, upiDetails, preferredLanguage } = req.body;
     const user = await User.findById(req.user._id);
 
     if (name)  user.name  = name;
     if (phone) user.phone = phone;
     if (upiId !== undefined)   user.upiId   = upiId;
     if (upiNumber !== undefined) user.upiNumber = upiNumber;
+
+    if (preferredLanguage !== undefined) {
+      const SUPPORTED = ['en', 'kn', 'hi', 'ta', 'te', 'ml'];
+      if (SUPPORTED.includes(preferredLanguage)) {
+        user.preferredLanguage = preferredLanguage;
+      }
+    }
 
     if (upiDetails !== undefined && typeof upiDetails === 'object') {
       user.upiDetails = {
@@ -253,8 +260,23 @@ const updateUser = async (req, res, next) => {
       await emailService.sendVerificationEmail(user, verificationToken);
     }
 
-    await user.save();
-    res.status(200).json({ success: true, user });
+await user.save();
+    res.status(200).json({ success: true, user, message: 'Profile updated.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── PATCH /api/users/profile/language ───────────────────────────────────
+const SUPPORTED_LANGUAGES = ['en', 'kn', 'hi', 'ta', 'te', 'ml'];
+const setPreferredLanguage = async (req, res, next) => {
+  try {
+    const { language } = req.body;
+    if (!SUPPORTED_LANGUAGES.includes(language)) {
+      return res.status(400).json({ success: false, message: 'Unsupported language.' });
+    }
+    await User.findByIdAndUpdate(req.user._id, { preferredLanguage: language });
+    res.status(200).json({ success: true, preferredLanguage: language });
   } catch (err) {
     next(err);
   }
@@ -539,6 +561,7 @@ module.exports = {
   getOwnerPropertyMapping,
   getProfile,
   updateProfile,
+  setPreferredLanguage,
   createUser,
   updateUser,
   deleteUser,

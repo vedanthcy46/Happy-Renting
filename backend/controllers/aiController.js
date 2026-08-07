@@ -20,6 +20,7 @@ const sendMessage = async (req, res, next) => {
     const message = String(req.body.message || '').trim();
     const workspace = req.body.workspace === 'owner' ? 'owner' : 'tenant';
     const history = Array.isArray(req.body.history) ? req.body.history : [];
+    const language = req.body.language || req.user.preferredLanguage || 'en';
 
     if (!message) {
       return res.status(400).json({ success: false, message: 'Message is required.' });
@@ -31,6 +32,7 @@ const sendMessage = async (req, res, next) => {
     const result = await aiService.chat({
       user: req.user,
       workspace,
+      language,
       history: [...history, { role: 'user', content: message }],
     });
 

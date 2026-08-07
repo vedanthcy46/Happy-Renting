@@ -23,6 +23,7 @@ import { WorkspacePicker } from '../src/components/WorkspacePicker';
 import { queryClient } from '../src/queryClient';
 import { sqlitePersister } from '../src/persist/sqlitePersister';
 import { startSyncEngine } from '../src/sync/syncEngine';
+import { initializeLanguage, syncUserLanguage } from '../src/localization';
 
 const ONBOARDING_KEY = 'onboarding_completed';
 const CACHE_BUSTER = 'v1';
@@ -47,6 +48,7 @@ function AppContent() {
   const [isLocked, setIsLocked] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [languageReady, setLanguageReady] = useState(false);
   const [fontsLoaded, fontError] = useFonts(fontAssets);
 
   const router = useRouter();
@@ -110,6 +112,18 @@ function AppContent() {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Apply the backend `preferredLanguage` once a session is restored, but only
+  // if the user hasn't made an explicit local language choice on this device.
+  useEffect(() => {
+    if (user?.preferredLanguage) {
+      syncUserLanguage(user.preferredLanguage);
+    }
+  }, [user?.preferredLanguage]);
+
+  useEffect(() => {
+    initializeLanguage().then(() => setLanguageReady(true));
+  }, []);
 
   // After session is restored from SecureStore, redirect to the correct workspace.
   // Skip redirect if the workspace picker is showing — user will pick themselves.
@@ -256,7 +270,7 @@ function AppContent() {
     checkLockStatus();
   }, [isAuthLoading, user, token]);
 
-  const isReady = !isAuthLoading && !checkingBiometric && onboardingChecked && (fontsLoaded || !!fontError) && !isRestoring;
+  const isReady = !isAuthLoading && !checkingBiometric && onboardingChecked && languageReady && (fontsLoaded || !!fontError) && !isRestoring;
 
   return (
     <>

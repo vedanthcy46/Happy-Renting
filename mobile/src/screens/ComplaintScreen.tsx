@@ -132,8 +132,14 @@ export const ComplaintScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
-        <Text style={styles.headerTitle}>Complaints</Text>
-        <Text style={styles.headerSubtitle}>Track and manage issues</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Complaints</Text>
+          <Text style={styles.headerSubtitle}>Track and manage issues</Text>
+        </View>
+        <TouchableOpacity style={styles.headerAddBtn} onPress={() => setShowAddModal(true)} activeOpacity={0.8}>
+          <Ionicons name="add" size={22} color="#FFFFFF" />
+          <Text style={styles.headerAddText}>Add</Text>
+        </TouchableOpacity>
       </View>
 
       <FlashList
@@ -154,10 +160,6 @@ export const ComplaintScreen: React.FC = () => {
           />
         }
       />
-
-      <TouchableOpacity style={styles.fab} onPress={() => setShowAddModal(true)} activeOpacity={0.8}>
-        <Ionicons name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
 
       <Modal visible={showAddModal} animationType="slide" transparent>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -255,11 +257,18 @@ const makeStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.lg,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
+  },
+  headerLeft: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   headerTitle: {
     fontSize: 28,
@@ -271,6 +280,31 @@ const makeStyles = (colors: any) => StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: colors.text.secondary,
+  },
+  headerAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.full,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  headerAddText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
   },
   listContent: {
     padding: spacing.lg,
@@ -332,28 +366,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
     fontSize: 13,
     color: colors.success,
     lineHeight: 18,
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.xl,
-    bottom: spacing.xl + 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
   },
   modalOverlay: {
     flex: 1,

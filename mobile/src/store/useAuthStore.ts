@@ -17,6 +17,7 @@ interface User {
   roles: UserRole[];
   ownerId?: string;
   mustChangePassword?: boolean;
+  preferredLanguage?: string;
 }
 
 interface AuthState {

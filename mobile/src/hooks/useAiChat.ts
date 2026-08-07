@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { sendAiMessage } from '../api/ai';
 import { AiChatMessage, Workspace } from '../types/ai';
+import { getCurrentLanguage } from '../localization/i18n';
 
 /**
  * In-memory conversation memory, kept separate per workspace so the tenant
@@ -45,7 +46,7 @@ export function useAiChat() {
 
     try {
       const history = sessionCache[ws].slice(-MAX_SESSION_MESSAGES);
-      const res = await sendAiMessage({ message: trimmed, workspace: ws, history });
+      const res = await sendAiMessage({ message: trimmed, workspace: ws, history, language: getCurrentLanguage() });
       if (!res.success) {
         throw new Error(res.message || 'Could not reach the assistant.');
       }

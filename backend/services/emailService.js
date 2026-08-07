@@ -10,6 +10,7 @@ const logger      = require('../config/logger');
  */
 
 const NotificationQueue = require('../models/NotificationQueue');
+const { t, normalizeLanguage } = require('./i18n');
 
 const WEBSITE_URL = (process.env.CLIENT_URL || 'https://happyrenting.netlify.app').replace(/\/$/, '');
 
@@ -729,35 +730,36 @@ const sendBillGeneratedEmail = async ({ user, role, rentRecord, property, room, 
 };
 
 const sendDueTodayReminderEmail = async (user, rentRecord, property, room) => {
-  const subject = `URGENT: Rent Due Today - ${rentRecord.month}`;
+  const lang = normalizeLanguage(user.preferredLanguage);
+  const subject = t('reminder.dueToday.title', null, lang) + ' - ' + rentRecord.month;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #f59e0b;">
-      <h2 style="color: #f59e0b;">Rent Due Today</h2>
+      <h2 style="color: #f59e0b;">${t('reminder.dueToday.title', null, lang)}</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
-      <p>This is a reminder that your rent of <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong> for <strong>${rentRecord.month}</strong> is due today.</p>
-      ${getButton('Pay Now')}
+      <p>${t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang)}</p>
+      ${getButton('Pay Now', `${WEBSITE_URL}payments`)}
       ${getFooter()}
     </div>
   `;
   await queueEmail(user.email, subject, html, 'reminder');
-  await Notification.create({ userId: user._id, title: 'Rent Due Today', message: `Rent of ₹${rentRecord.remainingAmount.toLocaleString()} is due today.`, type: 'billing' }).catch(() => null);
+  await Notification.create({ userId: user._id, title: t('reminder.dueToday.title', null, lang), message: t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang), type: 'billing' }).catch(() => null);
 };
 
 const sendDueSoonReminderEmail = async (user, rentRecord, property, room) => {
-  const subject = `Reminder: Rent Due Tomorrow - ${rentRecord.month}`;
+  const lang = normalizeLanguage(user.preferredLanguage);
+  const subject = t('reminder.dueTomorrow.title', null, lang) + ' - ' + rentRecord.month;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #3b82f6;">
-      <h2 style="color: #3b82f6;">Rent Due Tomorrow</h2>
+      <h2 style="color: #3b82f6;">${t('reminder.dueTomorrow.title', null, lang)}</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
-      <p>This is a friendly reminder that your rent for <strong>${rentRecord.month}</strong> is due tomorrow.</p>
-      <p>Amount Due: <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong></p>
+      <p>${t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang)}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      ${getButton('Pay Now')}
+      ${getButton('Pay Now', `${WEBSITE_URL}payments`)}
       ${getFooter()}
     </div>
   `;
   await queueEmail(user.email, subject, html, 'reminder');
-  await Notification.create({ userId: user._id, title: 'Rent Due Tomorrow', message: `Rent of ₹${rentRecord.remainingAmount.toLocaleString()} is due tomorrow.`, type: 'billing' }).catch(() => null);
+  await Notification.create({ userId: user._id, title: t('reminder.dueTomorrow.title', null, lang), message: t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang), type: 'billing' }).catch(() => null);
 };
 
 const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner) => {

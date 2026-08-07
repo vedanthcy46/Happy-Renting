@@ -44,10 +44,11 @@ async function sendRentReminders(opts) {
     try {
       await NotificationService.sendPushNotification({
         userId: tenantUserId,
-        title: 'Rent Reminder',
-        message: 'Your rent of Rs.' + r.remainingAmount + ' for ' + cur + ' is still pending. Please pay at the earliest.',
+        i18nKey: 'reminder.rentReminder.title',
+        i18nBodyKey: 'reminder.rentReminder.body',
+        i18nVars: { amount: r.remainingAmount, month: r.month },
         type: 'rent_reminder',
-        data: { rentRecordId: String(r._id), month: cur },
+        data: { rentRecordId: String(r._id), month: r.month },
       });
       sent++;
     } catch (err) {
