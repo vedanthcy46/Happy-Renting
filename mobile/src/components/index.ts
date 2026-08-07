@@ -18,3 +18,4 @@ export { SuccessAnimation } from './SuccessAnimation';
 export { FeatureWalkthrough, TAB_BAR_HEIGHT } from './FeatureWalkthrough';
 export { WorkspacePicker } from './WorkspacePicker';
 export { WorkspaceSwitcher } from './WorkspaceSwitcher';
+export { AiLauncher } from './AiLauncher';

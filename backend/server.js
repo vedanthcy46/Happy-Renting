@@ -48,6 +48,7 @@ const complaintRoutes = require('./routes/complaintRoutes');
 const healthRoutes    = require('./routes/healthRoutes');
 const systemRoutes    = require('./routes/systemRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const aiRoutes          = require('./routes/aiRoutes');
 const { startCronJobs } = require('./jobs/cronJobs');
 const ledgerQueueService = require('./services/ledgerQueueService');
 const { initKeepAlive } = require('./services/keepAliveService');
@@ -232,6 +233,7 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/owner-requests', ownerRequestRoutes);
 app.use('/api/v2/notifications', notificationRoutes);
+app.use('/api/ai', aiRoutes);
 
 // ── 10. Contact form ────────────────────────────────────────────────────
 const contactRoutes = require('./routes/contactRoutes');

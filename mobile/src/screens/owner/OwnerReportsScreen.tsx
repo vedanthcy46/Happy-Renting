@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   selectorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
   monthLabel: { fontSize: 16, fontWeight: '700' },
   propScroll: { borderBottomWidth: StyleSheet.hairlineWidth },
-  propContent: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, gap: spacing.sm },
+  propContent: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, gap: spacing.sm, alignItems: 'center' },
   propChip: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: 12, maxWidth: 160 },
   propChipText: { fontSize: 13, fontWeight: '600' },
   scroll: { padding: spacing.xl, gap: spacing.lg },

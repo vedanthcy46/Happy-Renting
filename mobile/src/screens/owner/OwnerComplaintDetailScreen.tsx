@@ -62,6 +62,16 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
   const [newStatus, setNewStatus] = useState<string | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [message, setMessage] = useState('');
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardOffset(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardOffset(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => { refetch(); }, 8000);
@@ -153,7 +163,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={{ paddingBottom: spacing.xxl }}
+          contentContainerStyle={{ paddingBottom: spacing.xxl + keyboardOffset }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
         >
@@ -253,7 +263,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
         </ScrollView>
 
         {/* Comment composer */}
-        <View style={[styles.composer, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.sm }]}>
+        <View style={[styles.composer, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.sm, bottom: keyboardOffset }]}>
           <TextInput
             style={[styles.composerInput, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
             value={message}

@@ -18,7 +18,7 @@ import { markAsRead } from '../src/api/notifications';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
 import { appEvents, SESSION_EXPIRED_EVENT, OPEN_DRAWER_EVENT } from '../src/utils/events';
 import { isBiometricEnabled, authenticateWithBiometric } from '../src/hooks/useBiometric';
-import { OfflineBanner, AppDrawer } from '../src/components';
+import { OfflineBanner, AppDrawer, AiLauncher } from '../src/components';
 import { WorkspacePicker } from '../src/components/WorkspacePicker';
 import { queryClient } from '../src/queryClient';
 import { sqlitePersister } from '../src/persist/sqlitePersister';
@@ -277,6 +277,7 @@ function AppContent() {
         <Stack.Screen name="privacy-policy" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="terms-of-service" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="transaction-history" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="ai" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="login" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="owner-request" options={{ animation: 'slide_from_right' }} />
       </Stack>
@@ -320,6 +321,7 @@ function AppContent() {
         </View>
       )}
       {isReady && !isLocked && <OfflineBanner />}
+      {isReady && !isLocked && <AiLauncher />}
       {isReady && !isLocked && (
         <WorkspacePicker
           visible={needsWorkspacePicker}
