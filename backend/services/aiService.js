@@ -155,7 +155,47 @@ const TOOLS = [
   },
   {
     name: 'draft_rent_reminder',
-    description: 'Draft ready-to-send rent reminder messages, one per pending tenant, for the current month. Returns message text only - nothing is sent.',
+    description: 'Draft ready-to-send rent reminder messages, one per pending tenant, for the current month. Returns text only - nothing is sent.',
+    allow: ['owner'],
+    schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+
+  // Phase 3 - Analytics (owner)
+  {
+    name: 'get_revenue_trend',
+    description: 'Return rent collections and pending amounts month over month for the last N months (default 6), so you can see revenue trends and compare periods.',
+    allow: ['owner'],
+    schema: { type: 'object', properties: { months: { type: 'number' } }, additionalProperties: false },
+  },
+  {
+    name: 'get_monthly_report',
+    description: 'Return a full summary for a given month (default current): income collected, expenses, net, number of pending tenants and amount, occupancy, new tenants, and complaint stats. Use for "monthly business report" questions.',
+    allow: ['owner'],
+    schema: { type: 'object', properties: { month: { type: 'string', description: 'YYYY-MM' } }, additionalProperties: false },
+  },
+  {
+    name: 'get_vacancy_analysis',
+    description: 'Return rooms that are currently vacant with the number of days they have been vacant and the last rent, so you can recommend reducing rent for long vacancies.',
+    allow: ['owner'],
+    schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'get_payment_behavior',
+    description: 'Return a payment-behavior overview for each active tenant: number of paid records, overdue/late instances, and who pays on time vs late. Use for "who pays late regularly".',
+    allow: ['owner'],
+    schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'get_recommendations',
+    description: 'Return data-driven recommendations for the owner based on vacancies, pending rent, occupancy and collection efficiency. Use when the user asks "what should I improve" or equivalent.',
+    allow: ['owner'],
+    schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+
+  // Phase 4 - Automation (owner)
+  {
+    name: 'send_rent_reminders',
+    description: 'Send automatic rent reminders (in-app notification + push) to every tenant who still has pending rent for the current month. This really sends notifications. Returns how many reminders were sent. Ask for confirmation or be careful before calling.',
     allow: ['owner'],
     schema: { type: 'object', properties: {}, additionalProperties: false },
   },
@@ -179,6 +219,7 @@ function buildSystemPrompt(user, workspace) {
     '5. If the user asks for data outside the tools available in this workspace, politely say it is not available in the current workspace and suggest what they can do instead.',
     '6. When you performed an action (e.g. raised a complaint), confirm what was registered and what happens next. Never claim something was sent unless the tool result says so.',
     '7. Keep answers concise but complete. A little markdown bold is fine.',
+    '8. Before calling an ACTION tool that sends anything (e.g. send_rent_reminders), first confirm with the user what you are about to do and how many recipients it affects. Never fire a send tool without an explicit user request.',
   ].join('\n');
 }
 
@@ -274,11 +315,11 @@ async function executor(toolName, args, ctx) {
     case 'get_my_notifications': {
       const n = Math.min(Math.max(Number(args.limit) || 5, 1), 20);
       const list = await Notification.find({ userId: user._id }).sort({ createdAt: -1 }).limit(n)
-        .select('title body read createdAt').lean();
+        .select('title message read createdAt').lean();
       return {
         found: list.length > 0,
         notifications: list.map(function (n) {
-          return { title: n.title, body: n.body, read: n.read, date: fmtDate(n.createdAt) };
+          return { title: n.title, message: n.message, read: n.read, date: fmtDate(n.createdAt) };
         }),
       };
     }
@@ -447,10 +488,215 @@ async function executor(toolName, args, ctx) {
       const recs = await MonthlyRentRecord.find({ ownerId: oid, month: cur, remainingAmount: { $gt: 0 } }).lean();
       const messages = [];
       for (const r of recs) {
-        var t = await Tenant.findById(r.tenantId).populate({ path: 'userId', select: 'name' }).lean();
-        messages.push('Dear ' + (t && t.userId ? t.userId.name : 'Tenant') + ', your rent for ' + cur + ' is pending. Please pay Rs.' + r.remainingAmount + ' at the earliest. - Happy Renting');
+        var t = await Tenant.findById(r.tenantId)
+          .populate({ path: 'userId', select: 'name phone' })
+          .populate({ path: 'roomId', select: 'roomNumber' })
+          .lean();
+        const name = t && t.userId ? t.userId.name : 'Tenant';
+        const roomNum = t && t.roomId ? t.roomId.roomNumber : '';
+        const text = 'Dear ' + name + ' (Room ' + roomNum + '), your rent for ' + cur + ' of Rs.' + r.remainingAmount + ' is still pending. Kindly pay at the earliest. - Happy Renting';
+        const phone = (t && t.userId && t.userId.phone) ? t.userId.phone : (t && t.phone ? t.phone : '');
+        const waLink = phone ? 'https://wa.me/' + phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(text) : null;
+        messages.push({ tenantName: name, room: roomNum, remaining: r.remainingAmount, message: text, waLink: waLink });
       }
       return { month: cur, count: messages.length, messages: messages };
+    }
+
+    /* ── Phase 3: Analytics ─────────────────────────────────── */
+    case 'get_revenue_trend': {
+      if (!oid) return { error: 'No owner context.' };
+      const n = Math.min(Math.max(Number(args.months) || 6, 2), 12);
+      const rows = [];
+      const now = new Date();
+      const curY = now.getFullYear(), curM = now.getMonth();
+      for (let i = n - 1; i >= 0; i--) {
+        const d = new Date(curY, curM - i, 1);
+        const mKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        const start = new Date(d.getFullYear(), d.getMonth(), 1);
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        const collectedAgg = await PaymentTransaction.aggregate([
+          { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end } } },
+          { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]);
+        const pendingRecords = await MonthlyRentRecord.find({ ownerId: oid, month: mKey, remainingAmount: { $gt: 0 } })
+          .select('remainingAmount').lean();
+        const pending = pendingRecords.reduce(function (a, r) { return a + r.remainingAmount; }, 0);
+        rows.push({
+          month: mKey,
+          collected: collectedAgg[0] ? collectedAgg[0].total : 0,
+          pending: pending,
+          pendingTenants: pendingRecords.length,
+        });
+      }
+      return { months: rows };
+    }
+
+    case 'get_monthly_report': {
+      if (!oid) return { ok: 'No owner context.' };
+      const m = args.month || monthKey();
+      const [y, mo] = m.split('-').map(Number);
+      const start = new Date(y, mo - 1, 1);
+      const end = new Date(y, mo, 1);
+
+      const incomeAgg = await PaymentTransaction.aggregate([
+        { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]);
+      const income = incomeAgg[0] ? incomeAgg[0].total : 0;
+
+      const expenseAgg = await Expense.aggregate([
+        { $match: { ownerId: oid, month: m } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]);
+      const expenses = expenseAgg[0] ? expenseAgg[0].total : 0;
+
+      const records = await MonthlyRentRecord.find({ ownerId: oid, month: m }).select('remainingAmount status').lean();
+      const pendingList = records.filter(function (r) { return r.remainingAmount > 0; });
+      const pending = pendingList.reduce(function (a, r) { return a + r.remainingAmount; }, 0);
+
+      const newTenants = await Tenant.countDocuments({ ownerId: oid, joinDate: { $gte: start, $lt: end } });
+
+      const propertyIds = await getPropertyIds(owner);
+      const occAgg = await Room.aggregate([
+        { $match: { propertyId: { $in: propertyIds }, isActive: true } },
+        { $group: { _id: null, total: { $sum: 1 }, occupied: { $sum: { $cond: [{ $gt: ['$currentOccupancy', 0] }, 1, 0] } } } },
+      ]);
+      const occ = occAgg[0] || { total: 0, occupied: 0 };
+      const occupancyRate = occ.total > 0 ? Number(((occ.occupied / occ.total) * 100).toFixed(1)) : 0;
+
+      const complaints = await Complaint.find({ propertyId: { $in: propertyIds }, createdAt: { $gte: start, $lt: end } })
+        .select('status').lean();
+      const open = complaints.filter(function (c) { return c.status !== 'resolved' && c.status !== 'rejected'; }).length;
+
+      return {
+        month: m,
+        income: income,
+        expenses: expenses,
+        net: income - expenses,
+        pendingRent: pending,
+        pendingTenants: pendingList.length,
+        fullyPaid: records.length - pendingList.length,
+        occupancyRate: occupancyRate,
+        occupiedRooms: occ.occupied,
+        totalRooms: occ.total,
+        newTenants: newTenants,
+        complaintsRaised: complaints.length,
+        complaintsOpen: open,
+      };
+    }
+
+    case 'get_vacancy_analysis': {
+      if (!oid) return { ok: 'No owner context.' };
+      const propertyIds = await getPropertyIds(owner);
+      const props = await Property.find({ _id: { $in: propertyIds } }).select('name').lean();
+      const rooms = await Room.find({ propertyId: { $in: propertyIds }, isActive: true })
+        .select('propertyId currentOccupancy monthlyRent roomNumber').lean();
+      // most recent tenant exit / rent record per room to estimate days vacant
+      const TODAY = Date.now();
+      const vacant = [];
+      for (const room of rooms) {
+        if (room.currentOccupancy > 0) continue;
+        const lastTenant = await Tenant.findOne({ roomId: room._id, status: 'vacated' })
+          .sort({ exitDate: -1 }).select('exitDate').lean();
+        const lastRent = await MonthlyRentRecord.findOne({ roomId: room._id }).sort({ month: -1 }).select('month totalRent').lean();
+        let vacantDays = null;
+        if (lastTenant && lastTenant.exitDate) {
+          vacantDays = Math.max(0, Math.floor((TODAY - new Date(lastTenant.exitDate).getTime()) / 86400000));
+        }
+        const prop = props.find(function (p) { return String(p._id) === String(room.propertyId); });
+        vacant.push({
+          property: prop ? prop.name : 'Unknown',
+          room: room.roomNumber,
+          monthlyRent: lastRent ? lastRent.totalRent : room.monthlyRent,
+          vacantDays: vacantDays,
+          lastMonths: lastRent ? lastRent.month : null,
+        });
+      }
+      return {
+        count: vacant.length,
+        recommendation: 'Consider reducing rent or improving listing for rooms vacant > 60 days.',
+        vacant: vacant,
+      };
+    }
+
+    case 'get_payment_behavior': {
+      if (!oid) return { ok: 'No owner context.' };
+      const tenants = await Tenant.find({ ownerId: oid, status: 'active' })
+        .populate({ path: 'userId', select: 'name' })
+        .populate({ path: 'roomId', select: 'roomNumber' })
+        .lean();
+      const out = [];
+      for (const t of tenants) {
+        const recs = await MonthlyRentRecord.find({ tenantId: t._id }).select('status remainingAmount month').lean();
+        const paid = recs.filter(function (r) { return r.status === 'paid'; }).length;
+        const late = recs.filter(function (r) { return r.status === 'overdue'; }).length;
+        const pending = recs.filter(function (r) { return r.remainingAmount > 0; }).length;
+        out.push({
+          tenant: t.userId ? t.userId.name : 'Unknown',
+          room: t.roomId ? t.roomId.roomNumber : null,
+          records: recs.length,
+          paidOnTime: paid,
+          lateOrOverdue: late,
+          hasPending: pending > 0,
+          onTimePct: recs.length ? Number(((paid / recs.length) * 100).toFixed(0)) : 0,
+        });
+      }
+      return { count: out.length, tenants: out };
+    }
+
+    case 'get_recommendations': {
+      if (!oid) return { ok: 'No owner context.' };
+      const recs = [];
+      // Vacancy
+      const propertyIds = await getPropertyIds(owner);
+      const rooms = await Room.find({ propertyId: { $in: propertyIds }, isActive: true })
+        .select('propertyId currentOccupancy roomNumber monthlyRent').lean();
+      const vacantLong = [];
+      for (const room of rooms) {
+        if (room.currentOccupancy > 0) continue;
+        const lastTenant = await Tenant.findOne({ roomId: room._id, status: 'vacated' })
+          .sort({ exitDate: -1 }).select('exitDate').lean();
+        const days = lastTenant && lastTenant.exitDate
+          ? Math.max(0, Math.floor((Date.now() - new Date(lastTenant.exitDate).getTime()) / 86400000)) : null;
+        if (days !== null && days >= 60) vacantLong.push({ room: room.roomNumber, days: days });
+      }
+      if (vacantLong.length) recs.push({ priority: 'high', topic: 'Vacancy', recommendation: vacantLong.length + ' room(s) have been vacant for 60+ days. Consider reducing rent by ~5% or improving the listing.', detail: vacantLong });
+
+      // Pending rent
+      const cur = monthKey();
+      const pendingCount = await MonthlyRentRecord.countDocuments({ ownerId: oid, month: cur, remainingAmount: { $gt: 0 } });
+      if (pendingCount > 0) recs.push({ priority: 'medium', topic: 'Collections', recommendation: pendingCount + ' tenant(s) still owe rent for ' + cur + '. Send reminders to recover pending rent faster.' });
+
+      return { recommendationList: recs };
+    }
+
+    /* ── Phase 4: Automation ────────────────────────────────── */
+    case 'send_rent_reminders': {
+      if (!oid) return { ok: 'No owner context.' };
+      const cur = monthKey();
+      const recs = await MonthlyRentRecord.find({ ownerId: oid, month: cur, remainingAmount: { $gt: 0 } })
+        .populate({ path: 'tenantId', select: 'userId' }).lean();
+      const sent = [];
+      for (const r of recs) {
+        const t = r.tenantId;
+        const userId = t && t.userId ? t.userId : null;
+        if (!userId) continue;
+        try {
+          const notificationService = require('./notificationService');
+          await notificationService.sendPushNotification({
+            userId: userId,
+            title: 'Rent Reminder',
+            message: 'Your rent of Rs.' + r.remainingAmount + ' for ' + cur + ' is still pending. Please pay at the earliest.',
+            type: 'rent_reminder',
+            data: { rentRecordId: String(r._id), month: cur },
+          });
+          sent.push({ tenantId: String(userId), amount: r.remainingAmount });
+        } catch (e) {
+          logger.error('[AI] reminder send failed for ' + userId + ': ' + e.message);
+        }
+      }
+      logger.info('[AI AUTOMATION] Rent reminders sent to ' + sent.length + ' tenant(s).');
+      return { month: cur, sent: sent.length, details: sent.length > 0 ? sent : [] };
     }
 
     default:

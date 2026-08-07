@@ -66,6 +66,7 @@ const TENANT_SUGGESTIONS = [
   'Show my previous receipts',
   'Raise a complaint for water leakage',
   'What complaints are open?',
+  'Have I paid rent this month?',
 ];
 
 const OWNER_SUGGESTIONS = [
@@ -74,6 +75,11 @@ const OWNER_SUGGESTIONS = [
   'Which property earns the most?',
   'Draft rent reminders',
   'What is my occupancy rate?',
+  'Give me a monthly business report',
+  'Why is my income low this month?',
+  'Who pays rent late regularly?',
+  'What should I improve?',
+  'Send reminders to everyone',
 ];
 
 export const AIAssistantScreen = () => {

@@ -232,6 +232,22 @@ const startCronJobs = () => {
       }
     });
   });
+
+  // Phase 4 - AI Automation: daily rent reminders
+  const reminderCron = process.env.RENT_REMINDER_CRON || '0 9 * * *';
+  cron.schedule(reminderCron, async () => {
+    try {
+      const automationService = require('../services/automationService');
+      const res = await automationService.runDailyAutomation();
+      if (res && res.skipped) return;
+      logger.info(
+        `[CRON] Rent reminder automation ran: sent=${res?.sent ?? 0} found=${res?.totalFound ?? 0}`
+      );
+    } catch (err) {
+      logger.error(`[CRON ERROR] daily automation failed: ${err.message}`);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+  logger.info(`[CRON] AI automation initialized (${reminderCron}).`);
 };
 
 module.exports = { startCronJobs, runDailyJobs };
