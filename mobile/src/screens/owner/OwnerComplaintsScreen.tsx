@@ -13,9 +13,10 @@ import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { getComplaints, type OwnerComplaint } from '../../api/owner';
 
 const STATUS_CFG = (colors: any) => ({
-  open: { bg: colors.warningLight, text: colors.warning, label: 'Open' },
-  in_progress: { bg: colors.infoLight, text: colors.info, label: 'In Progress' },
+  pending: { bg: colors.warningLight, text: colors.warning, label: 'Open' },
+  'in-progress': { bg: colors.infoLight, text: colors.info, label: 'In Progress' },
   resolved: { bg: colors.successLight, text: colors.success, label: 'Resolved' },
+  rejected: { bg: colors.errorLight, text: colors.error, label: 'Rejected' },
   closed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Closed' },
 });
 
@@ -31,7 +32,7 @@ const formatDate = (iso?: string) => {
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-type FilterTab = 'all' | 'open' | 'in_progress' | 'resolved';
+type FilterTab = 'all' | 'pending' | 'in-progress' | 'resolved';
 
 const ComplaintCard: React.FC<{ complaint: OwnerComplaint; onPress: () => void }> = ({ complaint, onPress }) => {
   const { colors } = useTheme();
@@ -96,8 +97,8 @@ export const OwnerComplaintsScreen: React.FC = () => {
 
   const tabs: { key: FilterTab; label: string }[] = [
     { key: 'all', label: 'All' },
-    { key: 'open', label: 'Open' },
-    { key: 'in_progress', label: 'In Progress' },
+    { key: 'pending', label: 'Open' },
+    { key: 'in-progress', label: 'In Progress' },
     { key: 'resolved', label: 'Resolved' },
   ];
 

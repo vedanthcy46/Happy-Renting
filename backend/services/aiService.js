@@ -973,6 +973,232 @@ async function chatWithFallback(messages, schemas) {
   throw err;
 }
 
+/* ---------- offline (rule-based) responder ----------
+ * Used when every AI provider is unavailable (rate-limited, unreachable, or no
+ * key is configured). It answers common questions directly from the user's own
+ * data by calling the same workspace-scoped executor. It NEVER sends anything
+ * and NEVER writes to the database - it is read-only and safe to run. */
+async function offlineRespondent(workspace, user, tenant, owner, text) {
+  const t = String(text || '').toLowerCase();
+  const offlineNote = '\n\n_AI providers are temporarily unreachable, so this is read directly from your account._';
+  const run = async (tool, args) => {
+    try { return await executor(tool, args || {}, { user: user, owner: owner, tenant: tenant }); }
+    catch (e) { logger.error('[AI] offline tool ' + tool + ' failed: ' + e.message); return { error: 'Could not read your data right now.' }; }
+  };
+
+  // Blocked action intents: never auto-fire anything while offline.
+  if (/(send|fire)\b/.test(t) && /remind/.test(t)) {
+    return 'I cannot send rent reminders right now because all AI providers are temporarily unreachable, and I never send anything without confirmation anyway. Retry in a moment or send reminders manually from the app.' + offlineNote;
+  }
+  if (/(send|email|mail)\b/.test(t) && /report/.test(t)) {
+    return 'I cannot email the monthly report right now because all AI providers are temporarily unreachable. Retry in a moment when the assistant is back online.' + offlineNote;
+  }
+  if (/(raise|file|new|create|register)\b/.test(t) && /(complaint|request|issue|repair)/.test(t)) {
+    return 'I can only raise complaints through the live assistant, which is temporarily unreachable. Please use the Complaints screen in the app, or retry shortly.' + offlineNote;
+  }
+
+  if (/(what can you do|capabilities|who are you|how (do|does) you work|assist|hello|hi\b|hey\b)/.test(t)) {
+    if (workspace === 'owner') {
+      return [
+        '**Here\u2019s how I can help you right now (owner):**',
+        '• Business overview: collections, pending rent, occupancy.',
+        '• Who owes rent this month and how much.',
+        '• Complaints, expenses, tenants and occupancy/vacancy.',
+        '• Revenue trends, monthly reports and recommendations.',
+        '',
+      ].join('\n') + offlineNote;
+    }
+    return [
+      '**Here\u2019s how I can help you right now (tenant):**',
+      '• Current rent: how much you owe and its status.',
+      '• Payment history and receipts.',
+      '• Your complaints and their status.',
+      '• Your room, tenancy and deposit details.',
+      '• Recent notifications.',
+      '',
+    ].join('\n') + offlineNote;
+  }
+
+  let tool = null;
+  let args = {};
+  const intents = (workspace === 'owner')
+    ? [
+        [/overview|summary|metrics|dashboard|how am i|headline|collect|pending rent/i, 'get_owner_metrics', {}],
+        [/owes|pending|unpaid|not paid|outstanding/i, 'get_pending_rent', {}],
+        [/remind|draft/i, 'draft_rent_reminder', {}],
+        [/complaint/i, 'get_owner_complaints', {}],
+        [/expense|spend|cost/i, 'get_expenses_summary', {}],
+        [/vacan|empty room|long empty/i, 'get_vacancy_analysis', {}],
+        [/occup/i, 'get_property_occupancy', {}],
+        [/trend|month over month/i, 'get_revenue_trend', {}],
+        [/report|monthly|statement/i, 'get_monthly_report', {}],
+        [/late|on time|behavior|pays/i, 'get_payment_behavior', {}],
+        [/improve|recommend|suggest|should i/i, 'get_recommendations', {}],
+        [/which property|income|earning|collected/i, 'get_property_income', {}],
+        [/tenant|who are my/i, 'get_active_tenants', {}],
+        [/overview|summary|metrics|dashboard|how am i|headline/i, 'get_owner_metrics', {}],
+      ]
+    : [
+        [/rent|pay|amount|due|paid|bill|balance/i, 'get_my_current_rent', {}],
+        [/history|receipt|record|months/i, 'get_my_rent_history', {}],
+        [/payment/i, 'get_my_payments', { limit: 5 }],
+        [/complaint|request|issue/i, 'get_my_complaints', {}],
+        [/notification/i, 'get_my_notifications', { limit: 5 }],
+        [/room|tenancy|deposit|property/i, 'get_my_tenancy', {}],
+        [/rent|get|status|current/i, 'get_my_current_rent', {}],
+      ];
+
+  for (const [re, name, a] of intents) {
+    if (re.test(t)) { tool = name; args = a || {}; break; }
+  }
+  if (!tool) tool = workspace === 'owner' ? 'get_owner_metrics' : 'get_my_current_rent';
+
+  const data = await run(tool, args);
+  const d = data || {};
+  const money = (n) => (Number(n) || 0).toLocaleString('en-IN');
+  const pct = (n) => (isNaN(Number(n)) ? 0 : Number(n)) + '%';
+
+  let body = '';
+  switch (tool) {
+    case 'get_owner_metrics':
+      body = [
+        '**Business overview (' + d.month + '):**',
+        '• Collected this month: **Rs.' + money(d.collectedThisMonth) + '**',
+        '• Pending rent: **Rs.' + money(d.pendingRent) + '** across ' + (d.pendingTenants || 0) + ' tenant(s).',
+        '• Overdue bills: ' + (d.overdue || 0),
+        '• Occupancy: ' + pct(d.occupancy && d.occupancy.occupancyRate) + ' (' + (d.occupancy ? d.occupancy.occupiedRooms : 0) + '/' + (d.occupancy ? d.occupancy.totalRooms : 0) + ' rooms).',
+        '• Open complaints: ' + (d.openComplaints || 0),
+      ].join('\n');
+      break;
+    case 'get_pending_rent':
+      body = (d.tenants && d.tenants.length)
+        ? '**' + d.count + ' tenant(s) owe rent for ' + d.month + ':**\n' + d.tenants.map(function (x) {
+          return '• ' + (x.tenantName || 'Unknown') + (x.room ? ' (Room ' + x.room + ')' : '') + ' — ' + 'Rs.' + money(x.remaining) + ' of Rs.' + money(x.due);
+        }).join('\n')
+        : '**No pending rent** for ' + d.month + '. Everyone has paid.';
+      break;
+    case 'get_property_income':
+      body = (d.properties && d.properties.length)
+        ? '**Income by property (' + d.month + '), total Rs.' + money(d.total) + ':**\n' + d.properties.map(function (x) {
+          return '• ' + x.property + ': **Rs.' + money(x.income) + '**';
+        }).join('\n')
+        : 'No completed payments recorded for ' + d.month + '.';
+      break;
+    case 'get_owner_complaints':
+      body = (d.complaints && d.complaints.length)
+        ? '**' + d.count + ' complaint(s):**\n' + d.complaints.map(function (x) {
+          return '• ' + x.title + ' — ' + (x.status || '') + (x.priority ? ' (' + x.priority + ')' : '');
+        }).join('\n')
+        : 'No complaints match that.';
+      break;
+    case 'get_expenses_summary':
+      body = (d.byCategory && d.byCategory.length)
+        ? '**Expenses for ' + d.month + ', total Rs.' + money(d.total) + ':**\n' + d.byCategory.map(function (x) {
+          return '• ' + x.category + ': Rs.' + money(x.total) + ' (' + x.count + ')';
+        }).join('\n')
+        : 'No expenses recorded for ' + d.month + '.';
+      break;
+    case 'get_vacancy_analysis':
+      body = (d.vacant && d.vacant.length)
+        ? '**' + d.count + ' vacant room(s):**\n' + d.vacant.map(function (x) {
+          return '• ' + x.property + ' Room ' + x.room + ' — ' + (x.vacantDays === null ? 'vacant' : x.vacantDays + ' days');
+        }).join('\n') + '\n\n' + (d.recommendation || '')
+        : 'No vacant rooms right now.';
+      break;
+    case 'get_property_occupancy':
+      body = (d.properties && d.properties.length)
+        ? '**Occupancy by property:**\n' + d.properties.map(function (x) {
+          return '• ' + x.property + ': ' + pct(x.occupancyRate) + ' (' + x.occupied + '/' + x.totalRooms + ' occupied)';
+        }).join('\n')
+        : 'No active properties.';
+      break;
+    case 'get_revenue_trend':
+      body = (d.months && d.months.length)
+        ? '**Collections by month:**\n' + d.months.map(function (x) {
+          return '• ' + x.month + ': Rs.' + money(x.collected) + (x.pending ? ' (pending Rs.' + money(x.pending) + ')' : '');
+        }).join('\n')
+        : 'No data yet.';
+      break;
+    case 'get_monthly_report':
+      body = [
+        '**Business report for ' + d.month + ':**',
+        '• Income: **Rs.' + money(d.income) + '**',
+        '• Expenses: Rs.' + money(d.expenses),
+        '• Net: Rs.' + money(d.net),
+        '• Pending rent: Rs.' + money(d.pendingRent) + ' (' + (d.pendingTenants || 0) + ' tenant(s))',
+        '• Occupancy: ' + pct(d.occupancyRate) + ' (' + d.occupiedRooms + '/' + d.totalRooms + ')',
+        '• New tenants: ' + (d.newTenants || 0) + ' • Complaints: ' + (d.complaintsRaised || 0) + ' (' + (d.complaintsOpen || 0) + ' open)',
+      ].join('\n');
+      break;
+    case 'get_payment_behavior':
+      body = (d.tenants && d.tenants.length)
+        ? '**Payment behavior:**\n' + d.tenants.map(function (x) {
+          return '• ' + x.tenant + (x.room ? ' (Room ' + x.room + ')' : '') + ' — on time ' + pct(x.onTimePct) + ' (' + (x.paidOnTime || 0) + ' paid, ' + (x.lateOrOverdue || 0) + ' late)';
+        }).join('\n')
+        : 'No active tenants.';
+      break;
+    case 'get_recommendations':
+      body = (d.recommendationList && d.recommendationList.length)
+        ? '**Recommendations:**\n' + d.recommendationList.map(function (x) {
+          return '• [' + (x.priority || 'info').toUpperCase() + '] ' + x.topic + ': ' + x.recommendation;
+        }).join('\n')
+        : 'Everything looks on track — no recommendations right now.';
+      break;
+    case 'draft_rent_reminder':
+      body = (d.messages && d.messages.length)
+        ? 'Draft reminder for ' + d.count + ' tenant(s) for ' + d.month + ' — <raw>nothing was sent</raw>.\n' + d.messages.map(function (x) {
+          return '• ' + (x.tenantName || '') + ': ' + x.message;
+        }).join('\n')
+        : 'No pending rent to remind about for ' + d.month + '.';
+      break;
+
+    // Tenant tools
+    case 'get_my_current_rent':
+      body = d.found
+        ? '**' + d.billingPeriod + ' rent:**\n• Due: **Rs.' + money(d.due) + '**\n• Paid: Rs.' + money(d.paid) + '\n• Remaining: Rs.' + money(d.remaining) + '\n• Status: ' + (d.status || '—') + (d.dueDate ? '\n• Due by: ' + d.dueDate : '')
+        : (d.message || 'No rent record found for the current period.');
+      break;
+    case 'get_my_rent_history':
+      body = (d.records && d.records.length)
+        ? '**Recent months:**\n' + d.records.map(function (x) {
+          return '• ' + x.month + ': Rs.' + money(x.due) + ' — ' + (x.status === 'paid' ? 'paid Rs.' + money(x.paid) : 'pending Rs.' + money(x.remaining)) + ' (' + (x.status || '—') + ')';
+        }).join('\n')
+        : 'No rent history yet.';
+      break;
+    case 'get_my_payments':
+      body = (d.receipts && d.receipts.length)
+        ? '**Recent receipts:**\n' + d.receipts.map(function (x) {
+          return '• Rs.' + money(x.amount) + ' via ' + (x.method || '—') + ' — ' + (x.status || '') + (x.date ? ' (' + x.date + ')' : '');
+        }).join('\n')
+        : 'No payments recorded yet.';
+      break;
+    case 'get_my_complaints':
+      body = (d.complaints && d.complaints.length)
+        ? '**Your complaints:**\n' + d.complaints.map(function (x) {
+          return '• ' + x.title + ' — ' + (x.status || '') + (x.priority ? ' (' + x.priority + ')' : '');
+        }).join('\n')
+        : 'You have no complaints yet.';
+      break;
+    case 'get_my_notifications':
+      body = (d.notifications && d.notifications.length)
+        ? '**Recent notifications:**\n' + d.notifications.map(function (x) {
+          return '• ' + (x.title || '') + ': ' + (x.message || '');
+        }).join('\n')
+        : 'You have no notifications yet.';
+      break;
+    case 'get_my_tenancy':
+      body = d.found
+        ? '**Your tenancy:**\n' + (d.property ? '• Property: ' + d.property.name : '') + (d.room ? '\n• Room: ' + (d.room.number || '') + ' — Rs.' + money(d.room.monthlyRent) + '/month' : '') + (d.room && d.room.deposit ? '\n• Deposit: Rs.' + money(d.room.deposit) : '') + (d.joinDate ? '\n• Joined: ' + d.joinDate : '') + '\n• Status: ' + (d.status || '—')
+        : 'You don\u2019t have an active tenancy on record.';
+      break;
+    default:
+      body = 'I couldn\u2019t find a match for that offline. Try asking about your rent, payments, complaints or notifications.';
+  }
+
+  if (!body) body = 'I couldn\u2019t answer that offline. Please retry when the assistant is back online.';
+  return body + offlineNote;
+}
+
 /* ------------------- public entrypoint ------------------- */
 function resolveWorkspace(user, requested) {
   const roles = user.roles && user.roles.length ? user.roles : [user.role];
@@ -984,12 +1210,6 @@ function resolveWorkspace(user, requested) {
 
 async function chat({ user, workspace, history }) {
   const providerOrder = enabledProviderOrder();
-  if (providerOrder.length === 0) {
-    const err = new Error('No AI provider is configured on the server. Set GEMINI_API_KEY and/or GROQ_API_KEY.');
-    err.statusCode = 503;
-    throw err;
-  }
-
   const activeWorkspace = resolveWorkspace(user, workspace);
   const allowed = allowedToolsFor(activeWorkspace);
   const schemas = toolSchemas(allowed);
@@ -1000,6 +1220,24 @@ async function chat({ user, workspace, history }) {
   const owner = activeWorkspace === 'owner'
     ? (user.role === 'owner' ? user._id : user.ownerId || null)
     : null;
+
+  // Last user utterance - used by the offline rule responder.
+  let lastUserText = '';
+  if (Array.isArray(history)) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i] && history[i].role === 'user' && typeof history[i].content === 'string') {
+        lastUserText = history[i].content;
+        break;
+      }
+    }
+  }
+
+  // No provider configured at all -> rule-based responder only.
+  if (providerOrder.length === 0) {
+    logger.warn('[AI] No AI provider configured - using offline rule responder.');
+    const reply = await offlineRespondent(activeWorkspace, user, tenant, owner, lastUserText);
+    return { reply: reply, workspace: activeWorkspace, provider: 'offline', model: 'rule-based', offline: true };
+  }
 
   const messages = [{ role: 'system', content: buildSystemPrompt(user, activeWorkspace) }];
   if (Array.isArray(history)) {
@@ -1012,37 +1250,45 @@ async function chat({ user, workspace, history }) {
 
   let final = null;
   let usedProvider = providerOrder[0];
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const result = await chatWithFallback(messages, schemas);
-    const msg = result.msg;
-    usedProvider = result.provider;
-    if (!msg) { final = 'No response.'; break; }
+  try {
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const result = await chatWithFallback(messages, schemas);
+      const msg = result.msg;
+      usedProvider = result.provider;
+      if (!msg) { final = 'No response.'; break; }
 
-    messages.push({ role: 'assistant', content: msg.content, tool_calls: (msg.tool_calls || []).length ? msg.tool_calls : undefined });
+      messages.push({ role: 'assistant', content: msg.content, tool_calls: (msg.tool_calls || []).length ? msg.tool_calls : undefined });
 
-    const calls = msg.tool_calls || [];
-    if (!calls.length) { final = msg.content || ''; break; }
+      const calls = msg.tool_calls || [];
+      if (!calls.length) { final = msg.content || ''; break; }
 
-    for (const call of calls) {
-      if (call.type !== 'function') continue;
-      const toolName = call.function && call.function.name;
-      const meta = allowed.find(function (t) { return t.name === toolName; });
-      let args = {};
-      try { args = call.function.arguments ? JSON.parse(call.function.arguments) : {}; } catch (e) { args = {}; }
+      for (const call of calls) {
+        if (call.type !== 'function') continue;
+        const toolName = call.function && call.function.name;
+        const meta = allowed.find(function (t) { return t.name === toolName; });
+        let args = {};
+        try { args = call.function.arguments ? JSON.parse(call.function.arguments) : {}; } catch (e) { args = {}; }
 
-      let content;
-      if (!meta) {
-        content = 'Tool "' + toolName + '" is not allowed in the ' + activeWorkspace + ' workspace. Explain politely that it is not available to them here.';
-      } else {
-        try {
-          content = JSON.stringify(await executor(toolName, args, { user: user, owner: owner, tenant: tenant }));
-        } catch (e) {
-          logger.error('[AI] tool ' + toolName + ' failed: ' + e.message);
-          content = JSON.stringify({ error: 'Could not complete that request right now.' });
+        let content;
+        if (!meta) {
+          content = 'Tool "' + toolName + '" is not allowed in the ' + activeWorkspace + ' workspace. Explain politely that it is not available to them here.';
+        } else {
+          try {
+            content = JSON.stringify(await executor(toolName, args, { user: user, owner: owner, tenant: tenant }));
+          } catch (e) {
+            logger.error('[AI] tool ' + toolName + ' failed: ' + e.message);
+            content = JSON.stringify({ error: 'Could not complete that request right now.' });
+          }
         }
+        messages.push({ role: 'tool', name: toolName, tool_call_id: call.id, content: content });
       }
-      messages.push({ role: 'tool', name: toolName, tool_call_id: call.id, content: content });
     }
+  } catch (err) {
+    // Every provider is down (rate-limited / unreachable / 5xx). Serve the
+    // question from the user's real data via the offline rule responder.
+    logger.warn('[AI] All AI providers unavailable (' + err.message + ') - falling back to offline rule responder.');
+    const reply = await offlineRespondent(activeWorkspace, user, tenant, owner, lastUserText);
+    return { reply: reply, workspace: activeWorkspace, provider: 'offline', model: 'rule-based', offline: true };
   }
 
   return {

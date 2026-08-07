@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { typography, spacing, radius } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
-type StatusType = 'paid' | 'pending' | 'overdue' | 'partial' | 'overpaid' | 'verifying' | 'completed' | 'rejected' | 'reversed' | 'open' | 'in_progress' | 'resolved' | 'closed' | 'failed' | 'sent' | string;
+type StatusType = 'paid' | 'pending' | 'overdue' | 'partial' | 'overpaid' | 'verifying' | 'completed' | 'rejected' | 'reversed' | 'open' | 'in-progress' | 'resolved' | 'closed' | 'failed' | 'sent' | string;
 
 interface StatusBadgeProps {
   status: StatusType;
@@ -32,7 +32,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     rejected: { bg: colors.errorLight, text: colors.error, label: 'Rejected' },
     reversed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Reversed' },
     open: { bg: colors.infoLight, text: colors.info, label: 'Open' },
-    in_progress: { bg: colors.warningLight, text: '#D97706', label: 'In Progress' },
+    'in-progress': { bg: colors.warningLight, text: '#D97706', label: 'In Progress' },
     resolved: { bg: colors.successLight, text: colors.success, label: 'Resolved' },
     closed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Closed' },
     failed: { bg: colors.errorLight, text: colors.error, label: 'Failed' },

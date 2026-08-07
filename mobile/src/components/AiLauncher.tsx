@@ -36,7 +36,9 @@ export const AiLauncher = () => {
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    right: spacing.lg,
+    // Positioned bottom-LEFT so it never overlaps right-aligned action
+    // buttons (e.g. "Add" complaint FAB, rent/payment buttons).
+    left: spacing.lg,
     bottom: 96,
     flexDirection: 'row',
     alignItems: 'center',

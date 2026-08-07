@@ -251,7 +251,7 @@ export interface OwnerComplaint {
   _id: string;
   title: string;
   description: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  status: 'pending' | 'in-progress' | 'resolved' | 'rejected' | 'closed';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   resolutionNotes?: string;
   resolvedAt?: string;
