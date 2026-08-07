@@ -12,7 +12,13 @@
  * 4. Tools are filtered by the active workspace, so a tenant literally cannot
  *    request owner-only data.
  *
- * Uses the OpenAI-compatible chat completions API exposed by Groq.
+ * Supports two LLM providers:
+ *   - "groq"   : OpenAI-compatible chat completions API (function calling).
+ *   - "gemini" : Google Gemini REST API (function declarations).
+ * If both GEMINI_API_KEY and GROQ_API_KEY are set, the two providers are
+ * swapped at runtime based on availability: if the active provider fails with
+ * a rate-limit / network / 5xx error, the request falls back to the other one.
+ * Set AI_PROVIDER=gemini|groq to prefer one provider over the other.
  */
 
 const mongoose = require('mongoose');
@@ -28,7 +34,12 @@ const Expense            = require('../models/Expense');
 const Notification       = require('../models/Notification');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const DEFAULT_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+
+const PROVIDER_ORDER = ['gemini', 'groq'];
 const MAX_TOOL_ROUNDS = 6;
 
 /* ---------- helpers ---------- */
@@ -741,7 +752,7 @@ function toolSchemas(list) {
 }
 
 async function groqChat(messages, tools) {
-  const payload = { model: DEFAULT_MODEL, messages: messages, temperature: 0.3, max_tokens: 1024 };
+  const payload = { model: GROQ_MODEL, messages: messages, temperature: 0.3, max_tokens: 1024 };
   if (tools && tools.length) payload.tools = tools;
   const res = await fetch(GROQ_API_URL, {
     method: 'POST',
@@ -758,7 +769,172 @@ async function groqChat(messages, tools) {
     err.statusCode = 502;
     throw err;
   }
-  return text ? JSON.parse(text) : {};
+  const data = text ? JSON.parse(text) : {};
+  const choice = data.choices && data.choices[0];
+  const msg = choice && choice.message;
+  return {
+    content: msg && msg.content ? msg.content : null,
+    tool_calls: (msg && msg.tool_calls) || [],
+  };
+}
+
+/* ---------- Gemini (Google) provider ---------- */
+
+function jsonInterp(v) {
+  if (typeof v !== 'string') return v;
+  try { return JSON.parse(v); } catch (e) { return {}; }
+}
+
+// Convert the normalized OpenAI-style message list into Gemini contents.
+// System messages become the systemInstruction; tool results become
+// functionResponse parts (role "user"); assistant function calls become
+// functionCall parts (role "model").
+function toGeminiContents(messages) {
+  const contents = [];
+  for (const m of messages) {
+    if (!m || m.role === 'system') continue;
+
+    if (m.role === 'tool') {
+      contents.push({
+        role: 'user',
+        parts: [{ functionResponse: { name: m.name || 'unknown_tool', response: jsonInterp(m.content) } }],
+      });
+      continue;
+    }
+
+    if (m.role === 'assistant') {
+      const parts = [];
+      if (m.content) parts.push({ text: m.content });
+      for (const tc of (m.tool_calls || [])) {
+        if (tc.function) {
+          parts.push({ functionCall: { name: tc.function.name, args: jsonInterp(tc.function.arguments) } });
+        }
+      }
+      if (parts.length) contents.push({ role: 'model', parts: parts });
+      continue;
+    }
+
+    if (m.content) contents.push({ role: 'user', parts: [{ text: m.content }] });
+  }
+  return contents;
+}
+
+async function geminiChat(messages, schemas) {
+  const body = {
+    contents: toGeminiContents(messages),
+    generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+  };
+
+  const system = messages.find(function (m) { return m.role === 'system'; });
+  if (system && system.content) {
+    body.systemInstruction = { parts: [{ text: system.content }] };
+  }
+
+  if (schemas && schemas.length) {
+    body.tools = [{
+      functionDeclarations: schemas.map(function (s) {
+        return {
+          name: s.function.name,
+          description: s.function.description,
+          parameters: s.function.parameters,
+        };
+      }),
+    }];
+  }
+
+  const url = GEMINI_API_URL + '/' + encodeURIComponent(GEMINI_MODEL)
+    + ':generateContent?key=' + encodeURIComponent(process.env.GEMINI_API_KEY);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    logger.error('[AI] Gemini error ' + res.status + ': ' + text);
+    const err = new Error('The AI service is temporarily unavailable.');
+    err.statusCode = 502;
+    throw err;
+  }
+
+  const data = text ? JSON.parse(text) : {};
+  const candidate = data.candidates && data.candidates[0];
+  const content = candidate && candidate.content;
+  if (!content) return { content: null, tool_calls: [] };
+
+  let outText = null;
+  const tool_calls = [];
+  for (const p of (content.parts || [])) {
+    if (p.functionCall) {
+      tool_calls.push({
+        id: 'call_' + Math.random().toString(36).slice(2, 12),
+        type: 'function',
+        function: {
+          name: p.functionCall.name,
+          arguments: p.functionCall.args ? JSON.stringify(p.functionCall.args) : '{}',
+        },
+      });
+    } else if (p.text) {
+      outText = outText === null ? p.text : outText + p.text;
+    }
+  }
+  return { content: outText, tool_calls: tool_calls };
+}
+
+/* ---------- provider selection & fallback ---------- */
+
+function providerModel(provider) {
+  return provider === 'gemini' ? GEMINI_MODEL : GROQ_MODEL;
+}
+
+// Which providers are configured (with keys), preferred provider first.
+function enabledProviderOrder() {
+  const preferred = String(process.env.AI_PROVIDER || '').trim().toLowerCase();
+  const order = PROVIDER_ORDER.slice();
+  if (preferred === 'gemini' || preferred === 'groq') {
+    order.sort(function (a, b) {
+      if (a === preferred) return -1;
+      if (b === preferred) return 1;
+      return 0;
+    });
+  }
+  return order.filter(function (p) {
+    return p === 'gemini' ? !!process.env.GEMINI_API_KEY : !!process.env.GROQ_API_KEY;
+  });
+}
+
+function isRetriable(err) {
+  const s = err.statusCode || err.status || 0;
+  if (s === 429 || (s >= 500 && s <= 599)) return true;
+  if (err.isNetwork) return true;
+  return false;
+}
+
+async function chatWithProvider(provider, messages, schemas) {
+  if (provider === 'gemini') return geminiChat(messages, schemas);
+  return groqChat(messages, schemas);
+}
+
+// Call the active provider, falling back to the next configured provider when
+// the request fails with a rate-limit / network / 5xx error.
+async function chatWithFallback(messages, schemas) {
+  const providers = enabledProviderOrder();
+  let lastErr = null;
+  for (const provider of providers) {
+    try {
+      const msg = await chatWithProvider(provider, messages, schemas);
+      return { msg: msg, provider: provider };
+    } catch (err) {
+      lastErr = err;
+      logger.warn('[AI] provider "' + provider + '" failed (' + (err.statusCode || err.status || 'network') + '): ' + err.message + ' - falling back.');
+      if (!isRetriable(err)) throw err;
+    }
+  }
+  const err = lastErr || new Error('All AI providers are currently unavailable.');
+  err.statusCode = 503;
+  throw err;
 }
 
 /* ------------------- public entrypoint ------------------- */
@@ -771,8 +947,9 @@ function resolveWorkspace(user, requested) {
 }
 
 async function chat({ user, workspace, history }) {
-  if (!process.env.GROQ_API_KEY) {
-    const err = new Error('GROQ_API_KEY is not configured on the server.');
+  const providerOrder = enabledProviderOrder();
+  if (providerOrder.length === 0) {
+    const err = new Error('No AI provider is configured on the server. Set GEMINI_API_KEY and/or GROQ_API_KEY.');
     err.statusCode = 503;
     throw err;
   }
@@ -798,13 +975,14 @@ async function chat({ user, workspace, history }) {
   }
 
   let final = null;
+  let usedProvider = providerOrder[0];
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const data = await groqChat(messages, schemas);
-    const choice = data.choices && data.choices[0];
-    const msg = choice && choice.message;
+    const result = await chatWithFallback(messages, schemas);
+    const msg = result.msg;
+    usedProvider = result.provider;
     if (!msg) { final = 'No response.'; break; }
 
-    messages.push({ role: 'assistant', content: msg.content || null, tool_calls: msg.tool_calls || undefined });
+    messages.push({ role: 'assistant', content: msg.content, tool_calls: (msg.tool_calls || []).length ? msg.tool_calls : undefined });
 
     const calls = msg.tool_calls || [];
     if (!calls.length) { final = msg.content || ''; break; }
@@ -827,15 +1005,16 @@ async function chat({ user, workspace, history }) {
           content = JSON.stringify({ error: 'Could not complete that request right now.' });
         }
       }
-      messages.push({ role: 'tool', tool_call_id: call.id, content: content });
+      messages.push({ role: 'tool', name: toolName, tool_call_id: call.id, content: content });
     }
   }
 
   return {
     reply: final || 'Sorry, I could not produce a helpful answer. Please try rephrasing.',
     workspace: activeWorkspace,
-    model: DEFAULT_MODEL,
+    provider: usedProvider,
+    model: providerModel(usedProvider),
   };
 }
 
-module.exports = { chat, resolveWorkspace, tools: TOOLS, model: DEFAULT_MODEL };
+module.exports = { chat, resolveWorkspace, tools: TOOLS, providers: PROVIDER_ORDER, model: GROQ_MODEL };
