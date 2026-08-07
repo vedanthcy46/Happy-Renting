@@ -47,6 +47,16 @@ function monthKey(date) {
   const d = date || new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
+// POST-PAID billing: a rent bill for a given month is generated on the 1st of
+// the NEXT month. So the currently-due "current month" bill is always the
+// previous calendar month (year-aware).
+function billingMonthKey(date) {
+  const d = date || new Date();
+  let y = d.getFullYear();
+  let m = d.getMonth() - 1; // 0-11 index of the previous calendar month
+  if (m < 0) { m = 11; y--; }
+  return y + '-' + String(m + 1).padStart(2, '0');
+}
 function startOfMonth() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -226,7 +236,10 @@ function buildSystemPrompt(user, workspace) {
     scope,
     '',
     'CURRENT WORKSPACE: ' + workspace.toUpperCase() + ' (roles: ' + (user.roles || [user.role]).join(', ') + ')',
-    'CURRENT MONTH: ' + monthKey(),
+    'TODAY (calendar month): ' + monthKey(),
+    'CURRENT BILLING PERIOD: ' + billingMonthKey(),
+    '',
+    'BILLING MODE: This app uses POST-PAID billing. A rent bill for a month is generated on the 1st of the NEXT month. So the bill that is currently due (the "current month" rent) is always for the PREVIOUS calendar month, e.g. on ' + fmtDate(new Date()) + ' the due bill is for month "' + billingMonthKey() + '". When a user asks "have I paid rent this month", interpret "this month" as the CURRENT BILLING PERIOD, not the calendar month today.',
     '',
     'You are a context-aware copilot, not a generic chatbot. Rules:',
     '1. Only answer using the data returned by the tools you call. Never invent amounts, dates, statuses, names or URLs.',
@@ -253,7 +266,9 @@ async function executor(toolName, args, ctx) {
         workspace: owner ? 'owner' : 'tenant',
         role: user.role,
         roles: user.roles,
-        currentMonth: monthKey(),
+        currentMonth: billingMonthKey(),
+        calendarMonth: monthKey(),
+        billingMode: 'postpaid',
         scope: owner ? 'ownerId=' + owner : 'tenantId=' + (tenant ? String(tenant._id) : 'none'),
       };
     }
@@ -276,10 +291,12 @@ async function executor(toolName, args, ctx) {
 
     case 'get_my_current_rent': {
       if (!tenant) return { found: false };
-      const rec = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: monthKey() }).lean();
-      if (!rec) return { found: false, message: 'No rent record generated yet for ' + monthKey() + '.' };
+      const billingMonth = billingMonthKey();
+      const rec = await MonthlyRentRecord.findOne({ tenantId: tenant._id, month: billingMonth }).lean();
+      if (!rec) return { found: false, message: 'No rent record generated yet for ' + billingMonth + '.' };
       return {
         found: true,
+        billingPeriod: billingMonth,
         month: rec.month,
         due: rec.totalRent,
         paid: rec.totalPaid,
@@ -297,7 +314,7 @@ async function executor(toolName, args, ctx) {
         .select('month totalRent totalPaid remainingAmount status paidOnDate').lean();
       return {
         found: recs.length > 0,
-        currentMonth: monthKey(),
+        currentMonth: billingMonthKey(),
         records: recs.map(function (r) {
           return { month: r.month, due: r.totalRent, paid: r.totalPaid, remaining: r.remainingAmount, status: r.status, paidOn: fmtDate(r.paidOnDate) };
         }),
@@ -369,7 +386,7 @@ async function executor(toolName, args, ctx) {
     // owner
     case 'get_owner_metrics': {
       if (!oid) return { error: 'No owner context.' };
-      const cur = monthKey();
+      const cur = billingMonthKey();
       const records = await MonthlyRentRecord.find({ ownerId: oid, month: cur }).select('totalRent totalPaid remainingAmount status').lean();
       const pending = records.filter(function (r) { return r.remainingAmount > 0; });
       const collectedAgg = await PaymentTransaction.aggregate([
@@ -397,7 +414,7 @@ async function executor(toolName, args, ctx) {
 
     case 'get_pending_rent': {
       if (!oid) return { error: 'No owner context.' };
-      const cur = monthKey();
+      const cur = billingMonthKey();
       const recs = await MonthlyRentRecord.find({ ownerId: oid, month: cur, remainingAmount: { $gt: 0 } }).lean();
       const rows = [];
       for (const r of recs) {
@@ -418,7 +435,7 @@ async function executor(toolName, args, ctx) {
 
     case 'get_property_income': {
       if (!oid) return { error: 'No owner context.' };
-      const targetMonth = args.month || monthKey();
+      const targetMonth = args.month || billingMonthKey();
       const [y, m] = targetMonth.split('-').map(Number);
       const rangeStart = new Date(y, m - 1, 1);
       const rangeEnd = new Date(y, m, 1);
@@ -455,7 +472,7 @@ async function executor(toolName, args, ctx) {
 
     case 'get_expenses_summary': {
       if (!oid) return { ok: 'No owner context.' };
-      const targetMonth = args.month || monthKey();
+      const targetMonth = args.month || billingMonthKey();
       const agg = await Expense.aggregate([
         { $match: { ownerId: oid, month: targetMonth } },
         { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
@@ -501,7 +518,7 @@ async function executor(toolName, args, ctx) {
 
     case 'draft_rent_reminder': {
       if (!oid) return { ok: 'No owner context.' };
-      const cur = monthKey();
+      const cur = billingMonthKey();
       const recs = await MonthlyRentRecord.find({ ownerId: oid, month: cur, remainingAmount: { $gt: 0 } }).lean();
       const messages = [];
       for (const r of recs) {
@@ -524,8 +541,10 @@ async function executor(toolName, args, ctx) {
       if (!oid) return { error: 'No owner context.' };
       const n = Math.min(Math.max(Number(args.months) || 6, 2), 12);
       const rows = [];
-      const now = new Date();
-      const curY = now.getFullYear(), curM = now.getMonth();
+      // Base the trend on the post-paid BILLING period (previous calendar month).
+      const base = new Date();
+      base.setMonth(base.getMonth() - 1);
+      const curY = base.getFullYear(), curM = base.getMonth();
       for (let i = n - 1; i >= 0; i--) {
         const d = new Date(curY, curM - i, 1);
         const mKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
@@ -550,7 +569,7 @@ async function executor(toolName, args, ctx) {
 
     case 'get_monthly_report': {
       if (!oid) return { ok: 'No owner context.' };
-      const m = args.month || monthKey();
+      const m = args.month || billingMonthKey();
       const [y, mo] = m.split('-').map(Number);
       const start = new Date(y, mo - 1, 1);
       const end = new Date(y, mo, 1);
@@ -680,7 +699,7 @@ async function executor(toolName, args, ctx) {
       if (vacantLong.length) recs.push({ priority: 'high', topic: 'Vacancy', recommendation: vacantLong.length + ' room(s) have been vacant for 60+ days. Consider reducing rent by ~5% or improving the listing.', detail: vacantLong });
 
       // Pending rent
-      const cur = monthKey();
+      const cur = billingMonthKey();
       const pendingCount = await MonthlyRentRecord.countDocuments({ ownerId: oid, month: cur, remainingAmount: { $gt: 0 } });
       if (pendingCount > 0) recs.push({ priority: 'medium', topic: 'Collections', recommendation: pendingCount + ' tenant(s) still owe rent for ' + cur + '. Send reminders to recover pending rent faster.' });
 
@@ -690,7 +709,7 @@ async function executor(toolName, args, ctx) {
     /* ── Phase 4: Automation ────────────────────────────────── */
     case 'send_rent_reminders': {
       if (!oid) return { ok: 'No owner context.' };
-      const cur = monthKey();
+      const cur = billingMonthKey();
       const recs = await MonthlyRentRecord.find({ ownerId: oid, month: cur, remainingAmount: { $gt: 0 } })
         .populate({ path: 'tenantId', select: 'userId' }).lean();
       const sent = [];
@@ -718,7 +737,7 @@ async function executor(toolName, args, ctx) {
 
     case 'send_monthly_report': {
       if (!oid) return { error: 'No owner context.' };
-      const m = args.month || monthKey();
+      const m = args.month || billingMonthKey();
       const monthlyReportService = require('./monthlyReportService');
       const res = await monthlyReportService.emailMonthlyReport(owner, m);
       return { month: m, emailedTo: res.emailedTo || null, skipped: res.skipped || null };
