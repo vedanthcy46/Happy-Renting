@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
@@ -39,6 +40,7 @@ const shiftMonth = (m: string, dir: number) => {
 };
 
 export const OwnerReportsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -84,7 +86,7 @@ export const OwnerReportsScreen: React.FC = () => {
         items: expenses,
       });
     } catch (e) {
-      Alert.alert('Error', 'Could not export report. Try again.');
+      Alert.alert(t('owner.commonOwner.error'), t('owner.reports.errExport'));
     } finally {
       setExporting(false);
     }
@@ -97,45 +99,46 @@ export const OwnerReportsScreen: React.FC = () => {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => appEvents.emit(OPEN_DRAWER_EVENT)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="menu" size={26} color={colors.text.primary} />
+          <Ionicons name="menu" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Reports</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.reports.title')}</Text>
           <Text style={[styles.headerSub, { color: colors.text.secondary }]}>{monthLabel(month)}</Text>
         </View>
         <TouchableOpacity style={[styles.exportBtn, { backgroundColor: colors.primary }]} onPress={handleExport} disabled={exporting} activeOpacity={0.8}>
-          {exporting ? <ActivityIndicator color="#FFF" size="small" /> : <Ionicons name="download-outline" size={18} color="#FFF" />}
-          <Text style={styles.exportText}>PDF</Text>
+          {exporting ? <ActivityIndicator color="#FFF" size="small" /> : <Ionicons name="download-outline" size={16} color="#FFF" />}
+          <Text style={styles.exportText}>{t('owner.reports.btnPdf')}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Month / property selector */}
-      <View style={[styles.selectorRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => setMonth(shiftMonth(month, -1))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="chevron-back" size={22} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.monthLabel, { color: colors.text.primary }]}>{monthLabel(month)}</Text>
-        <TouchableOpacity onPress={() => setMonth(shiftMonth(month, 1))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="chevron-forward" size={22} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.propScroll, { borderBottomColor: colors.border }]} contentContainerStyle={styles.propContent}>
-        {propertyTabs.map(p => (
-          <TouchableOpacity
-            key={p.key ?? 'all'}
-            style={[styles.propChip, { backgroundColor: (propertyId ?? undefined) === p.key ? colors.primary : colors.surface }, (propertyId ?? undefined) === p.key && { borderColor: colors.primary }]}
-            onPress={() => setPropertyId(p.key)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.propChipText, { color: (propertyId ?? undefined) === p.key ? '#FFFFFF' : colors.text.secondary }]} numberOfLines={1}>{p.label}</Text>
+      <View style={[styles.compactFilter, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={styles.monthNav}>
+          <TouchableOpacity onPress={() => setMonth(shiftMonth(month, -1))} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <Ionicons name="chevron-back" size={18} color={colors.primary} />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+          <Text style={[styles.monthLabel, { color: colors.text.primary }]}>{monthLabel(month)}</Text>
+          <TouchableOpacity onPress={() => setMonth(shiftMonth(month, 1))} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.propContent}>
+          {propertyTabs.map(p => (
+            <TouchableOpacity
+              key={p.key ?? 'all'}
+              style={[styles.propChip, { backgroundColor: (propertyId ?? undefined) === p.key ? colors.primary : colors.surface }, (propertyId ?? undefined) === p.key && { borderColor: colors.primary }]}
+              onPress={() => setPropertyId(p.key)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.propChipText, { color: (propertyId ?? undefined) === p.key ? '#FFFFFF' : colors.text.secondary }]} numberOfLines={1}>{p.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
@@ -146,7 +149,7 @@ export const OwnerReportsScreen: React.FC = () => {
             <View style={[styles.summaryIconWrap, { backgroundColor: colors.primaryLight }]}>
               <Ionicons name="stats-chart" size={22} color={colors.primary} />
             </View>
-            <Text style={[styles.summaryTitle, { color: colors.text.primary }]}>Profit Summary</Text>
+              <Text style={[styles.summaryTitle, { color: colors.text.primary }]}>{t('owner.reports.profitSummary')}</Text>
           </View>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xxl }} />
@@ -155,49 +158,49 @@ export const OwnerReportsScreen: React.FC = () => {
               <View style={styles.summaryRow}>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.success }]}>{formatCurrency(summary?.totalIncome ?? 0)}</Text>
-                  <Text style={[styles.summaryLabel, { color: colors.text.tertiary }]}>Rent Collected</Text>
+                   <Text style={[styles.summaryLabel, { color: colors.text.tertiary }]}>{t('owner.reports.rentCollected')}</Text>
                 </View>
                 <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.warning }]}>{formatCurrency(summary?.totalExpenses ?? 0)}</Text>
-                  <Text style={[styles.summaryLabel, { color: colors.text.tertiary }]}>Expenses</Text>
+                   <Text style={[styles.summaryLabel, { color: colors.text.tertiary }]}>{t('owner.reports.expenses')}</Text>
                 </View>
               </View>
               <View style={[styles.netRow, { backgroundColor: (summary?.netProfit ?? 0) >= 0 ? colors.successLight : colors.errorLight }]}>
-                <Text style={[styles.netLabel, { color: (summary?.netProfit ?? 0) >= 0 ? colors.success : colors.error }]}>Net Profit</Text>
+                 <Text style={[styles.netLabel, { color: (summary?.netProfit ?? 0) >= 0 ? colors.success : colors.error }]}>{t('owner.reports.netProfit')}</Text>
                 <Text style={[styles.netValue, { color: (summary?.netProfit ?? 0) >= 0 ? colors.success : colors.error }]}>
                   {formatCurrency(summary?.netProfit ?? 0)}
                 </Text>
               </View>
               <Text style={[styles.summaryCount, { color: colors.text.tertiary }]}>
-                {summary?.expenseCount ?? 0} expenses recorded this month
+                 {t('owner.reports.expenseRecorded', { count: summary?.expenseCount ?? 0 })}
               </Text>
             </>
           )}
         </View>
 
         {/* Expense breakdown */}
-        <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>Income & Expense Breakdown</Text>
+        <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>{t('owner.reports.sectionBreakdown')}</Text>
         <View style={[styles.breakdownCard, { backgroundColor: colors.surface }, shadows.sm]}>
           <View style={styles.breakdownRow}>
             <View style={[styles.breakdownIconWrap, { backgroundColor: colors.successLight }]}>
               <Ionicons name="arrow-down" size={16} color={colors.success} />
             </View>
-            <Text style={[styles.breakdownLabel, { color: colors.text.primary }]}>Total Income</Text>
+             <Text style={[styles.breakdownLabel, { color: colors.text.primary }]}>{t('owner.reports.totalIncome')}</Text>
             <Text style={[styles.breakdownValue, { color: colors.success }]}>{formatCurrency(income)}</Text>
           </View>
           <View style={[styles.cardDivider, { backgroundColor: colors.borderLight }]} />
           {expenses.length === 0 ? (
-            <Text style={[styles.emptyExp, { color: colors.text.tertiary }]}>No expenses recorded for this period.</Text>
+             <Text style={[styles.emptyExp, { color: colors.text.tertiary }]}>{t('owner.reports.emptyExp')}</Text>
           ) : (
             expenses.map(e => (
               <View key={e._id} style={styles.expRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.expTitle, { color: colors.text.primary }]} numberOfLines={1}>
-                    {e.title || CATEGORY_LABEL[e.category] || e.category}{e.isRecurring ? ' · recurring' : ''}
+                    {e.title || (CATEGORY_LABEL[e.category] ? t(`owner.expenses.cat${CATEGORY_LABEL[e.category].charAt(0) + CATEGORY_LABEL[e.category].slice(1)}`) : e.category)}{e.isRecurring ? ` · ${t('owner.reports.recurringSuffix')}` : ''}
                   </Text>
                   <Text style={[styles.expSub, { color: colors.text.tertiary }]}>
-                    {CATEGORY_LABEL[e.category] || e.category} · {typeof e.propertyId === 'object' && e.propertyId ? e.propertyId.name : 'Property'}
+                     {CATEGORY_LABEL[e.category] ? t(`owner.expenses.cat${CATEGORY_LABEL[e.category].charAt(0) + CATEGORY_LABEL[e.category].slice(1)}`) : e.category} · {typeof e.propertyId === 'object' && e.propertyId ? e.propertyId.name : t('owner.commonOwner.property')}
                   </Text>
                 </View>
                 <Text style={[styles.expAmount, { color: colors.error }]}>- {formatCurrency(e.amount)}</Text>
@@ -214,43 +217,47 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.xl, paddingBottom: spacing.md,
+    paddingHorizontal: spacing.lg, paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', letterSpacing: -0.3 },
+  headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.2 },
   headerSub: { fontSize: 12, marginTop: 1 },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.full },
-  exportText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  selectorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
-  monthLabel: { fontSize: 16, fontWeight: '700' },
-  propScroll: { borderBottomWidth: StyleSheet.hairlineWidth },
-  propContent: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, gap: spacing.sm, alignItems: 'center' },
-  propChip: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: 12, maxWidth: 160 },
-  propChipText: { fontSize: 13, fontWeight: '600' },
-  scroll: { padding: spacing.xl, gap: spacing.lg },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.full },
+  exportText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  compactFilter: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  monthNav: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  monthLabel: { fontSize: 15, fontWeight: '700', minWidth: 100, textAlign: 'center' },
+  propContent: { paddingVertical: spacing.xs, gap: 6, alignItems: 'center' },
+  propChip: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: radius.full, paddingVertical: 4, paddingHorizontal: 10, maxWidth: 140 },
+  propChipText: { fontSize: 12, fontWeight: '600' },
+  scroll: { padding: spacing.lg, gap: spacing.lg },
   summaryCard: { borderRadius: radius.xl, padding: spacing.lg, gap: spacing.md },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  summaryIconWrap: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  summaryTitle: { fontSize: 16, fontWeight: '700' },
+  summaryIconWrap: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  summaryTitle: { fontSize: 15, fontWeight: '700' },
   summaryRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summaryValue: { fontSize: 18, fontWeight: '700' },
+  summaryValue: { fontSize: 17, fontWeight: '700' },
   summaryLabel: { fontSize: 11, marginTop: 2 },
-  summaryDivider: { width: 1, height: 36 },
+  summaryDivider: { width: 1, height: 32 },
   netRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderRadius: radius.md },
-  netLabel: { fontSize: 14, fontWeight: '700' },
-  netValue: { fontSize: 18, fontWeight: '800' },
+  netLabel: { fontSize: 13, fontWeight: '700' },
+  netValue: { fontSize: 17, fontWeight: '800' },
   summaryCount: { fontSize: 12, textAlign: 'center', marginTop: spacing.xs },
   sectionLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
   breakdownCard: { borderRadius: radius.xl, padding: spacing.lg, gap: spacing.md },
   breakdownRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  breakdownIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  breakdownIconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   breakdownLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
-  breakdownValue: { fontSize: 15, fontWeight: '700' },
+  breakdownValue: { fontSize: 14, fontWeight: '700' },
   cardDivider: { height: 1 },
   expRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  expTitle: { fontSize: 14, fontWeight: '600' },
+  expTitle: { fontSize: 13, fontWeight: '600' },
   expSub: { fontSize: 11, marginTop: 2 },
-  expAmount: { fontSize: 14, fontWeight: '700' },
+  expAmount: { fontSize: 13, fontWeight: '700' },
   emptyExp: { fontSize: 13, textAlign: 'center', paddingVertical: spacing.sm },
 });

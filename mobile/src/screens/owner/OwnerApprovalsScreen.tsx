@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { getPendingApprovals, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
@@ -21,6 +22,7 @@ const formatDate = (iso?: string) => {
 };
 
 export const OwnerApprovalsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -44,7 +46,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Verification failed.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.approvals.errVerify')),
   });
 
   const rejectMutation = useMutation({
@@ -55,7 +57,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
       setRejectTarget(null);
       setRejectReason('');
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Rejection failed.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.approvals.errReject')),
   });
 
   return (
@@ -65,9 +67,9 @@ export const OwnerApprovalsScreen: React.FC = () => {
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Pending Approvals</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.approvals.title')}</Text>
           <Text style={[styles.headerSub, { color: colors.text.secondary }]}>
-            {transactions.length} awaiting {transactions.length === 1 ? 'verification' : 'verifications'}
+            {t(transactions.length === 1 ? 'owner.approvals.count_one' : 'owner.approvals.count_other', { count: transactions.length })}
           </Text>
         </View>
       </View>
@@ -79,8 +81,8 @@ export const OwnerApprovalsScreen: React.FC = () => {
       ) : transactions.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="checkmark-done-circle-outline" size={52} color={colors.success} />
-          <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>All caught up!</Text>
-          <Text style={[styles.emptySub, { color: colors.text.tertiary }]}>No payment proofs waiting for approval.</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>{t('owner.approvals.allCaughtTitle')}</Text>
+          <Text style={[styles.emptySub, { color: colors.text.tertiary }]}>{t('owner.approvals.allCaughtSub')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -109,10 +111,10 @@ export const OwnerApprovalsScreen: React.FC = () => {
               )}
               <View style={styles.actions}>
                 <TouchableOpacity style={[styles.btn, { backgroundColor: colors.success }]} onPress={() => verifyMutation.mutate(t._id)} disabled={verifyMutation.isPending} activeOpacity={0.8}>
-                  {verifyMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.btnText}>Approve</Text>}
+                  {verifyMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.btnText}>{t('owner.approvals.btnApprove')}</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.btn, { backgroundColor: colors.error }]} onPress={() => setRejectTarget(t)} activeOpacity={0.8}>
-                  <Text style={styles.btnText}>Reject</Text>
+                  <Text style={styles.btnText}>{t('owner.approvals.btnReject')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -124,13 +126,13 @@ export const OwnerApprovalsScreen: React.FC = () => {
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
-            <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>Reject Payment</Text>
-            <Text style={[styles.rejectSub, { color: colors.text.secondary }]}>Provide a reason so the tenant knows why their proof was rejected.</Text>
+            <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>{t('owner.approvals.rejectTitle')}</Text>
+            <Text style={[styles.rejectSub, { color: colors.text.secondary }]}>{t('owner.approvals.rejectSub')}</Text>
             <TextInput
               style={[styles.rejectInput, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={rejectReason}
               onChangeText={setRejectReason}
-              placeholder="e.g. Wrong amount, blurry image…"
+              placeholder={t('owner.approvals.rejectPlaceholder')}
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={3}
@@ -138,7 +140,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => { setRejectTarget(null); setRejectReason(''); }} activeOpacity={0.7}>
-                <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
+                 <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.approvals.btnCancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: rejectReason.trim() && !rejectMutation.isPending ? colors.error : colors.border }]}
@@ -146,7 +148,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
                 disabled={!rejectReason.trim() || rejectMutation.isPending}
                 activeOpacity={0.8}
               >
-                {rejectMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={[styles.modalBtnText, { color: '#FFF' }]}>Reject</Text>}
+                {rejectMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :                  <Text style={[styles.modalBtnText, { color: '#FFF' }]}>{t('owner.approvals.btnReject')}</Text>}
               </TouchableOpacity>
             </View>
             </ScrollView>

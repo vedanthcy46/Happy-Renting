@@ -7,24 +7,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { getComplaints, type OwnerComplaint } from '../../api/owner';
 
-const STATUS_CFG = (colors: any) => ({
-  pending: { bg: colors.warningLight, text: colors.warning, label: 'Open' },
-  'in-progress': { bg: colors.infoLight, text: colors.info, label: 'In Progress' },
-  resolved: { bg: colors.successLight, text: colors.success, label: 'Resolved' },
-  rejected: { bg: colors.errorLight, text: colors.error, label: 'Rejected' },
-  closed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Closed' },
+const STATUS_CFG = (colors: any, t: any) => ({
+  pending: { bg: colors.warningLight, text: colors.warning, label: t('owner.complaints.statusOpen') },
+  'in-progress': { bg: colors.infoLight, text: colors.info, label: t('owner.complaints.statusInProgress') },
+  resolved: { bg: colors.successLight, text: colors.success, label: t('owner.complaints.statusResolved') },
+  rejected: { bg: colors.errorLight, text: colors.error, label: t('owner.complaints.statusRejected') },
+  closed: { bg: colors.borderLight, text: colors.text.secondary, label: t('owner.complaints.statusClosed') },
 });
 
-const PRIORITY_CFG = (colors: any) => ({
-  low: { bg: colors.successLight, text: colors.success, label: 'Low' },
-  medium: { bg: colors.infoLight, text: colors.info, label: 'Medium' },
-  high: { bg: colors.warningLight, text: colors.warning, label: 'High' },
-  urgent: { bg: colors.errorLight, text: colors.error, label: 'Urgent' },
+const PRIORITY_CFG = (colors: any, t: any) => ({
+  low: { bg: colors.successLight, text: colors.success, label: t('owner.complaints.priorityLow') },
+  medium: { bg: colors.infoLight, text: colors.info, label: t('owner.complaints.priorityMedium') },
+  high: { bg: colors.warningLight, text: colors.warning, label: t('owner.complaints.priorityHigh') },
+  urgent: { bg: colors.errorLight, text: colors.error, label: t('owner.complaints.priorityUrgent') },
 });
 
 const formatDate = (iso?: string) => {
@@ -34,10 +35,10 @@ const formatDate = (iso?: string) => {
 
 type FilterTab = 'all' | 'pending' | 'in-progress' | 'resolved';
 
-const ComplaintCard: React.FC<{ complaint: OwnerComplaint; onPress: () => void }> = ({ complaint, onPress }) => {
+const ComplaintCard: React.FC<{ complaint: OwnerComplaint; onPress: () => void; t: (key: string) => string }> = ({ complaint, onPress, t }) => {
   const { colors } = useTheme();
-  const sc = STATUS_CFG(colors)[complaint.status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.status };
-  const pc = PRIORITY_CFG(colors)[complaint.priority] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.priority };
+  const sc = STATUS_CFG(colors, t)[complaint.status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.status };
+  const pc = PRIORITY_CFG(colors, t)[complaint.priority] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.priority };
   const location = [complaint.roomId?.roomNumber ? `Room ${complaint.roomId.roomNumber}` : null, complaint.propertyId?.name].filter(Boolean).join(' · ');
 
   return (
@@ -49,7 +50,7 @@ const ComplaintCard: React.FC<{ complaint: OwnerComplaint; onPress: () => void }
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardTitle, { color: colors.text.primary }]} numberOfLines={2}>{complaint.title}</Text>
           <Text style={[styles.cardSub, { color: colors.text.secondary }]} numberOfLines={1}>
-            {complaint.tenantId?.userId?.name ? `${complaint.tenantId.userId.name} · ` : ''}{location || 'No location'}
+            {complaint.tenantId?.userId?.name ? `${complaint.tenantId.userId.name} · ` : ''}{location || t('owner.complaints.noLocation')}
           </Text>
           <Text style={[styles.cardDate, { color: colors.text.tertiary }]}>{formatDate(complaint.createdAt)}</Text>
         </View>
@@ -67,6 +68,7 @@ const ComplaintCard: React.FC<{ complaint: OwnerComplaint; onPress: () => void }
 };
 
 export const OwnerComplaintsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -96,10 +98,10 @@ export const OwnerComplaintsScreen: React.FC = () => {
   }, [complaints, filter, search]);
 
   const tabs: { key: FilterTab; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'pending', label: 'Open' },
-    { key: 'in-progress', label: 'In Progress' },
-    { key: 'resolved', label: 'Resolved' },
+    { key: 'all', label: t('owner.complaints.tabAll') },
+    { key: 'pending', label: t('owner.complaints.tabOpen') },
+    { key: 'in-progress', label: t('owner.complaints.tabInProgress') },
+    { key: 'resolved', label: t('owner.complaints.tabResolved') },
   ];
 
   return (
@@ -109,10 +111,10 @@ export const OwnerComplaintsScreen: React.FC = () => {
           <Ionicons name="menu" size={26} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Complaints</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.complaints.title')}</Text>
           {!isLoading && (
             <Text style={[styles.headerSub, { color: colors.text.secondary }]}>
-              {filtered.length} {filtered.length === 1 ? 'complaint' : 'complaints'}
+              {t(filtered.length === 1 ? 'owner.complaints.count_one' : 'owner.complaints.count_other', { count: filtered.length })}
             </Text>
           )}
         </View>
@@ -140,7 +142,7 @@ export const OwnerComplaintsScreen: React.FC = () => {
             style={[styles.searchInput, { color: colors.text.primary }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search by title or tenant…"
+            placeholder={t('owner.complaints.searchPlaceholder')}
             placeholderTextColor={colors.text.tertiary}
             clearButtonMode="while-editing"
           />
@@ -160,7 +162,7 @@ export const OwnerComplaintsScreen: React.FC = () => {
         <View style={styles.center}>
           <Ionicons name="construct-outline" size={48} color={colors.text.tertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>
-            {search ? 'No results found' : 'No complaints here'}
+            {search ? t('owner.complaints.emptyNoSearch') : t('owner.complaints.emptyDefault')}
           </Text>
         </View>
       ) : (
@@ -174,6 +176,7 @@ export const OwnerComplaintsScreen: React.FC = () => {
               key={c._id}
               complaint={c}
               onPress={() => router.push({ pathname: '/owner/complaints/[id]', params: { id: c._id } } as any)}
+              t={t}
             />
           ))}
         </ScrollView>

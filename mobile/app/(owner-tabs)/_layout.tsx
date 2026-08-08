@@ -7,6 +7,7 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
 import { WalkthroughStep } from '../../src/components/FeatureWalkthrough';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const WALKTHROUGH_KEY_PREFIX = 'owner_walkthrough_completed';
@@ -25,6 +26,7 @@ const tabTargets = (() => {
 })();
 
 export default function OwnerTabLayout() {
+  const { t } = useTranslation();
   const { token, isLoading, user } = useAuthStore();
   const { colors: themeColors } = useTheme();
 
@@ -34,41 +36,41 @@ export default function OwnerTabLayout() {
     () => [
       {
         id: 'dashboard',
-        title: 'Dashboard',
-        description: 'See a snapshot of rent collected, pending dues and net profit for the month.',
+        title: t('tabs.dashboard'),
+        description: t('tabs.dashboardDesc'),
         icon: 'grid',
         target: tabTargets[0],
       },
       {
         id: 'properties',
-        title: 'Properties',
-        description: 'Manage all your buildings, add new properties and keep details up to date.',
+        title: t('tabs.properties'),
+        description: t('tabs.propertiesDesc'),
         icon: 'business',
         target: tabTargets[1],
       },
       {
         id: 'tenants',
-        title: 'Tenants',
-        description: 'View active tenants, handle move-ins, move-outs and refunds.',
+        title: t('tabs.tenants'),
+        description: t('tabs.tenantsDesc'),
         icon: 'people',
         target: tabTargets[2],
       },
       {
         id: 'payments',
-        title: 'Payments',
-        description: 'Review rent records, verify transactions and track what is collected vs due.',
+        title: t('tabs.payments'),
+        description: t('tabs.paymentsDesc'),
         icon: 'wallet',
         target: tabTargets[3],
       },
       {
         id: 'profile',
-        title: 'Profile',
-        description: 'Manage your account, UPI/QR details, settings and privacy.',
+        title: t('tabs.profile'),
+        description: t('tabs.profileDesc'),
         icon: 'person',
         target: tabTargets[4],
       },
     ],
-    []
+    [t]
   );
 
   useEffect(() => {
@@ -133,7 +135,7 @@ export default function OwnerTabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Dashboard',
+            title: t('tabs.dashboard'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'grid' : 'grid-outline'}
@@ -146,7 +148,7 @@ export default function OwnerTabLayout() {
         <Tabs.Screen
           name="properties"
           options={{
-            title: 'Properties',
+            title: t('tabs.properties'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'business' : 'business-outline'}
@@ -159,7 +161,7 @@ export default function OwnerTabLayout() {
         <Tabs.Screen
           name="tenants"
           options={{
-            title: 'Tenants',
+            title: t('tabs.tenants'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'people' : 'people-outline'}
@@ -172,7 +174,7 @@ export default function OwnerTabLayout() {
         <Tabs.Screen
           name="payments"
           options={{
-            title: 'Payments',
+            title: t('tabs.payments'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'wallet' : 'wallet-outline'}
@@ -185,7 +187,7 @@ export default function OwnerTabLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Profile',
+            title: t('tabs.profile'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'person' : 'person-outline'}

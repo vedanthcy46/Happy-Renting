@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WorkspacePicker } from './WorkspacePicker';
 
@@ -41,6 +42,7 @@ interface DrawerProps {
 }
 
 export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, overlayOpacity }) => {
+  const { t } = useTranslation();
   const { colors: themeColors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -57,10 +59,10 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('drawer.logoutConfirmTitle'), t('drawer.logoutConfirmMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Logout',
+        text: t('drawer.logoutConfirmTitle'),
         style: 'destructive',
         onPress: async () => {
           onClose();
@@ -72,38 +74,39 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
 
   // ── Tenant-specific nav items ──────────────────────────────────────────
   const tenantItems: DrawerItem[] = [
-    { icon: 'home', label: 'Dashboard', route: '/(tabs)' },
-    { icon: 'card', label: 'Payments', route: '/(tabs)/rent', dividerAfter: true },
-    { icon: 'construct', label: 'Maintenance Requests', route: '/(tabs)/complaints' },
-    { icon: 'receipt', label: 'Transaction History', route: '/transaction-history', dividerAfter: true },
+    { icon: 'home', label: t('tabs.home'), route: '/(tabs)' },
+    { icon: 'card', label: t('tabs.payments'), route: '/(tabs)/rent', dividerAfter: true },
+    { icon: 'construct', label: t('tabs.requests'), route: '/(tabs)/complaints' },
+    { icon: 'receipt', label: t('drawer.transactionHistory'), route: '/transaction-history', dividerAfter: true },
   ];
 
   // ── Owner-specific nav items ───────────────────────────────────────────
   const ownerItems: DrawerItem[] = [
-    { icon: 'grid', label: 'Dashboard', route: '/(owner-tabs)' },
-    { icon: 'business', label: 'Properties', route: '/(owner-tabs)/properties' },
-    { icon: 'people', label: 'Tenants', route: '/(owner-tabs)/tenants', dividerAfter: true },
-    { icon: 'person-add', label: 'Add Tenant', route: '/owner/add-tenant' },
-    { icon: 'wallet', label: 'Payments', route: '/(owner-tabs)/payments' },
-    { icon: 'checkmark-done-circle', label: 'Pending Approvals', route: '/owner/approvals' },
-    { icon: 'construct', label: 'Complaints', route: '/owner/complaints' },
-    { icon: 'trending-up', label: 'Expenses', route: '/owner/expenses' },
-    { icon: 'bar-chart', label: 'Reports', route: '/owner/reports', dividerAfter: true },
-    { icon: 'notifications', label: 'Notifications', route: '/notifications', dividerAfter: true },
+    { icon: 'grid', label: t('tabs.dashboard'), route: '/(owner-tabs)' },
+    { icon: 'business', label: t('tabs.properties'), route: '/(owner-tabs)/properties' },
+    { icon: 'people', label: t('tabs.tenants'), route: '/(owner-tabs)/tenants', dividerAfter: true },
+    { icon: 'person-add', label: t('drawer.addTenant'), route: '/owner/add-tenant' },
+    { icon: 'wallet', label: t('tabs.payments'), route: '/(owner-tabs)/payments' },
+    { icon: 'checkmark-done-circle', label: t('drawer.pendingApprovals'), route: '/owner/approvals' },
+    { icon: 'construct', label: t('drawer.complaints'), route: '/owner/complaints' },
+    { icon: 'trending-up', label: t('drawer.expenses'), route: '/owner/expenses' },
+    { icon: 'bar-chart', label: t('drawer.reports'), route: '/owner/reports', dividerAfter: true },
+    { icon: 'notifications', label: t('drawer.notifications'), route: '/notifications', dividerAfter: true },
   ];
 
   // ── Shared items for all roles ─────────────────────────────────────────
   const sharedItems: DrawerItem[] = [
-    { icon: 'help-circle', label: 'Help Center', route: '/help' },
-    { icon: 'information-circle', label: 'About Happy Renting', route: '/about' },
+    { icon: 'settings', label: t('common.settings'), route: '/settings', dividerAfter: true },
+    { icon: 'help-circle', label: t('drawer.helpCenter'), route: '/help' },
+    { icon: 'information-circle', label: t('drawer.about'), route: '/about' },
     {
       icon: 'globe',
-      label: 'Visit Website',
+      label: t('drawer.visitWebsite'),
       onPress: () => { onClose(); Linking.openURL('https://happyrenting.netlify.app'); },
     },
     {
       icon: 'star',
-      label: 'Rate the App',
+      label: t('drawer.rateApp'),
       onPress: () => {
         onClose();
         Linking.openURL('https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant');
@@ -111,7 +114,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     },
     {
       icon: 'share-social',
-      label: 'Share Happy Renting',
+      label: t('drawer.shareApp'),
       onPress: async () => {
         onClose();
         try {
@@ -121,13 +124,13 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
               'Manage rent, pay bills, and track your property hassle-free with Happy Renting! Download the app: https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant',
           });
         } catch (err) {
-          Alert.alert('Error', 'Could not share the app link. Please try again.');
+          Alert.alert(t('errors.generic'), t('settings.shareErrorMsg'));
         }
       },
       dividerAfter: true,
     },
-    { icon: 'shield-checkmark', label: 'Privacy Policy', route: '/privacy-policy' },
-    { icon: 'document-text', label: 'Terms of Service', route: '/terms-of-service' },
+    { icon: 'shield-checkmark', label: t('drawer.privacyPolicy'), route: '/privacy-policy' },
+    { icon: 'document-text', label: t('drawer.termsOfService'), route: '/terms-of-service' },
   ];
 
   const primaryItems = activeWorkspace === 'owner' ? ownerItems : tenantItems;
@@ -197,8 +200,8 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
                   size={13}
                   color="rgba(255,255,255,0.9)"
                 />
-                <Text style={styles.workspaceBadgeText}>
-                  {activeWorkspace === 'owner' ? 'Owner Workspace' : 'Tenant Workspace'}
+                  <Text style={styles.workspaceBadgeText}>
+                  {activeWorkspace === 'owner' ? t('drawer.ownerWorkspace') : t('drawer.tenantWorkspace')}
                 </Text>
                 {isMultiRole && (
                   <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.9)" />
@@ -264,7 +267,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
             <View style={[styles.drawerItemIcon, { backgroundColor: '#FEE2E2' }]}>
               <Ionicons name="log-out" size={20} color="#EF4444" />
             </View>
-            <Text style={[styles.drawerItemLabel, { color: '#EF4444' }]}>Logout</Text>
+            <Text style={[styles.drawerItemLabel, { color: '#EF4444' }]}>{t('drawer.logout')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>

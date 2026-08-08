@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
@@ -38,10 +39,11 @@ interface PropertyFormModalProps {
   onClose: () => void;
   onSave: (payload: { name: string; address: string; city: string }) => void;
   saving: boolean;
+  t: (key: string) => string;
 }
 
 const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
-  visible, initial, onClose, onSave, saving,
+  visible, initial, onClose, onSave, saving, t
 }) => {
   const { colors } = useTheme();
   const [name, setName] = useState(initial?.name ?? '');
@@ -66,7 +68,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-              {initial ? 'Edit Property' : 'Add Property'}
+              {initial ? t('owner.properties.editTitle') : t('owner.properties.addTitle')}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={24} color={colors.text.secondary} />
@@ -80,24 +82,24 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             style={{ flexShrink: 1 }}
           >
           <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Property Name *</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.properties.fieldName')}</Text>
             <TextInput
               style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Green Valley Apartments"
+              placeholder={t('owner.properties.placeholderName')}
               placeholderTextColor={colors.text.tertiary}
               maxLength={100}
             />
           </View>
 
           <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Address *</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.properties.fieldAddress')}</Text>
             <TextInput
               style={[styles.input, styles.inputMultiline, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={address}
               onChangeText={setAddress}
-              placeholder="Street, area, landmark…"
+              placeholder={t('owner.properties.placeholderAddress')}
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={3}
@@ -106,12 +108,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           </View>
 
           <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>City</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.properties.fieldCity')}</Text>
             <TextInput
               style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={city}
               onChangeText={setCity}
-              placeholder="e.g. Chennai"
+              placeholder={t('owner.properties.placeholderCity')}
               placeholderTextColor={colors.text.tertiary}
               maxLength={60}
             />
@@ -119,25 +121,25 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           </ScrollView>
 
           <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.modalBtnCancel, { borderColor: colors.border }]}
-              onPress={onClose}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.modalBtnSave, { backgroundColor: isValid ? colors.primary : colors.border }]}
-              onPress={() => isValid && onSave({ name: name.trim(), address: address.trim(), city: city.trim() })}
-              activeOpacity={0.8}
-              disabled={!isValid || saving}
-            >
-              {saving ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.modalBtnSaveText}>{initial ? 'Save Changes' : 'Add Property'}</Text>
-              )}
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.modalBtn, styles.modalBtnCancel, { borderColor: colors.border }]}
+               onPress={onClose}
+               activeOpacity={0.7}
+             >
+               <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.properties.cancel')}</Text>
+             </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.modalBtn, styles.modalBtnSave, { backgroundColor: isValid ? colors.primary : colors.border }]}
+               onPress={() => isValid && onSave({ name: name.trim(), address: address.trim(), city: city.trim() })}
+               activeOpacity={0.8}
+               disabled={!isValid || saving}
+             >
+               {saving ? (
+                 <ActivityIndicator color="#FFFFFF" size="small" />
+               ) : (
+                 <Text style={styles.modalBtnSaveText}>{initial ? t('owner.properties.save') : t('owner.properties.saveAdd')}</Text>
+               )}
+             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -153,9 +155,10 @@ interface PropertyCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onManageRooms: () => void;
+  t: (key: string) => string;
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, onDelete, onManageRooms }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, onDelete, onManageRooms, t }) => {
   const { colors } = useTheme();
   const propertyRooms = rooms.filter(r =>
     typeof r.propertyId === 'string'
@@ -199,22 +202,22 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, on
           <View style={styles.roomStats}>
             <View style={styles.roomStatItem}>
               <Text style={[styles.roomStatValue, { color: colors.text.primary }]}>{totalRooms}</Text>
-              <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>Total</Text>
+              <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>{t('owner.properties.statsTotal')}</Text>
             </View>
             <View style={[styles.roomStatDivider, { backgroundColor: colors.border }]} />
             <View style={styles.roomStatItem}>
               <Text style={[styles.roomStatValue, { color: colors.success }]}>{occupiedRooms}</Text>
-              <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>Occupied</Text>
+               <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>{t('owner.properties.statsOccupied')}</Text>
             </View>
             <View style={[styles.roomStatDivider, { backgroundColor: colors.border }]} />
             <View style={styles.roomStatItem}>
               <Text style={[styles.roomStatValue, { color: colors.warning }]}>{vacantRooms}</Text>
-              <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>Vacant</Text>
+               <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>{t('owner.properties.statsVacant')}</Text>
             </View>
             <View style={[styles.roomStatDivider, { backgroundColor: colors.border }]} />
             <View style={styles.roomStatItem}>
               <Text style={[styles.roomStatValue, { color: colors.primary }]}>{occupancyPct}%</Text>
-              <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>Occupancy</Text>
+               <Text style={[styles.roomStatLabel, { color: colors.text.secondary }]}>{t('owner.properties.statsOccupancy')}</Text>
             </View>
           </View>
         </>
@@ -224,7 +227,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, on
         <View style={[styles.noRoomsBanner, { backgroundColor: colors.borderLight }]}>
           <Ionicons name="information-circle-outline" size={14} color={colors.text.tertiary} />
           <Text style={[styles.noRoomsText, { color: colors.text.tertiary }]}>
-            No rooms yet. Tap the card to add rooms.
+            {t('owner.properties.noRooms')}
           </Text>
         </View>
       )}
@@ -235,6 +238,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, on
 // ─── Main screen ──────────────────────────────────────────────────────────
 
 export const OwnerPropertiesScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
@@ -270,7 +274,7 @@ export const OwnerPropertiesScreen: React.FC = () => {
       setModalVisible(false);
     },
     onError: (err: any) =>
-      Alert.alert('Error', err?.message || 'Failed to create property.'),
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.properties.errCreate')),
   });
 
   const updateMutation = useMutation({
@@ -281,14 +285,14 @@ export const OwnerPropertiesScreen: React.FC = () => {
       setEditingProperty(null);
     },
     onError: (err: any) =>
-      Alert.alert('Error', err?.message || 'Failed to update property.'),
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.properties.errUpdate')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteProperty,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ownerProperties'] }),
     onError: (err: any) =>
-      Alert.alert('Error', err?.message || 'Failed to remove property.'),
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.properties.errRemove')),
   });
 
   const handleSave = (payload: { name: string; address: string; city: string }) => {
@@ -301,12 +305,12 @@ export const OwnerPropertiesScreen: React.FC = () => {
 
   const handleDelete = (property: Property) => {
     Alert.alert(
-      'Remove Property',
-      `Remove "${property.name}"? This will deactivate the property. Tenant and room data will be preserved.`,
+      t('owner.properties.removeTitle'),
+      t('owner.properties.removeMsg', { name: property.name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('owner.properties.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('owner.commonOwner.remove'),
           style: 'destructive',
           onPress: () => deleteMutation.mutate(property._id),
         },
@@ -334,10 +338,10 @@ export const OwnerPropertiesScreen: React.FC = () => {
           <Ionicons name="menu" size={26} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Properties</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.properties.title')}</Text>
           {!isLoading && (
             <Text style={[styles.headerSub, { color: colors.text.secondary }]}>
-              {properties.length} {properties.length === 1 ? 'property' : 'properties'}
+              {t(properties.length === 1 ? 'owner.properties.count_one' : 'owner.properties.count_other', { count: properties.length })}
             </Text>
           )}
         </View>
@@ -347,23 +351,23 @@ export const OwnerPropertiesScreen: React.FC = () => {
           activeOpacity={0.8}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>Add</Text>
+          <Text style={styles.addBtnText}>{t('owner.properties.addBtn')}</Text>
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingCenter}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.text.secondary }]}>Loading properties…</Text>
+          <Text style={[styles.loadingText, { color: colors.text.secondary }]}>{t('owner.properties.loading')}</Text>
         </View>
       ) : properties.length === 0 ? (
         <View style={styles.emptyCenter}>
           <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="business-outline" size={40} color={colors.primary} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>No properties yet</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>{t('owner.properties.emptyTitle')}</Text>
           <Text style={[styles.emptyBody, { color: colors.text.secondary }]}>
-            Tap the Add button to create your first property.
+            {t('owner.properties.emptyBody')}
           </Text>
           <TouchableOpacity
             style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
@@ -371,7 +375,7 @@ export const OwnerPropertiesScreen: React.FC = () => {
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={18} color="#FFFFFF" />
-            <Text style={styles.emptyBtnText}>Add Property</Text>
+             <Text style={styles.emptyBtnText}>{t('owner.properties.saveAdd')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -390,6 +394,7 @@ export const OwnerPropertiesScreen: React.FC = () => {
               onEdit={() => openEdit(p)}
               onDelete={() => handleDelete(p)}
               onManageRooms={() => router.push({ pathname: '/owner/rooms/[propertyId]', params: { propertyId: p._id } } as any)}
+              t={t}
             />
           ))}
         </ScrollView>
@@ -401,6 +406,7 @@ export const OwnerPropertiesScreen: React.FC = () => {
         onClose={() => { setModalVisible(false); setEditingProperty(null); }}
         onSave={handleSave}
         saving={isSaving}
+        t={t}
       />
     </View>
   );

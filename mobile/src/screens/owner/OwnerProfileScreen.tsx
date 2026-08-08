@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
@@ -32,6 +33,7 @@ const Field = ({ label, value, onChange }: { label: string; value: string; onCha
 };
 
 export const OwnerProfileScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -91,10 +93,10 @@ export const OwnerProfileScreen: React.FC = () => {
           upiName: p?.upiDetails?.upiName ?? '',
           upiNumber: p?.upiNumber ?? '',
         });
-        Alert.alert('Saved', 'UPI payment details updated.');
+        Alert.alert(t('owner.profile.alertSavedTitle'), t('owner.profile.alertSavedUpiMsg'));
       }
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to save UPI details.');
+      Alert.alert(t('owner.commonOwner.error'), e?.response?.data?.message || t('owner.profile.alertErrUpi'));
     } finally {
       setSavingUpi(false);
     }
@@ -120,10 +122,10 @@ export const OwnerProfileScreen: React.FC = () => {
           bankName: p?.bankDetails?.bankName ?? '',
           ifsc: p?.bankDetails?.ifscCode ?? '',
         });
-        Alert.alert('Saved', 'Bank details updated.');
+        Alert.alert(t('owner.profile.alertSavedTitle'), t('owner.profile.alertSavedBankMsg'));
       }
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to save bank details.');
+      Alert.alert(t('owner.commonOwner.error'), e?.response?.data?.message || t('owner.profile.alertErrBank'));
     } finally {
       setSavingBank(false);
     }
@@ -131,7 +133,7 @@ export const OwnerProfileScreen: React.FC = () => {
 
   const uploadQr = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission', 'Gallery permission is required.'); return; }
+    if (!perm.granted) { Alert.alert(t('owner.profile.alertPermissionTitle'), t('owner.profile.alertPermissionMsg')); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] as any, quality: 0.9 });
     if (res.canceled) return;
     setUploadingQr(true);
@@ -139,9 +141,9 @@ export const OwnerProfileScreen: React.FC = () => {
       await uploadQrCode(res.assets[0].uri);
       const fresh = await getProfile();
       if (fresh.success) setProfile(fresh.user);
-      Alert.alert('Done', 'Payment QR code updated. Tenants can now scan this QR to pay rent.');
+      Alert.alert(t('owner.profile.alertQrTitle'), t('owner.profile.alertQrMsg'));
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to upload QR code.');
+      Alert.alert(t('owner.commonOwner.error'), e?.response?.data?.message || t('owner.profile.alertErrQr'));
     } finally {
       setUploadingQr(false);
     }
@@ -154,8 +156,8 @@ export const OwnerProfileScreen: React.FC = () => {
           <Ionicons name="menu" size={26} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Profile</Text>
-          <Text style={[styles.headerSub, { color: colors.text.secondary }]}>Manage payment & account details</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.profile.title')}</Text>
+          <Text style={[styles.headerSub, { color: colors.text.secondary }]}>{t('owner.profile.sub')}</Text>
         </View>
         <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="settings-outline" size={24} color={colors.text.primary} />
@@ -171,7 +173,7 @@ export const OwnerProfileScreen: React.FC = () => {
           <Text style={[styles.email, { color: colors.text.secondary }]}>{user?.email}</Text>
           <View style={[styles.roleBadge, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="business" size={12} color={colors.primary} />
-            <Text style={[styles.roleText, { color: colors.primary }]}>Owner</Text>
+             <Text style={[styles.roleText, { color: colors.primary }]}>{t('owner.profile.roleBadge')}</Text>
           </View>
         </View>
 
@@ -183,21 +185,21 @@ export const OwnerProfileScreen: React.FC = () => {
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="qr-code-outline" size={18} color={colors.text.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Payment QR Code</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.profile.sectionQr')}</Text>
               </View>
-              <Text style={[styles.sectionSub, { color: colors.text.secondary }]}>
-                Tenants scan this QR to pay rent to you.
-              </Text>
+               <Text style={[styles.sectionSub, { color: colors.text.secondary }]}>
+                 {t('owner.profile.qrSub')}
+               </Text>
               {qrUrl ? (
                 <Image source={{ uri: qrUrl }} style={styles.qrImage} resizeMode="contain" />
               ) : (
                 <View style={[styles.qrPlaceholder, { backgroundColor: colors.borderLight }]}>
                   <Ionicons name="qr-code-outline" size={40} color={colors.text.tertiary} />
-                  <Text style={[styles.qrPlaceholderText, { color: colors.text.tertiary }]}>No QR uploaded yet</Text>
+                   <Text style={[styles.qrPlaceholderText, { color: colors.text.tertiary }]}>{t('owner.profile.qrPlaceholder')}</Text>
                 </View>
               )}
               <TouchableOpacity style={[styles.outlineBtn, { borderColor: colors.primary }]} onPress={uploadQr} disabled={uploadingQr} activeOpacity={0.7}>
-                {uploadingQr ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={[styles.outlineBtnText, { color: colors.primary }]}>Upload / Replace QR</Text>}
+                {uploadingQr ? <ActivityIndicator size="small" color={colors.primary} /> :                  <Text style={[styles.outlineBtnText, { color: colors.primary }]}>{t('owner.profile.btnUploadQr')}</Text>}
               </TouchableOpacity>
             </View>
 
@@ -205,50 +207,50 @@ export const OwnerProfileScreen: React.FC = () => {
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="phone-portrait-outline" size={18} color={colors.text.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>UPI Payment Details</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.profile.sectionUpi')}</Text>
               </View>
-              <Field label="UPI ID" value={upi.upiId} onChange={(t) => setUpi({ ...upi, upiId: t })} />
-              <Field label="Registered Name" value={upi.upiName} onChange={(t) => setUpi({ ...upi, upiName: t })} />
-              <Field label="UPI Number" value={upi.upiNumber} onChange={(t) => setUpi({ ...upi, upiNumber: t })} />
-              <TouchableOpacity style={[styles.fullBtn, { backgroundColor: colors.primary }]} onPress={saveUpi} disabled={savingUpi} activeOpacity={0.8}>
-                {savingUpi ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>Save UPI Details</Text>}
-              </TouchableOpacity>
+              <Field label={t('owner.profile.fieldUpiId')} value={upi.upiId} onChange={(t) => setUpi({ ...upi, upiId: t })} />
+              <Field label={t('owner.profile.fieldUpiName')} value={upi.upiName} onChange={(t) => setUpi({ ...upi, upiName: t })} />
+              <Field label={t('owner.profile.fieldUpiNumber')} value={upi.upiNumber} onChange={(t) => setUpi({ ...upi, upiNumber: t })} />
+               <TouchableOpacity style={[styles.fullBtn, { backgroundColor: colors.primary }]} onPress={saveUpi} disabled={savingUpi} activeOpacity={0.8}>
+                 {savingUpi ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>{t('owner.profile.btnSaveUpi')}</Text>}
+               </TouchableOpacity>
             </View>
 
             {/* Bank */}
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="business-outline" size={18} color={colors.text.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Bank Details</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.profile.sectionBank')}</Text>
               </View>
-              <Text style={[styles.sectionSub, { color: colors.text.secondary }]}>
-                Used for withdrawals and rent payouts.
-              </Text>
-              <Field label="Account Holder" value={bank.bankAccountHolder} onChange={(t) => setBank({ ...bank, bankAccountHolder: t })} />
-              <Field label="Account Number" value={bank.bankAccountNumber} onChange={(t) => setBank({ ...bank, bankAccountNumber: t })} />
-              <Field label="Bank Name" value={bank.bankName} onChange={(t) => setBank({ ...bank, bankName: t })} />
-              <Field label="IFSC Code" value={bank.ifsc} onChange={(t) => setBank({ ...bank, ifsc: t })} />
-              <TouchableOpacity style={[styles.fullBtn, { backgroundColor: colors.primary }]} onPress={saveBank} disabled={savingBank} activeOpacity={0.8}>
-                {savingBank ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>Save Bank Details</Text>}
-              </TouchableOpacity>
+               <Text style={[styles.sectionSub, { color: colors.text.secondary }]}>
+                 {t('owner.profile.bankSub')}
+               </Text>
+              <Field label={t('owner.profile.fieldAccountHolder')} value={bank.bankAccountHolder} onChange={(t) => setBank({ ...bank, bankAccountHolder: t })} />
+              <Field label={t('owner.profile.fieldAccountNumber')} value={bank.bankAccountNumber} onChange={(t) => setBank({ ...bank, bankAccountNumber: t })} />
+              <Field label={t('owner.profile.fieldBankName')} value={bank.bankName} onChange={(t) => setBank({ ...bank, bankName: t })} />
+              <Field label={t('owner.profile.fieldIfsc')} value={bank.ifsc} onChange={(t) => setBank({ ...bank, ifsc: t })} />
+               <TouchableOpacity style={[styles.fullBtn, { backgroundColor: colors.primary }]} onPress={saveBank} disabled={savingBank} activeOpacity={0.8}>
+                 {savingBank ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>{t('owner.profile.btnSaveBank')}</Text>}
+               </TouchableOpacity>
             </View>
 
             {/* Account */}
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="person-outline" size={18} color={colors.text.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Account</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.profile.sectionAccount')}</Text>
               </View>
               <TouchableOpacity
                 style={[styles.logoutBtn, { backgroundColor: colors.errorLight }]}
-                onPress={() => Alert.alert('Logout', 'Are you sure you want to logout?', [
+                 onPress={() => Alert.alert(t('owner.profile.btnSignOut'), t('drawer.logoutConfirmMsg'), [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/login' as any); } },
                 ])}
                 activeOpacity={0.8}
               >
                 <Ionicons name="log-out-outline" size={18} color={colors.error} />
-                <Text style={[styles.logoutText, { color: colors.error }]}>Sign Out</Text>
+                 <Text style={[styles.logoutText, { color: colors.error }]}>{t('owner.profile.btnSignOut')}</Text>
               </TouchableOpacity>
             </View>
           </>

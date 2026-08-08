@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 
 interface Props {
@@ -17,10 +18,13 @@ interface Props {
 export const OwnerPlaceholderScreen: React.FC<Props> = ({
   title,
   icon,
-  description = 'This screen is coming soon.',
+  description,
 }) => {
+  const { t } = useTranslation();
   const { colors: themeColors } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const desc = description ?? t('owner.placeholder.comingSoon');
 
   return (
     <View
@@ -41,7 +45,7 @@ export const OwnerPlaceholderScreen: React.FC<Props> = ({
         </View>
         <Text style={[styles.comingTitle, { color: themeColors.text.primary }]}>{title}</Text>
         <Text style={[styles.comingBody, { color: themeColors.text.secondary }]}>
-          {description}
+          {desc}
         </Text>
       </View>
     </View>

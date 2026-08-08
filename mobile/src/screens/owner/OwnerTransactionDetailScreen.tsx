@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { getPaymentDetail, reverseTransaction, addTransaction, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
@@ -20,11 +21,11 @@ const formatDate = (iso?: string) => {
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const TXN_STATUS = (colors: any) => ({
-  completed: { bg: colors.successLight, text: colors.success, label: 'Completed' },
-  verifying: { bg: colors.warningLight, text: colors.warning, label: 'Verifying' },
-  reversed: { bg: colors.errorLight, text: colors.error, label: 'Reversed' },
-  failed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Failed' },
+const TXN_STATUS = (colors: any, t: any) => ({
+  completed: { bg: colors.successLight, text: colors.success, label: t('owner.transactions.statusCompleted') },
+  verifying: { bg: colors.warningLight, text: colors.warning, label: t('owner.transactions.statusVerifying') },
+  reversed: { bg: colors.errorLight, text: colors.error, label: t('owner.transactions.statusReversed') },
+  failed: { bg: colors.borderLight, text: colors.text.secondary, label: t('owner.transactions.statusFailed') },
 });
 
 interface AddPaymentModalProps {
@@ -32,9 +33,10 @@ interface AddPaymentModalProps {
   rentRecordId: string;
   onClose: () => void;
   onSaved: () => void;
+  t: (key: string) => string;
 }
 
-const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId, onClose, onSaved }) => {
+const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId, onClose, onSaved, t }) => {
   const { colors } = useTheme();
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('cash');
@@ -48,7 +50,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission', 'Gallery permission is required to attach proof.'); return; }
+    if (!perm.granted) { Alert.alert(t('owner.transactions.alertPermissionTitle'), t('owner.transactions.alertPermissionMsg')); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] as any, quality: 0.8 });
     if (!res.canceled) setImageUri(res.assets[0].uri);
   };
@@ -70,7 +72,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
       return addTransaction(rentRecordId, form);
     },
     onSuccess: () => { onSaved(); onClose(); },
-    onError: (err: any) => Alert.alert('Error', err?.response?.data?.message || err?.message || 'Failed to record payment.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.transactions.alertErrRecord')),
   });
 
   const amountNum = parseFloat(amount);
@@ -81,17 +83,17 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Record Payment</Text>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>{t('owner.transactions.addPaymentTitle')}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={24} color={colors.text.secondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Amount (₹) *</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldAmount')}</Text>
             <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.text.tertiary} />
 
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Payment Method *</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldMethod')}</Text>
             <View style={styles.methodRow}>
               {['cash', 'UPI', 'bank_transfer', 'cheque'].map(m => (
                 <TouchableOpacity
@@ -107,11 +109,11 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
               ))}
             </View>
 
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Payment Date *</Text>
-            <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={paymentDate} onChangeText={setPaymentDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.text.tertiary} />
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldDate')}</Text>
+            <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={paymentDate} onChangeText={setPaymentDate}                  placeholder={t('owner.transactions.placeholderDate')} placeholderTextColor={colors.text.tertiary} />
 
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Notes</Text>
-            <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={note} onChangeText={setNote} placeholder="Optional reference" placeholderTextColor={colors.text.tertiary} maxLength={200} />
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldNotes')}</Text>
+            <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={note} onChangeText={setNote}                  placeholder={t('owner.transactions.placeholderNotes')} placeholderTextColor={colors.text.tertiary} maxLength={200} />
 
             <TouchableOpacity style={[styles.imagePicker, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={pickImage} activeOpacity={0.7}>
               {imageUri ? (
@@ -124,23 +126,23 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
               ) : (
                 <>
                   <Ionicons name="image-outline" size={22} color={colors.text.tertiary} />
-                  <Text style={[styles.imagePickerText, { color: colors.text.secondary }]}>Attach payment proof (optional)</Text>
+                  <Text style={[styles.imagePickerText, { color: colors.text.secondary }]}>{t('owner.transactions.btnAttachProof')}</Text>
                 </>
               )}
             </TouchableOpacity>
           </ScrollView>
 
           <View style={styles.modalActions}>
-            <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={onClose} activeOpacity={0.7}>
-              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
-            </TouchableOpacity>
+             <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={onClose} activeOpacity={0.7}>
+               <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.transactions.btnCancel')}</Text>
+             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalBtn, { backgroundColor: valid && !saveMutation.isPending ? colors.primary : colors.border }]}
               onPress={() => saveMutation.mutate()}
               disabled={!valid || saveMutation.isPending}
               activeOpacity={0.8}
             >
-              {saveMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.modalBtnSaveText}>Record Payment</Text>}
+               {saveMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.modalBtnSaveText}>{t('owner.transactions.btnRecord')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -150,6 +152,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
 };
 
 export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = ({ rentRecordId }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -179,7 +182,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Verification failed.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.transactions.errVerify')),
   });
 
   const rejectMutation = useMutation({
@@ -188,7 +191,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Rejection failed.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.transactions.errReject')),
   });
 
   const reverseMutation = useMutation({
@@ -199,9 +202,9 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setReverseTarget(null);
       setReverseReason('');
-      Alert.alert('Reversed', 'Payment has been reversed.');
+      Alert.alert(t('owner.transactions.reversedAlertTitle'), t('owner.transactions.reversedAlertMsg'));
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Reversal failed.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.transactions.errReverse')),
   });
 
   const confirmReverse = () => {
@@ -216,23 +219,19 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
-      Alert.alert('Undone', 'Reversal undone. Payment re-applied to the rent record.');
+      Alert.alert(t('owner.transactions.undoneAlertTitle'), t('owner.transactions.undoneAlertMsg'));
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to undo reversal.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.transactions.errUndo')),
   });
 
   const confirmUndo = (t: OwnerTransaction) => {
-    Alert.alert(
-      'Undo Reversal',
-      `Re-apply ${formatCurrency(t.amount)} back to this rent record?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Undo', onPress: () => undoMutation.mutate(t._id) },
-      ]
-    );
+      Alert.alert(t('owner.transactions.undoTitle'), t('owner.transactions.undoMsg', { amount: formatCurrency(t.amount) }), [
+        { text: t('owner.transactions.btnCancel2'), style: 'cancel' },
+        { text: t('owner.transactions.undoConfirm'), onPress: () => undoMutation.mutate(t._id) },
+      ]);
   };
 
-  const txnStatus = TXN_STATUS(colors);
+  const txnStatus = TXN_STATUS(colors, t);
   const isAdvanceTx = (t: OwnerTransaction) =>
     t.transactionType === 'advance_applied' || t.transactionType === 'advance_deducted';
   const monthLabel = first?.rentRecordId?.month ?? rentRecord?.month ?? '';
@@ -246,7 +245,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]} numberOfLines={1}>{tenantName || 'Payment'}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]} numberOfLines={1}>{tenantName || t('owner.transactions.fallbackTitle')}</Text>
           <Text style={[styles.headerSub, { color: colors.text.secondary }]}>{monthLabel ? `${monthLabel} · ` : ''}{roomLabel ? `Room ${roomLabel}` : ''}</Text>
         </View>
       </View>
@@ -259,9 +258,9 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
         ) : isError ? (
           <View style={styles.center}>
             <Ionicons name="alert-circle-outline" size={48} color={colors.text.tertiary} />
-            <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>Could not load payment details</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>{t('owner.transactions.errLoad')}</Text>
             <TouchableOpacity style={[styles.retryBtn, { backgroundColor: colors.primary }]} onPress={() => refetch()} activeOpacity={0.8}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t('owner.transactions.btnRetry')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -269,29 +268,29 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
             {/* Summary */}
             <View style={[styles.summaryCard, { backgroundColor: colors.surface }, shadows.sm]}>
               <Text style={[styles.summaryTotal, { color: colors.text.primary }]}>{formatCurrency(totalPaid)}</Text>
-              <Text style={[styles.summaryLabel, { color: colors.text.tertiary }]}>Total Collected</Text>
+              <Text style={[styles.summaryLabel, { color: colors.text.tertiary }]}>{t('owner.transactions.totalCollected')}</Text>
               {floatingBalance > 0 && (
                 <View style={[styles.floatBanner, { backgroundColor: colors.infoLight }]}>
                   <Ionicons name="water-outline" size={16} color={colors.info} />
                   <Text style={[styles.floatText, { color: colors.info }]}>
-                    Floating balance: {formatCurrency(floatingBalance)} is carried forward
+                    {t('owner.transactions.floatBanner', { amount: formatCurrency(floatingBalance) })}
                   </Text>
                 </View>
               )}
               {hasVerifying && (
                 <View style={[styles.verifyingBanner, { backgroundColor: colors.warningLight }]}>
                   <Ionicons name="time-outline" size={16} color={colors.warning} />
-                  <Text style={[styles.verifyingText, { color: colors.warning }]}>Payment proof awaiting verification</Text>
+                  <Text style={[styles.verifyingText, { color: colors.warning }]}>{t('owner.transactions.proofAwaiting')}</Text>
                 </View>
               )}
             </View>
 
             {/* Transactions */}
-            <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>Transactions</Text>
+            <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>{t('owner.transactions.sectionTransactions')}</Text>
             {transactions.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.surface }, shadows.sm]}>
                 <Ionicons name="receipt-outline" size={40} color={colors.text.tertiary} />
-                <Text style={[styles.emptyText, { color: colors.text.secondary }]}>No transactions recorded yet.</Text>
+                 <Text style={[styles.emptyText, { color: colors.text.secondary }]}>{t('owner.transactions.emptyTitle')}</Text>
               </View>
             ) : (
               transactions.map(t => {
@@ -304,9 +303,9 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.txnAmount, { color: colors.text.primary }]}>{formatCurrency(t.amount)}</Text>
-                        <Text style={[styles.txnMeta, { color: colors.text.secondary }]}>
-                          {t.paymentMethod} · {formatDate(t.paymentDate || t.createdAt)}
-                        </Text>
+                         <Text style={[styles.txnMeta, { color: colors.text.secondary }]}>
+                           {t.paymentMethod} · {formatDate(t.paymentDate || t.createdAt)}
+                         </Text>
                       </View>
                       <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
                         <Text style={[styles.badgeText, { color: cfg.text }]}>{cfg.label}</Text>
@@ -321,16 +320,16 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
                           color={colors.info}
                         />
                         <Text style={[styles.floatTagText, { color: colors.info }]}>
-                          {t.transactionType === 'advance_deducted'
-                            ? `Floating amount −${formatCurrency(Math.abs(t.amount))} moved out of this month`
-                            : `Floating amount +${formatCurrency(Math.abs(t.amount))} carried into this month`}
+                           {t.transactionType === 'advance_deducted'
+                             ? t('owner.transactions.floatMovedOut', { amount: formatCurrency(Math.abs(t.amount)) })
+                             : t('owner.transactions.floatMovedIn', { amount: formatCurrency(Math.abs(t.amount)) })}
                         </Text>
                       </View>
                     )}
 
-                    {t.transactionId ? <Text style={[styles.txnRef, { color: colors.text.tertiary }]}>Ref: {t.transactionId}</Text> : null}
+                     {t.transactionId ? <Text style={[styles.txnRef, { color: colors.text.tertiary }]}>{t('owner.transactions.refLabel', { ref: t.transactionId })}</Text> : null}
                     {t.note ? <Text style={[styles.txnNote, { color: colors.text.secondary }]}>{t.note}</Text> : null}
-                    {t.recordedBy?.name ? <Text style={[styles.txnMeta, { color: colors.text.tertiary }]}>Recorded by {t.recordedBy.name}{t.createdByRole ? ` (${t.createdByRole})` : ''}</Text> : null}
+                     {t.recordedBy?.name ? <Text style={[styles.txnMeta, { color: colors.text.tertiary }]}>{t('owner.transactions.recordedBy', { name: t.recordedBy.name, role: t.createdByRole })}</Text> : null}
 
                     {t.proofImage?.secureUrl && (
                       <Image source={{ uri: t.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
@@ -339,23 +338,23 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
                     {t.status === 'verifying' && (
                       <View style={styles.txnActions}>
                         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.success }]} onPress={() => verifyMutation.mutate(t._id)} disabled={verifyMutation.isPending} activeOpacity={0.8}>
-                          {verifyMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.actionText}>Verify</Text>}
+                          {verifyMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.actionText}>{t('owner.transactions.btnVerify')}</Text>}
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.error }]} onPress={() => rejectMutation.mutate({ id: t._id, reason: 'Rejected by owner' })} disabled={rejectMutation.isPending} activeOpacity={0.8}>
-                          <Text style={styles.actionText}>Reject</Text>
+                           <Text style={styles.actionText}>{t('owner.transactions.btnReject')}</Text>
                         </TouchableOpacity>
                       </View>
                     )}
                     {t.status === 'completed' && (
                       <TouchableOpacity style={[styles.reverseBtn, { borderColor: colors.error }]} onPress={() => setReverseTarget(t)} activeOpacity={0.7}>
                         <Ionicons name="arrow-undo-outline" size={16} color={colors.error} />
-                        <Text style={[styles.reverseText, { color: colors.error }]}>Reverse this payment</Text>
+                         <Text style={[styles.reverseText, { color: colors.error }]}>{t('owner.transactions.btnReverse')}</Text>
                       </TouchableOpacity>
                     )}
                     {t.status === 'reversed' && (
                       <TouchableOpacity style={[styles.reverseBtn, { borderColor: colors.success }]} onPress={() => confirmUndo(t)} disabled={undoMutation.isPending} activeOpacity={0.7}>
                         {undoMutation.isPending ? <ActivityIndicator size="small" color={colors.success} /> : <Ionicons name="arrow-redo-outline" size={16} color={colors.success} />}
-                        <Text style={[styles.reverseText, { color: colors.success }]}>Undo Reversal</Text>
+                         <Text style={[styles.reverseText, { color: colors.success }]}>{t('owner.transactions.btnUndoReversal')}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -365,7 +364,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
 
             <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary }]} onPress={() => setAddPaymentVisible(true)} activeOpacity={0.8}>
               <Ionicons name="add" size={20} color="#FFF" />
-              <Text style={styles.addBtnText}>Record Payment</Text>
+              <Text style={styles.addBtnText}>{t('owner.transactions.btnRecord')}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -380,6 +379,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
           qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
           qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
         }}
+        t={t}
       />
 
       {/* Reverse modal */}
@@ -387,15 +387,15 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.reverseSheet, { backgroundColor: colors.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
-            <Text style={[styles.reverseTitle, { color: colors.text.primary }]}>Reverse Payment</Text>
+            <Text style={[styles.reverseTitle, { color: colors.text.primary }]}>{t('owner.transactions.reverseTitle')}</Text>
             <Text style={[styles.reverseSub, { color: colors.text.secondary }]}>
-              {reverseTarget ? `${formatCurrency(reverseTarget.amount)} recorded on ${formatDate(reverseTarget.paymentDate || reverseTarget.createdAt)}` : ''}
+              {reverseTarget ? t('owner.transactions.reverseSub', { date: formatDate(reverseTarget.paymentDate || reverseTarget.createdAt), amount: formatCurrency(reverseTarget.amount) }) : ''}
             </Text>
             <TextInput
               style={[styles.reverseInput, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={reverseReason}
               onChangeText={setReverseReason}
-              placeholder="Reason for reversal (required)"
+               placeholder={t('owner.transactions.reversePlaceholder')}
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={3}
@@ -403,7 +403,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => { setReverseTarget(null); setReverseReason(''); }} activeOpacity={0.7}>
-                <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
+                 <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.transactions.btnCancel2')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: reverseReason.trim() && !reverseMutation.isPending ? colors.error : colors.border }]}
@@ -411,7 +411,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
                 disabled={!reverseReason.trim() || reverseMutation.isPending}
                 activeOpacity={0.8}
               >
-                {reverseMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={[styles.modalBtnText, { color: '#FFF' }]}>Reverse</Text>}
+                {reverseMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :                  <Text style={[styles.modalBtnText, { color: '#FFF' }]}>{t('owner.transactions.reverseBtn')}</Text>}
               </TouchableOpacity>
             </View>
             </ScrollView>

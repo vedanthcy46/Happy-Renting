@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
@@ -31,14 +32,19 @@ const formatDate = (iso?: string) => {
   });
 };
 
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS = ['S','M','T','W','T','F','S'];
+const toISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // ─── Status badge ──────────────────────────────────────────────────────────
 
-const StatusBadge: React.FC<{ status: OwnerTenant['status'] }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: OwnerTenant['status']; t: (key: string) => string }> = ({ status, t }) => {
   const { colors } = useTheme();
   const config = {
-    active: { bg: colors.successLight, text: colors.success, label: 'Active' },
-    vacated: { bg: colors.borderLight, text: colors.text.secondary, label: 'Vacated' },
-    pending_deletion: { bg: colors.errorLight, text: colors.error, label: 'Pending Deletion' },
+    active: { bg: colors.successLight, text: colors.success, label: t('owner.tenants.statusActive') },
+    vacated: { bg: colors.borderLight, text: colors.text.secondary, label: t('owner.tenants.statusVacated') },
+    pending_deletion: { bg: colors.errorLight, text: colors.error, label: t('owner.tenants.statusPendingDeletion') },
   }[status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: status };
 
   return (
@@ -58,10 +64,11 @@ interface TenantDetailSheetProps {
   onReverseOut: (tenant: OwnerTenant) => void;
   onEdit: (tenant: OwnerTenant) => void;
   onSettleRefund: (tenant: OwnerTenant) => void;
+  t: (key: string) => string;
 }
 
 const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
-  tenant, visible, onClose, onMoveOut, onReverseOut, onEdit, onSettleRefund,
+  tenant, visible, onClose, onMoveOut, onReverseOut, onEdit, onSettleRefund, t
 }) => {
   const { colors } = useTheme();
   if (!tenant) return null;
@@ -90,22 +97,22 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                 {tenant.userId.email}
               </Text>
             </View>
-            <StatusBadge status={tenant.status} />
+        <StatusBadge status={tenant.status} t={t} />
           </View>
 
           <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
-            {row('Room', `Room ${tenant.roomId.roomNumber}${tenant.roomId.floor ? ` · Floor ${tenant.roomId.floor}` : ''}`)}
-            {row('Property', tenant.propertyId.name)}
-            {row('Monthly Rent', `₹${tenant.roomId.monthlyRent.toLocaleString('en-IN')}`)}
-            {row('Move-in Date', formatDate(tenant.moveInDate ?? tenant.joinDate))}
-            {tenant.exitDate && row('Exit Date', formatDate(tenant.exitDate))}
-            {tenant.phone && row('Phone', tenant.phone)}
-            {tenant.idProof && row('ID Number', tenant.idProof)}
-            {tenant.securityDeposit != null && row('Security Deposit', `₹${Number(tenant.securityDeposit).toLocaleString('en-IN')}`)}
-            {tenant.advancePaid != null && row('Advance Paid', `₹${Number(tenant.advancePaid).toLocaleString('en-IN')}`)}
-            {tenant.notes ? row('Notes', tenant.notes) : null}
+    {row(t('owner.tenants.detailRoom'), `Room ${tenant.roomId.roomNumber}${tenant.roomId.floor ? ` · Floor ${tenant.roomId.floor}` : ''}`)}
+    {row(t('owner.tenants.detailProperty'), tenant.propertyId.name)}
+    {row(t('owner.tenants.detailMonthlyRent'), `₹${tenant.roomId.monthlyRent.toLocaleString('en-IN')}`)}
+    {row(t('owner.tenants.detailMoveIn'), formatDate(tenant.moveInDate ?? tenant.joinDate))}
+    {tenant.exitDate && row(t('owner.tenants.detailExit'), formatDate(tenant.exitDate))}
+    {tenant.phone && row(t('owner.tenants.detailPhone'), tenant.phone)}
+    {tenant.idProof && row(t('owner.tenants.detailIdNumber'), tenant.idProof)}
+    {tenant.securityDeposit != null && row(t('owner.tenants.detailSecurityDeposit'), `₹${Number(tenant.securityDeposit).toLocaleString('en-IN')}`)}
+    {tenant.advancePaid != null && row(t('owner.tenants.detailAdvancePaid'), `₹${Number(tenant.advancePaid).toLocaleString('en-IN')}`)}
+    {tenant.notes ? row(t('owner.tenants.detailNotes'), tenant.notes) : null}
           </ScrollView>
 
           {tenant.status === 'active' && (
@@ -117,7 +124,7 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                 activeOpacity={0.8}
               >
                 <Ionicons name="create-outline" size={18} color={colors.primary} />
-                <Text style={[styles.actionBtnText, { color: colors.primary }]}>Edit Details</Text>
+                 <Text style={[styles.actionBtnText, { color: colors.primary }]}>{t('owner.tenants.detailEdit')}</Text>
               </TouchableOpacity>
               <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
               <TouchableOpacity
@@ -126,7 +133,7 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                 activeOpacity={0.8}
               >
                 <Ionicons name="exit-outline" size={18} color={colors.error} />
-                <Text style={[styles.actionBtnText, { color: colors.error }]}>Move Out Tenant</Text>
+                 <Text style={[styles.actionBtnText, { color: colors.error }]}>{t('owner.tenants.detailMoveOut')}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -138,9 +145,9 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                   <View style={[styles.refundCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                       <View>
-                        <Text style={[styles.refundTitle, { color: tenant.refundSettled ? colors.success : colors.warning }]}>
-                          {tenant.refundSettled ? 'Refund Settled' : 'Refund Due'}
-                        </Text>
+                         <Text style={[styles.refundTitle, { color: tenant.refundSettled ? colors.success : colors.warning }]}>
+                           {tenant.refundSettled ? t('owner.tenants.refundSettled') : t('owner.tenants.refundDue')}
+                         </Text>
                         <Text style={[styles.refundAmount, { color: colors.text.primary }]}>
                           ₹{(Number(tenant.advanceRefundAmount) > 0 ? Number(tenant.advanceRefundAmount) : Number(tenant.advancePaid)).toLocaleString('en-IN')}
                         </Text>
@@ -162,7 +169,7 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                           activeOpacity={0.8}
                         >
                           <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
-                          <Text style={styles.refundBtnText}>Mark Settled</Text>
+                           <Text style={styles.refundBtnText}>{t('owner.tenants.markSettled')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -176,12 +183,121 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                 activeOpacity={0.8}
               >
                 <Ionicons name="arrow-undo-outline" size={18} color={colors.success} />
-                <Text style={[styles.actionBtnText, { color: colors.success }]}>Reverse Move-Out</Text>
+                 <Text style={[styles.actionBtnText, { color: colors.success }]}>{t('owner.tenants.detailReverse')}</Text>
               </TouchableOpacity>
             </>
           )}
         </View>
       </View>
+    </Modal>
+  );
+};
+
+// ─── Calendar modal ────────────────────────────────────────────────────────
+
+interface CalendarModalProps {
+  visible: boolean;
+  value: string;
+  onSelect: (iso: string) => void;
+  onClose: () => void;
+  title: string;
+}
+
+const CalendarModal: React.FC<CalendarModalProps> = ({ visible, value, onSelect, onClose, title }) => {
+  const { colors } = useTheme();
+  const initial = value ? new Date(`${value}T00:00:00`) : new Date();
+  const [viewYear, setViewYear] = useState(initial.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initial.getMonth());
+  const [selYear, setSelYear] = useState(initial.getFullYear());
+  const [selMonth, setSelMonth] = useState(initial.getMonth());
+  const [selDay, setSelDay] = useState(initial.getDate());
+
+  React.useEffect(() => {
+    if (!visible) return;
+    const base = value ? new Date(`${value}T00:00:00`) : new Date();
+    setViewYear(base.getFullYear());
+    setViewMonth(base.getMonth());
+    setSelYear(base.getFullYear());
+    setSelMonth(base.getMonth());
+    setSelDay(base.getDate());
+  }, [visible, value]);
+
+  const today = new Date();
+  const todayISOStr = toISO(today);
+
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1);
+  };
+
+  const pick = (day: number) => {
+    onSelect(toISO(new Date(viewYear, viewMonth, day)));
+    onClose();
+  };
+
+  const isSel = (day: number) => viewYear === selYear && viewMonth === selMonth && day === selDay;
+  const isToday = (day: number) => toISO(new Date(viewYear, viewMonth, day)) === todayISOStr;
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
+      <TouchableOpacity style={styles.calendarOverlay} onPress={onClose} activeOpacity={1}>
+        <View style={[styles.calendarSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.calendarTitle, { color: colors.text.primary }]}>{title}</Text>
+
+          <View style={styles.calendarNav}>
+            <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+            <Text style={[styles.calendarMonthLabel, { color: colors.text.primary }]}>
+              {MONTH_NAMES[viewMonth]} {viewYear}
+            </Text>
+            <TouchableOpacity onPress={nextMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.calendarWeekRow}>
+            {DAYS.map((d, i) => (
+              <Text key={i} style={[styles.calendarWeekDay, { color: colors.text.tertiary }]}>{d}</Text>
+            ))}
+          </View>
+
+          <View style={styles.calendarGrid}>
+            {Array.from({ length: firstDow }).map((_, i) => (
+              <View key={`pad-${i}`} style={styles.calendarCell} />
+            ))}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              return (
+                <TouchableOpacity
+                  key={day}
+                  style={[
+                    styles.calendarCell,
+                    isSel(day) && { backgroundColor: colors.primary },
+                    isToday(day) && !isSel(day) && { borderWidth: 1, borderColor: colors.primary },
+                  ]}
+                  onPress={() => pick(day)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.calendarDay,
+                      { color: isSel(day) ? '#FFFFFF' : colors.text.primary },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </TouchableOpacity>
     </Modal>
   );
 };
@@ -194,15 +310,17 @@ interface MoveOutModalProps {
   onClose: () => void;
   onConfirm: (exitDate: string, notes: string) => void;
   saving: boolean;
+  t: (key: string) => string;
 }
 
 const MoveOutModal: React.FC<MoveOutModalProps> = ({
-  tenant, visible, onClose, onConfirm, saving,
+  tenant, visible, onClose, onConfirm, saving, t
 }) => {
   const { colors } = useTheme();
   const todayISO = new Date().toISOString().split('T')[0];
   const [exitDate, setExitDate] = useState(todayISO);
   const [notes, setNotes] = useState('');
+  const [calendarVisible, setCalendarVisible] = useState(false);
 
   // Reset on open
   React.useEffect(() => {
@@ -218,31 +336,33 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>Move Out Tenant</Text>
+          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.moveOutTitle')}</Text>
           <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
             {tenant.userId.name} · Room {tenant.roomId.roomNumber}
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
           <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Exit Date *</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
-              value={exitDate}
-              onChangeText={setExitDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.text.tertiary}
-              keyboardType="numeric"
-            />
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.moveOutFieldExitDate')}</Text>
+            <TouchableOpacity
+              style={[styles.input, styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={() => setCalendarVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: exitDate ? colors.text.primary : colors.text.tertiary, fontSize: 15 }}>
+                {exitDate || t('owner.tenants.moveOutEmptyExitDate')}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Notes (optional)</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.moveOutFieldNotes')}</Text>
             <TextInput
               style={[styles.input, styles.inputMultiline, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Reason for move-out…"
+                 placeholder={t('owner.tenants.moveOutPlaceholderNotes')}
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={3}
@@ -257,7 +377,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
+              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalBtn, { backgroundColor: colors.error }]}
@@ -268,12 +388,20 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
               {saving ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Confirm Move Out</Text>
+                <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.moveOutConfirm')}</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <CalendarModal
+        visible={calendarVisible}
+        value={exitDate}
+        onSelect={setExitDate}
+        onClose={() => setCalendarVisible(false)}
+        title={t('owner.tenants.moveOutFieldExitDate')}
+      />
     </Modal>
   );
 };
@@ -293,10 +421,11 @@ interface EditTenantModalProps {
     idProof: string;
   }) => void;
   saving: boolean;
+  t: (key: string) => string;
 }
 
 const EditTenantModal: React.FC<EditTenantModalProps> = ({
-  tenant, visible, onClose, onSave, saving,
+  tenant, visible, onClose, onSave, saving, t
 }) => {
   const { colors } = useTheme();
   const [tab, setTab] = useState<'finance' | 'profile'>('finance');
@@ -327,7 +456,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
     const depositNum = Number(deposit) || 0;
     const advanceNum = Number(advance) || 0;
     if (advanceNum > depositNum) {
-      setError('Advance paid should be less than or equal to the security deposit.');
+      setError(t('owner.tenants.editErrAdvanceDeposit'));
       return;
     }
     setError('');
@@ -348,7 +477,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>Edit Tenant</Text>
+          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.editTitle')}</Text>
           <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
             {tenant.userId.name} · Room {tenant.roomId.roomNumber}
           </Text>
@@ -363,9 +492,9 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
                 onPress={() => setTab(t)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.editTabText, { color: tab === t ? '#FFFFFF' : colors.text.secondary }]}>
-                  {t === 'finance' ? 'Finance' : 'Profile'}
-                </Text>
+                 <Text style={[styles.editTabText, { color: tab === t ? '#FFFFFF' : colors.text.secondary }]}>
+                   {t === 'finance' ? t('owner.tenants.editTabFinance') : t('owner.tenants.editTabProfile')}
+                 </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -379,25 +508,25 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
           {tab === 'finance' ? (
             <>
               <View style={styles.formField}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Target Security Deposit (Total ₹)</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.editFieldTargetDeposit')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={deposit}
                   onChangeText={setDeposit}
                   keyboardType="numeric"
-                  placeholder="Total amount expected to pay"
+                  placeholder={t('owner.tenants.editPlaceholderDeposit')}
                   placeholderTextColor={colors.text.tertiary}
                 />
-                <Text style={[styles.fieldHint, { color: colors.text.tertiary }]}>Total amount the tenant is expected to pay.</Text>
+                 <Text style={[styles.fieldHint, { color: colors.text.tertiary }]}>{t('owner.tenants.editHintDeposit')}</Text>
               </View>
               <View style={styles.formField}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Currently Paid (₹)</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.editFieldPaid')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={advance}
                   onChangeText={setAdvance}
                   keyboardType="numeric"
-                  placeholder="0"
+                  placeholder={t('owner.tenants.editPlaceholderPaid')}
                   placeholderTextColor={colors.text.tertiary}
                 />
               </View>
@@ -405,45 +534,45 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
           ) : (
             <>
               <View style={styles.formField}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Full Name</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.editFieldFullName')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={name}
                   onChangeText={setName}
-                  placeholder="Tenant full name"
+                  placeholder={t('owner.tenants.editPlaceholderName')}
                   placeholderTextColor={colors.text.tertiary}
                 />
               </View>
               <View style={styles.formField}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Email</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.editFieldEmail')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  placeholder="tenant@example.com"
+                  placeholder={t('owner.tenants.editPlaceholderEmail')}
                   placeholderTextColor={colors.text.tertiary}
                 />
               </View>
               <View style={styles.formField}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Phone</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.editFieldPhone')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={phone}
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
-                  placeholder="Tenant phone"
+                  placeholder={t('owner.tenants.editPlaceholderPhone')}
                   placeholderTextColor={colors.text.tertiary}
                 />
               </View>
               <View style={styles.formField}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>ID Number</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.editFieldIdNumber')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={idProof}
                   onChangeText={setIdProof}
-                  placeholder="Aadhaar / Govt ID number"
+                  placeholder={t('owner.tenants.editPlaceholderId')}
                   placeholderTextColor={colors.text.tertiary}
                 />
               </View>
@@ -452,25 +581,25 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
           </ScrollView>
 
           <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
-              onPress={onClose}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: colors.primary }]}
-              onPress={handleSave}
-              activeOpacity={0.8}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
+               onPress={onClose}
+               activeOpacity={0.7}
+             >
+               <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
+             </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.modalBtn, { backgroundColor: colors.primary }]}
+               onPress={handleSave}
+               activeOpacity={0.8}
+               disabled={saving}
+             >
+               {saving ? (
+                 <ActivityIndicator color="#FFFFFF" size="small" />
+               ) : (
+                 <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.editTitle')}</Text>
+               )}
+             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -486,10 +615,11 @@ interface RefundSettleModalProps {
   onClose: () => void;
   onConfirm: (note: string) => void;
   saving: boolean;
+  t: (key: string) => string;
 }
 
 const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
-  tenant, visible, onClose, onConfirm, saving,
+  tenant, visible, onClose, onConfirm, saving, t
 }) => {
   const { colors } = useTheme();
   const [note, setNote] = useState('');
@@ -509,19 +639,19 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>Mark Refund Settled</Text>
+          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.refundTitle')}</Text>
           <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
             {tenant.userId.name} · ₹{amount.toLocaleString('en-IN')}
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
           <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Note (optional)</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.refundFieldNote')}</Text>
             <TextInput
               style={[styles.input, styles.inputMultiline, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={note}
               onChangeText={setNote}
-              placeholder="Optional note for this refund…"
+                 placeholder={t('owner.tenants.refundPlaceholderNote')}
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={3}
@@ -531,25 +661,25 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
           </ScrollView>
 
           <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
-              onPress={onClose}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: colors.warning }]}
-              onPress={() => onConfirm(note.trim())}
-              activeOpacity={0.8}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Mark Settled</Text>
-              )}
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
+               onPress={onClose}
+               activeOpacity={0.7}
+             >
+               <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
+             </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.modalBtn, { backgroundColor: colors.warning }]}
+               onPress={() => onConfirm(note.trim())}
+               activeOpacity={0.8}
+               disabled={saving}
+             >
+               {saving ? (
+                 <ActivityIndicator color="#FFFFFF" size="small" />
+               ) : (
+                 <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.refundConfirm')}</Text>
+               )}
+             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -559,7 +689,7 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
 
 // ─── Tenant list card ─────────────────────────────────────────────────────
 
-const TenantCard: React.FC<{ tenant: OwnerTenant; onPress: () => void }> = ({ tenant, onPress }) => {
+const TenantCard: React.FC<{ tenant: OwnerTenant; onPress: () => void; t: (key: string) => string }> = ({ tenant, onPress, t }) => {
   const { colors } = useTheme();
   const initials = tenant.userId.name
     .split(' ')
@@ -587,13 +717,13 @@ const TenantCard: React.FC<{ tenant: OwnerTenant; onPress: () => void }> = ({ te
         <Text style={[styles.tenantSub, { color: colors.text.secondary }]} numberOfLines={1}>
           Room {tenant.roomId.roomNumber} · {tenant.propertyId.name}
         </Text>
-        <Text style={[styles.tenantDate, { color: colors.text.tertiary }]}>
-          Since {formatDate(tenant.moveInDate ?? tenant.joinDate)}
-        </Text>
+          <Text style={[styles.tenantDate, { color: colors.text.tertiary }]}>
+            {t('owner.tenants.since', { date: formatDate(tenant.moveInDate ?? tenant.joinDate) })}
+          </Text>
       </View>
 
       <View style={styles.cardRight}>
-        <StatusBadge status={tenant.status} />
+        <StatusBadge status={tenant.status} t={t} />
         <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} style={{ marginTop: 6 }} />
       </View>
     </TouchableOpacity>
@@ -607,6 +737,7 @@ type FilterTab = 'all' | 'active' | 'vacated';
 // ─── Main screen ──────────────────────────────────────────────────────────
 
 export const OwnerTenantsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -653,10 +784,10 @@ export const OwnerTenantsScreen: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setMoveOutVisible(false);
       setMoveOutTarget(null);
-      Alert.alert('Done', 'Tenant has been moved out successfully.');
+      Alert.alert(t('owner.tenants.moveOutAlertTitle'), t('owner.tenants.moveOutAlertMsg'));
     },
     onError: (err: any) =>
-      Alert.alert('Error', err?.message || 'Move-out failed. Please try again.'),
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.tenants.moveOutErr')),
   });
 
   const reverseMoveOutMutation = useMutation({
@@ -665,10 +796,10 @@ export const OwnerTenantsScreen: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['ownerTenants'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setReverseTarget(null);
-      Alert.alert('Reversed', 'Tenant has been restored to active status.');
+      Alert.alert(t('owner.tenants.reverseDoneTitle'), t('owner.tenants.reverseDoneMsg'));
     },
     onError: (err: any) =>
-      Alert.alert('Error', err?.message || 'Reversal failed. Please try again.'),
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.tenants.reverseErr')),
   });
 
   const editMutation = useMutation({
@@ -679,10 +810,10 @@ export const OwnerTenantsScreen: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setEditTarget(null);
       setEditVisible(false);
-      Alert.alert('Saved', 'Tenant details updated successfully.');
+      Alert.alert(t('owner.tenants.editSavedTitle'), t('owner.tenants.editSavedMsg'));
     },
     onError: (err: any) =>
-      Alert.alert('Error', err?.message || 'Update failed. Please try again.'),
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.tenants.editErr')),
   });
 
   const handleMoveOut = (exitDate: string, notes: string) => {
@@ -704,10 +835,10 @@ export const OwnerTenantsScreen: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['ownerTenants'] });
       setRefundTarget(null);
       setRefundVisible(false);
-      Alert.alert('Settled', 'Refund marked as settled.');
+      Alert.alert(t('owner.tenants.refundAlertTitle'), t('owner.tenants.refundAlertMsg'));
     },
     onError: (err: any) =>
-      Alert.alert('Error', err?.message || 'Failed to settle refund. Please try again.'),
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.tenants.refundErr')),
   });
 
   const handleSettleRefund = (note: string) => {
@@ -728,30 +859,30 @@ export const OwnerTenantsScreen: React.FC = () => {
   const triggerReverseOut = (t: OwnerTenant) => {
     setReverseTarget(t);
     if (/@deleted\.local$/.test(t.userId.email || '')) {
-      Alert.alert(
-        'Cannot Reverse Move-Out',
-        'This tenant\u2019s account has been deleted. Move-out cannot be reversed.',
-        [{ text: 'OK', onPress: () => setReverseTarget(null) }]
-      );
+        Alert.alert(
+          t('owner.tenants.reverseDeletedTitle'),
+          t('owner.tenants.reverseDeletedMsg'),
+          [{ text: t('owner.commonOwner.ok'), onPress: () => setReverseTarget(null) }]
+        );
       return;
     }
-    Alert.alert(
-      'Reverse Move-Out',
-      `Restore ${t.userId.name} (Room ${t.roomId.roomNumber}) back to active? This will re-occupy the room.`,
-      [
-        { text: 'Cancel', style: 'cancel', onPress: () => setReverseTarget(null) },
-        {
-          text: 'Restore',
-          onPress: () => reverseMoveOutMutation.mutate(t._id),
-        },
-      ]
-    );
+      Alert.alert(
+        t('owner.tenants.reverseAlertTitle'),
+        t('owner.tenants.reverseAlertMsg', { name: t.userId.name, room: t.roomId.roomNumber }),
+        [
+          { text: t('owner.commonOwner.cancel'), style: 'cancel', onPress: () => setReverseTarget(null) },
+          {
+            text: t('owner.tenants.reverseAlertRestore'),
+            onPress: () => reverseMoveOutMutation.mutate(t._id),
+          },
+        ]
+      );
   };
 
   const tabs: { key: FilterTab; label: string }[] = [
-    { key: 'active', label: 'Active' },
-    { key: 'vacated', label: 'Vacated' },
-    { key: 'all', label: 'All' },
+    { key: 'active', label: t('owner.tenants.tabActive') },
+    { key: 'vacated', label: t('owner.tenants.tabVacated') },
+    { key: 'all', label: t('owner.tenants.tabAll') },
   ];
 
   return (
@@ -762,10 +893,10 @@ export const OwnerTenantsScreen: React.FC = () => {
           <Ionicons name="menu" size={26} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Tenants</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.tenants.title')}</Text>
           {!isLoading && (
             <Text style={[styles.headerSub, { color: colors.text.secondary }]}>
-              {filtered.length} {filter === 'all' ? 'total' : filter}
+              {t(filtered.length === 1 ? 'owner.tenants.count_one' : 'owner.tenants.count_other', { count: filtered.length })}
             </Text>
           )}
         </View>
@@ -802,7 +933,7 @@ export const OwnerTenantsScreen: React.FC = () => {
             style={[styles.searchInput, { color: colors.text.primary }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search by name, room, property…"
+            placeholder={t('owner.tenants.searchPlaceholder')}
             placeholderTextColor={colors.text.tertiary}
             clearButtonMode="while-editing"
           />
@@ -822,7 +953,7 @@ export const OwnerTenantsScreen: React.FC = () => {
         <View style={styles.center}>
           <Ionicons name="people-outline" size={48} color={colors.text.tertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>
-            {search ? 'No results found' : `No ${filter === 'all' ? '' : filter} tenants`}
+            {search ? t('owner.tenants.emptyNoSearch') : filter === 'active' ? t('owner.tenants.emptyNoActive') : filter === 'vacated' ? t('owner.tenants.emptyNoVacated') : t('owner.tenants.emptyNoTenants')}
           </Text>
         </View>
       ) : (
@@ -833,8 +964,8 @@ export const OwnerTenantsScreen: React.FC = () => {
             <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />
           }
         >
-          {filtered.map(t => (
-            <TenantCard key={t._id} tenant={t} onPress={() => openDetail(t)} />
+          {filtered.map(tenant => (
+            <TenantCard key={tenant._id} tenant={tenant} onPress={() => openDetail(tenant)} t={t} />
           ))}
         </ScrollView>
       )}
@@ -847,6 +978,7 @@ export const OwnerTenantsScreen: React.FC = () => {
         onReverseOut={triggerReverseOut}
         onEdit={(t) => { setEditTarget(t); setEditVisible(true); }}
         onSettleRefund={(t) => { setRefundTarget(t); setRefundVisible(true); }}
+        t={t}
       />
 
       <MoveOutModal
@@ -855,6 +987,7 @@ export const OwnerTenantsScreen: React.FC = () => {
         onClose={() => setMoveOutVisible(false)}
         onConfirm={handleMoveOut}
         saving={moveOutMutation.isPending}
+        t={t}
       />
 
       <EditTenantModal
@@ -863,6 +996,7 @@ export const OwnerTenantsScreen: React.FC = () => {
         onClose={() => setEditVisible(false)}
         onSave={handleEditSave}
         saving={editMutation.isPending}
+        t={t}
       />
 
       <RefundSettleModal
@@ -871,6 +1005,7 @@ export const OwnerTenantsScreen: React.FC = () => {
         onClose={() => setRefundVisible(false)}
         onConfirm={handleSettleRefund}
         saving={refundMutation.isPending}
+        t={t}
       />
     </View>
   );
@@ -1025,6 +1160,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputMultiline: { height: 80, textAlignVertical: 'top', paddingTop: spacing.sm },
+  dateField: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   modalActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   modalBtn: { flex: 1, height: 50, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
   modalBtnText: { fontSize: 15, fontWeight: '600' },
@@ -1076,4 +1212,16 @@ const styles = StyleSheet.create({
   // States
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   emptyTitle: { fontSize: 15, textAlign: 'center' },
+
+  // Calendar modal
+  calendarOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', padding: spacing.xl },
+  calendarSheet: { width: '100%', maxWidth: 360, borderRadius: radius.xxl, padding: spacing.xl, borderWidth: 1 },
+  calendarTitle: { fontSize: 18, fontWeight: '700', marginBottom: spacing.lg },
+  calendarNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  calendarMonthLabel: { fontSize: 16, fontWeight: '700' },
+  calendarWeekRow: { flexDirection: 'row' },
+  calendarWeekDay: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', paddingVertical: spacing.sm },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  calendarDay: { fontSize: 14, fontWeight: '600' },
 });

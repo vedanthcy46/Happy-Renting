@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
@@ -82,6 +83,7 @@ interface OwnerDashboardScreenProps {
 }
 
 export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNavigate }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
@@ -182,8 +184,8 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <Text style={styles.headerSub}>Welcome back, {firstName}</Text>
+          <Text style={styles.headerTitle}>{t('owner.dashboard.title')}</Text>
+          <Text style={styles.headerSub}>{t('owner.dashboard.welcome', { name: firstName })}</Text>
           <View style={styles.headerChipWrap}>
             <WorkspaceSwitcher variant="chip" />
           </View>
@@ -207,7 +209,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
         {/* â”€â”€ Collection summary card â”€â”€ */}
         <View style={[styles.summaryCard, { backgroundColor: colors.surface }, shadows.md]}>
           <Text style={[styles.summaryCardTitle, { color: colors.text.secondary }]}>
-            Total Collected
+            {t('owner.dashboard.totalCollected')}
           </Text>
           {loadingSummary ? (
             <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} />
@@ -222,21 +224,21 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
               <Text style={[styles.summaryItemValue, { color: colors.success }]}>
                 {formatCurrency(metrics?.collectionsToday ?? 0)}
               </Text>
-              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Today</Text>
+               <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.dashboard.today')}</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryItemValue, { color: colors.warning }]}>
                 {formatCurrency(metrics?.totalOverdue ?? 0)}
               </Text>
-              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Overdue</Text>
+               <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.dashboard.overdue')}</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryItemValue, { color: colors.text.secondary }]}>
                 {formatCurrency(metrics?.totalOutstanding ?? 0)}
               </Text>
-              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Outstanding</Text>
+               <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.dashboard.outstanding')}</Text>
             </View>
           </View>
         </View>
@@ -246,7 +248,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
           <View style={styles.netHeader}>
             <View style={styles.netHeaderLeft}>
               <Text style={[styles.netCardTitle, { color: colors.text.secondary }]}>
-                Net Collection (this month)
+                {t('owner.dashboard.netCollectionMonth')}
               </Text>
               {loadingExpenseSummary ? (
                 <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} />
@@ -275,65 +277,65 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
               <Text style={[styles.summaryItemValue, { color: colors.success }]}>
                 {loadingExpenseSummary ? '…' : formatCurrency(expenseSummary?.totalIncome ?? 0)}
               </Text>
-              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Collected</Text>
+              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.dashboard.collected')}</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryItemValue, { color: colors.error }]}>
                 {loadingExpenseSummary ? '…' : formatCurrency(expenseSummary?.totalExpenses ?? 0)}
               </Text>
-              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Expenses</Text>
+              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.dashboard.expenses')}</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryItemValue, { color: colors.text.primary }]}>
                 {loadingExpenseSummary ? '…' : String(expenseSummary?.expenseCount ?? 0)}
               </Text>
-              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Entries</Text>
+              <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.dashboard.entries')}</Text>
             </View>
           </View>
         </View>
 
         {/* â”€â”€ Stats grid â”€â”€ */}
-        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Overview</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.dashboard.overview')}</Text>
         <View style={styles.statsGrid}>
           <StatCard
             icon="business-outline"
-            label="Properties"
+            label={t('owner.dashboard.properties')}
             value={loadingProperties ? '…' : String(properties.length)}
             accent="#4B6BED"
             onPress={() => onNavigate('properties')}
           />
           <StatCard
             icon="bed-outline"
-            label="Rooms"
+            label={t('owner.dashboard.rooms')}
             value={loadingRooms ? '…' : String(totalRooms)}
             accent="#7C3AED"
             onPress={() => onNavigate('properties')}
           />
           <StatCard
             icon="people-outline"
-            label="Active Tenants"
+            label={t('owner.dashboard.activeTenants')}
             value={loadingTenants ? '…' : String(activeTenants)}
             accent="#059669"
             onPress={() => onNavigate('tenants')}
           />
           <StatCard
             icon="trending-up-outline"
-            label="Occupancy"
+            label={t('owner.dashboard.occupancy')}
             value={loadingRooms ? '…' : `${occupancyPct}%`}
             accent="#D97706"
           />
           <StatCard
             icon="checkmark-circle-outline"
-            label="Paid Bills"
+            label={t('owner.dashboard.paidBills')}
             value={loadingSummary ? '…' : String(metrics?.paidCount ?? 0)}
             accent="#16A34A"
             onPress={() => onNavigate('payments')}
           />
           <StatCard
             icon="alert-circle-outline"
-            label="Overdue Bills"
+            label={t('owner.dashboard.overdueBills')}
             value={loadingSummary ? '…' : String(metrics?.overdueCount ?? 0)}
             accent="#DC2626"
             onPress={() => onNavigate('payments')}
@@ -343,32 +345,32 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
         {/* â”€â”€ Payment breakdown card â”€â”€ */}
         <View style={[styles.breakdownCard, { backgroundColor: colors.surface }, shadows.sm]}>
           <Text style={[styles.breakdownTitle, { color: colors.text.primary }]}>
-            Payment Breakdown
+            {t('owner.dashboard.paymentBreakdown')}
           </Text>
           {loadingSummary ? (
             <ActivityIndicator color={colors.primary} style={{ margin: 16 }} />
           ) : (
             <>
               <SectionRow
-                label="Pending bills"
+                label={t('owner.dashboard.pendingBills')}
                 value={String(metrics?.pendingCount ?? 0)}
                 valueColor={colors.warning}
               />
               <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
               <SectionRow
-                label="Partial payments"
+                label={t('owner.dashboard.partialPayments')}
                 value={String(metrics?.partialCount ?? 0)}
                 valueColor={colors.info}
               />
               <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
               <SectionRow
-                label="Overdue bills"
+                label={t('owner.dashboard.overdueBillsBreakdown')}
                 value={String(metrics?.overdueCount ?? 0)}
                 valueColor={colors.error}
               />
               <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
               <SectionRow
-                label="Total outstanding"
+                label={t('owner.dashboard.totalOutstanding')}
                 value={formatCurrency(metrics?.totalOutstanding ?? 0)}
                 valueColor={colors.error}
               />
@@ -379,12 +381,12 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
         {/* â”€â”€ Properties quick list â”€â”€ */}
         {properties.length > 0 && (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Properties</Text>
-              <TouchableOpacity onPress={() => onNavigate('properties')} activeOpacity={0.7}>
-                <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
-              </TouchableOpacity>
-            </View>
+             <View style={styles.sectionHeader}>
+               <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.dashboard.properties')}</Text>
+               <TouchableOpacity onPress={() => onNavigate('properties')} activeOpacity={0.7}>
+                 <Text style={[styles.seeAll, { color: colors.primary }]}>{t('owner.dashboard.seeAll')}</Text>
+               </TouchableOpacity>
+             </View>
             {properties.slice(0, 3).map(p => (
               <TouchableOpacity
                 key={p._id}
@@ -413,7 +415,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
           <View style={[styles.errorBanner, { backgroundColor: colors.errorLight }]}>
             <Ionicons name="warning-outline" size={18} color={colors.error} />
             <Text style={[styles.errorText, { color: colors.error }]}>
-              Could not load stats. Pull down to retry.
+              {t('owner.dashboard.loadError')}
             </Text>
           </View>
         )}

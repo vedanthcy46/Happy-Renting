@@ -17,6 +17,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
@@ -94,11 +96,14 @@ const toPropId = (p?: string | { _id: string; name: string }) =>
 // ─── Category badge ───────────────────────────────────────────────────────
 
 const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
+  const label = CATEGORY_LABELS[category] ?? category;
+  const translated = t(`owner.expenses.cat${label.charAt(0).toUpperCase() + label.slice(1)}`, label);
   return (
     <View style={[styles.badge, { backgroundColor: colors.infoLight }]}>
       <Text style={[styles.badgeText, { color: colors.info }]}>
-        {CATEGORY_LABELS[category] ?? category}
+        {translated}
       </Text>
     </View>
   );
@@ -125,10 +130,11 @@ interface ExpenseFormModalProps {
   onClose: () => void;
   onSubmit: (values: ExpenseFormValues, id?: string) => void;
   saving: boolean;
+  t: (key: string) => string;
 }
 
 const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
-  visible, initial, monthDefault, properties, onClose, onSubmit, saving,
+  visible, initial, monthDefault, properties, onClose, onSubmit, saving, t
 }) => {
   const { colors } = useTheme();
   const [propertyId, setPropertyId] = useState('');
@@ -187,7 +193,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
           <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
           <View style={styles.sheetHeader}>
             <Text style={[styles.sheetTitle, { color: colors.text.primary }]}>
-              {initial ? 'Edit Expense' : 'Add Expense'}
+              {initial ? t('owner.expenses.editExpenseTitle') : t('owner.expenses.addExpenseTitle')}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={24} color={colors.text.secondary} />
@@ -197,14 +203,14 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
             {/* Property picker */}
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Property *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldProperty')}</Text>
               <TouchableOpacity
                 style={[styles.input, styles.pickerField, { borderColor: colors.border, backgroundColor: colors.background }]}
                 onPress={() => setPickerVisible(true)}
                 activeOpacity={0.7}
               >
                 <Text style={{ color: propertyName ? colors.text.primary : colors.text.tertiary, fontSize: 15 }}>
-                  {propertyName || 'Select property…'}
+                  {propertyName || t('owner.expenses.placeholderProperty')}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={colors.text.tertiary} />
               </TouchableOpacity>
@@ -212,7 +218,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
 
             {/* Category chips */}
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Category *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldCategory')}</Text>
               <View style={styles.chipWrap}>
                 {CATEGORIES.map(c => {
                   const selected = category === c;
@@ -237,24 +243,24 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             </View>
 
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Title</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldTitle')}</Text>
               <TextInput
                 style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                 value={title}
                 onChangeText={setTitle}
-                placeholder="e.g. Water pump fix"
+                 placeholder={t('owner.expenses.placeholderTitle')}
                 placeholderTextColor={colors.text.tertiary}
                 maxLength={120}
               />
             </View>
 
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Amount *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldAmount')}</Text>
               <TextInput
                 style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                 value={amount}
                 onChangeText={setAmount}
-                placeholder="0"
+                 placeholder={t('owner.expenses.placeholderAmount')}
                 placeholderTextColor={colors.text.tertiary}
                 keyboardType="numeric"
               />
@@ -262,23 +268,23 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
 
             <View style={styles.formRow}>
               <View style={[styles.formField, { flex: 1 }]}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Month</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldMonth')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={month}
                   onChangeText={setMonth}
-                  placeholder="YYYY-MM"
+                  placeholder={t('owner.expenses.placeholderMonth')}
                   placeholderTextColor={colors.text.tertiary}
                   autoCapitalize="none"
                 />
               </View>
               <View style={[styles.formField, { flex: 1 }]}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Expense Date</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldExpenseDate')}</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={expenseDate}
                   onChangeText={setExpenseDate}
-                  placeholder="YYYY-MM-DD"
+                  placeholder={t('owner.expenses.placeholderExpenseDate')}
                   placeholderTextColor={colors.text.tertiary}
                   autoCapitalize="none"
                 />
@@ -286,12 +292,12 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             </View>
 
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Notes</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldNotes')}</Text>
               <TextInput
                 style={[styles.input, styles.inputMultiline, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="Optional note…"
+                 placeholder={t('owner.expenses.placeholderNotes')}
                 placeholderTextColor={colors.text.tertiary}
                 multiline
                 numberOfLines={3}
@@ -301,11 +307,11 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
 
             <View style={[styles.recurringRow, { borderTopColor: colors.borderLight }]}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.recurringTitle, { color: colors.text.primary }]}>
-                  Recurring monthly expense
+                 <Text style={[styles.recurringTitle, { color: colors.text.primary }]}>
+                  {t('owner.expenses.recurringTitle')}
                 </Text>
                 <Text style={[styles.recurringSub, { color: colors.text.tertiary }]}>
-                  Log this amount automatically every month
+                  {t('owner.expenses.recurringSub')}
                 </Text>
               </View>
               <Switch
@@ -322,7 +328,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                 onPress={onClose}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
+                <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.expenses.btnCancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: isValid ? colors.primary : colors.border }]}
@@ -333,7 +339,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                 {saving ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.modalBtnSaveText}>{initial ? 'Save Changes' : 'Add Expense'}</Text>
+                  <Text style={styles.modalBtnSaveText}>{initial ? t('owner.expenses.btnSaveChanges') : t('owner.expenses.btnAddExpense')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -348,7 +354,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             activeOpacity={1}
           >
             <View style={[styles.pickerSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>Select Property</Text>
+               <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>{t('owner.expenses.selectPropertyTitle')}</Text>
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
                 {properties.map(p => {
                   const selected = p._id === propertyId;
@@ -387,9 +393,10 @@ interface ExpenseRowProps {
   propertyName: string;
   onDelete: () => void;
   onEdit: () => void;
+  t: (key: string) => string;
 }
 
-const ExpenseRow: React.FC<ExpenseRowProps> = ({ expense, propertyName, onDelete, onEdit }) => {
+const ExpenseRow: React.FC<ExpenseRowProps> = ({ expense, propertyName, onDelete, onEdit, t }) => {
   const { colors } = useTheme();
   return (
     <View style={[styles.expenseRow, { backgroundColor: colors.surface }, shadows.sm]}>
@@ -404,7 +411,7 @@ const ExpenseRow: React.FC<ExpenseRowProps> = ({ expense, propertyName, onDelete
       <View style={styles.expenseBody}>
         <View style={styles.expenseTop}>
           <Text style={[styles.expenseTitle, { color: colors.text.primary }]} numberOfLines={1}>
-            {(expense.title || CATEGORY_LABELS[expense.category]) ?? 'Expense'}
+            {(expense.title || CATEGORY_LABELS[expense.category]) ?? t('owner.expenses.expenseFallback')}
           </Text>
           <Text style={[styles.expenseAmount, { color: colors.text.primary }]}>
             {formatCurrency(expense.amount)}
@@ -415,7 +422,7 @@ const ExpenseRow: React.FC<ExpenseRowProps> = ({ expense, propertyName, onDelete
           {expense.isRecurring && (
             <View style={[styles.recurringTag, { backgroundColor: colors.warningLight }]}>
               <Ionicons name="repeat" size={11} color={colors.warning} />
-              <Text style={[styles.recurringTagText, { color: colors.warning }]}>Monthly</Text>
+               <Text style={[styles.recurringTagText, { color: colors.warning }]}>{t('owner.expenses.tagMonthly')}</Text>
             </View>
           )}
         </View>
@@ -440,6 +447,7 @@ const ExpenseRow: React.FC<ExpenseRowProps> = ({ expense, propertyName, onDelete
 // ─── Main screen ──────────────────────────────────────────────────────────
 
 export const OwnerExpensesScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
@@ -549,9 +557,9 @@ export const OwnerExpensesScreen: React.FC = () => {
     },
     onSuccess: (res) => {
       if (res?.offline) {
-        Alert.alert('Saved offline', 'Expense saved on this device. It will sync automatically when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineSave'), t('owner.expenses.alertOfflineSaveMsg'));
       } else {
-        Alert.alert('Added', 'Expense has been recorded.');
+        Alert.alert(t('owner.expenses.alertAdded'), t('owner.expenses.alertAddedMsg'));
       }
       invalidateExpenses();
       setFormVisible(false);
@@ -559,9 +567,9 @@ export const OwnerExpensesScreen: React.FC = () => {
     },
     onError: (err: any) => {
       if (!isOnline()) {
-        Alert.alert('Saved offline', 'Expense saved on this device. It will sync automatically when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineSave'), t('owner.expenses.alertOfflineSaveMsg'));
       } else {
-        Alert.alert('Error', err?.message || 'Failed to add expense.');
+        Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.expenses.errAdd'));
       }
     },
   });
@@ -581,9 +589,9 @@ export const OwnerExpensesScreen: React.FC = () => {
     },
     onSuccess: (res) => {
       if (res?.offline) {
-        Alert.alert('Saved offline', 'Changes saved on this device. They will sync automatically when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineSave'), t('owner.expenses.alertOfflineUpdateMsg'));
       } else {
-        Alert.alert('Updated', 'Expense has been updated.');
+        Alert.alert(t('owner.expenses.alertUpdated'), t('owner.expenses.alertUpdatedMsg'));
       }
       invalidateExpenses();
       setFormVisible(false);
@@ -591,9 +599,9 @@ export const OwnerExpensesScreen: React.FC = () => {
     },
     onError: (err: any) => {
       if (!isOnline()) {
-        Alert.alert('Saved offline', 'Changes saved on this device. They will sync automatically when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineSave'), t('owner.expenses.alertOfflineUpdateMsg'));
       } else {
-        Alert.alert('Error', err?.message || 'Failed to update expense.');
+        Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.expenses.errUpdate'));
       }
     },
   });
@@ -610,17 +618,17 @@ export const OwnerExpensesScreen: React.FC = () => {
     },
     onSuccess: (res) => {
       if (res?.offline) {
-        Alert.alert('Deleted offline', 'Expense removed on this device. It will sync automatically when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineDeleteTitle'), t('owner.expenses.alertOfflineDeleteMsg'));
       } else {
-        Alert.alert('Deleted', 'Expense has been removed.');
+        Alert.alert(t('owner.expenses.alertDeleted'), t('owner.expenses.alertDeletedMsg'));
       }
       invalidateExpenses();
     },
     onError: (err: any) => {
       if (!isOnline()) {
-        Alert.alert('Deleted offline', 'Expense removed on this device. It will sync automatically when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineDeleteTitle'), t('owner.expenses.alertOfflineDeleteMsg'));
       } else {
-        Alert.alert('Error', err?.message || 'Failed to delete expense.');
+        Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.expenses.errDelete'));
       }
     },
   });
@@ -655,17 +663,17 @@ export const OwnerExpensesScreen: React.FC = () => {
     },
     onSuccess: (res) => {
       if (res?.offline) {
-        Alert.alert('Saved offline', 'Recurring expense added for this month on this device. It will sync when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineRecurLogMsg').split('।')[0], t('owner.expenses.alertOfflineRecurLogMsg'));
       } else {
-        Alert.alert('Logged', 'Recurring expense added for this month.');
+        Alert.alert(t('owner.expenses.alertLogged'), t('owner.expenses.alertLoggedMsg'));
       }
       invalidateExpenses();
     },
     onError: (err: any) => {
       if (!isOnline()) {
-        Alert.alert('Saved offline', 'Recurring expense saved on this device. It will sync when back online.');
+        Alert.alert(t('owner.expenses.alertOfflineRecurMsg').split('।')[0], t('owner.expenses.alertOfflineRecurMsg'));
       } else {
-        Alert.alert('Error', err?.message || 'Failed to log recurring expense.');
+        Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.expenses.errLogRecur'));
       }
     },
   });
@@ -690,12 +698,12 @@ export const OwnerExpensesScreen: React.FC = () => {
 
   const handleDelete = (expense: OwnerExpense) => {
     Alert.alert(
-      'Delete Expense',
-      `Remove "${(expense.title || CATEGORY_LABELS[expense.category]) ?? 'this expense'}" (${formatCurrency(expense.amount)})?`,
+      t('owner.expenses.deleteTitle'),
+      t('owner.expenses.deleteMsg', { title: expense.title || t(CATEGORY_LABELS[expense.category] ? `owner.expenses.cat${CATEGORY_LABELS[expense.category].charAt(0) + CATEGORY_LABELS[expense.category].slice(1)}` : 'owner.expenses.expenseFallback'), amount: formatCurrency(expense.amount) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('owner.expenses.btnCancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('owner.expenses.btnDelete'),
           style: 'destructive',
           onPress: () => deleteMutation.mutate(expense._id),
         },
@@ -705,11 +713,11 @@ export const OwnerExpensesScreen: React.FC = () => {
 
   const handleLogRecurring = (recurringExpense: OwnerExpense) => {
     if (!toPropId(recurringExpense.propertyId)) {
-      Alert.alert('Missing Property', 'This recurring expense has no property. Please add it manually.');
+      Alert.alert(t('owner.expenses.missingPropTitle'), t('owner.expenses.missingPropMsg'));
       return;
     }
     if (isRecurringLogged(recurringExpense)) {
-      Alert.alert('Already logged', `This recurring expense is already logged for ${month}.`);
+      Alert.alert(t('owner.expenses.alreadyLoggedTitle'), t('owner.expenses.alreadyLoggedMsg', { month }));
       return;
     }
     logRecurringMutation.mutate(recurringExpense);
@@ -736,9 +744,9 @@ export const OwnerExpensesScreen: React.FC = () => {
           <Ionicons name="menu" size={26} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Expenses</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.expenses.title')}</Text>
           <Text style={[styles.headerSub, { color: colors.text.secondary }]}>
-            {formattedMonthSummary(month)}
+            {t('owner.expenses.headerSub', { month: formatMonth(month) })}
           </Text>
         </View>
         <TouchableOpacity
@@ -747,7 +755,7 @@ export const OwnerExpensesScreen: React.FC = () => {
           activeOpacity={0.8}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>Add</Text>
+          <Text style={styles.addBtnText}>{t('owner.expenses.addBtn')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -774,7 +782,7 @@ export const OwnerExpensesScreen: React.FC = () => {
             activeOpacity={0.7}
           >
             <Text style={[styles.filterChipText, { color: selectedProperty === undefined ? '#FFFFFF' : colors.text.secondary }]}>
-              All properties
+              {t('owner.expenses.allProperties')}
             </Text>
           </TouchableOpacity>
           {properties.map(p => {
@@ -815,7 +823,7 @@ export const OwnerExpensesScreen: React.FC = () => {
             <View style={[styles.summaryCard, { backgroundColor: colors.surface }, shadows.md]}>
               <View style={styles.summaryHeader}>
                 <View>
-                  <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>Net Profit</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.expenses.netProfit')}</Text>
                   <Text style={[styles.netProfit, { color: netProfit >= 0 ? colors.success : colors.error }]}>
                     {formatSigned(netProfit)}
                   </Text>
@@ -834,21 +842,21 @@ export const OwnerExpensesScreen: React.FC = () => {
                   <Text style={[styles.summaryValue, { color: colors.success }]}>
                     {formatCurrency(summary.totalIncome)}
                   </Text>
-                  <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Rent Collected</Text>
+                   <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.expenses.rentCollected')}</Text>
                 </View>
                 <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.error }]}>
                     {formatCurrency(summary.totalExpenses)}
                   </Text>
-                  <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Total Expenses</Text>
+                   <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.expenses.totalExpenses')}</Text>
                 </View>
                 <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
                     {summary.expenseCount}
                   </Text>
-                  <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>Expense Count</Text>
+                   <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.expenses.expenseCount')}</Text>
                 </View>
               </View>
             </View>
@@ -856,12 +864,12 @@ export const OwnerExpensesScreen: React.FC = () => {
 
           {/* Recurring expenses */}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Recurring Monthly</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.expenses.sectionRecurring')}</Text>
           </View>
           {uniqueRecurring.length === 0 ? (
             <View style={[styles.recurringCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
               <Text style={[styles.recurringEmpty, { color: colors.text.tertiary }]}>
-                No recurring expenses set up.
+                {t('owner.expenses.emptyRecurring')}
               </Text>
             </View>
           ) : (
@@ -872,9 +880,9 @@ export const OwnerExpensesScreen: React.FC = () => {
                   <View key={r._id} style={[styles.recurringCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
                     <View style={styles.recurringCardLeft}>
                       <View style={styles.recurringCardTop}>
-                        <Text style={[styles.recurringCardTitle, { color: colors.text.primary }]} numberOfLines={1}>
-                          {(r.title || CATEGORY_LABELS[r.category]) ?? 'Recurring expense'}
-                        </Text>
+              <Text style={[styles.recurringCardTitle, { color: colors.text.primary }]} numberOfLines={1}>
+                {(r.title || CATEGORY_LABELS[r.category]) ?? t('owner.expenses.recurringFallback')}
+              </Text>
                         <CategoryBadge category={r.category} />
                       </View>
                       <Text style={[styles.recurringCardSub, { color: colors.text.tertiary }]}>
@@ -892,7 +900,7 @@ export const OwnerExpensesScreen: React.FC = () => {
                       ) : (
                         <>
                           <Ionicons name={logged ? 'checkmark' : 'add'} size={16} color="#FFFFFF" />
-                          <Text style={styles.logBtnText}>{logged ? 'Logged' : 'Log this month'}</Text>
+                          <Text style={styles.logBtnText}>{logged ? t('owner.expenses.btnLogged') : t('owner.expenses.btnLogMonth')}</Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -904,17 +912,17 @@ export const OwnerExpensesScreen: React.FC = () => {
 
           {/* Expense list */}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Expenses</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.expenses.sectionExpenses')}</Text>
             <Text style={[styles.sectionCount, { color: colors.text.tertiary }]}>{expenses.length}</Text>
           </View>
           {expenses.length === 0 ? (
             <View style={styles.centerBox}>
               <Ionicons name="receipt-outline" size={40} color={colors.text.tertiary} />
               <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>
-                No expenses for {month}.
+                {t('owner.expenses.emptyForMonth', { month })}
               </Text>
               <Text style={[styles.emptySub, { color: colors.text.tertiary }]}>
-                Tap Add to record one.
+                {t('owner.expenses.emptyTapAdd')}
               </Text>
             </View>
           ) : (
@@ -926,6 +934,7 @@ export const OwnerExpensesScreen: React.FC = () => {
                   propertyName={propNameFor(e)}
                   onDelete={() => handleDelete(e)}
                   onEdit={() => openEdit(e)}
+                  t={t}
                 />
               ))}
             </View>
@@ -941,16 +950,29 @@ export const OwnerExpensesScreen: React.FC = () => {
         onClose={() => { setFormVisible(false); setEditingExpense(null); }}
         onSubmit={handleSubmit}
         saving={isSaving}
+        t={t}
       />
     </View>
   );
 };
 
-const formattedMonthSummary = (m: string) => {
+const LOCALE_MAP: Record<string, string> = {
+  en: 'en-IN',
+  kn: 'kn-IN',
+  hi: 'hi-IN',
+  ta: 'ta-IN',
+  te: 'te-IN',
+  ml: 'ml-IN',
+};
+
+const formatMonth = (m: string) => {
   const [y, mo] = m.split('-').map(Number);
   const d = new Date(y, mo - 1, 1);
-  return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) + " this month's net profit";
+  const locale = LOCALE_MAP[i18n.language?.split('-')[0] ?? 'en'] ?? 'en-IN';
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 };
+
+const formattedMonthSummary = (m: string) => formatMonth(m);
 
 // ─── Styles ───────────────────────────────────────────────────────────────
 

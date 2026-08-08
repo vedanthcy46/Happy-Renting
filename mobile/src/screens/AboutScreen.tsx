@@ -239,7 +239,7 @@ export const AboutScreen: React.FC = () => {
           <InfoRow
             icon="calendar-outline"
             label="Released"
-            value="2025"
+            value="2026"
             showDivider={false}
             primaryColor={themeColors.primary}
             textPrimary={themeColors.text.primary}
@@ -355,7 +355,7 @@ export const AboutScreen: React.FC = () => {
 
         {/* â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <Text style={[styles.footer, { color: themeColors.text.tertiary }]}>
-          {'Made with \u2764\ufe0f in India\n\u00a9 2025 Happy Renting'}
+          {'Made with \u2764\ufe0f in India\n\u00a9 2026 Happy Renting'}
         </Text>
       </ScrollView>
     </View>

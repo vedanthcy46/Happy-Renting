@@ -8,6 +8,7 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 import { useState, useEffect, useMemo } from 'react';
 import { FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
 import { WalkthroughStep } from '../../src/components/FeatureWalkthrough';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const WALKTHROUGH_KEY_PREFIX = 'walkthrough_completed';
@@ -26,6 +27,7 @@ const tabTargets = (() => {
 })();
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const { token, isLoading, user } = useAuthStore();
   const { colors: themeColors } = useTheme();
 
@@ -35,34 +37,34 @@ export default function TabLayout() {
     () => [
       {
         id: 'home',
-        title: 'Dashboard',
-        description: 'View your current rent bill, due date and payment status right on the home screen.',
+        title: t('tabs.home'),
+        description: t('tabs.homeDesc'),
         icon: 'home',
         target: tabTargets[0],
       },
       {
         id: 'payments',
-        title: 'Payments',
-        description: 'Track all rent transactions, view history and make payments easily.',
+        title: t('tabs.payments'),
+        description: t('tabs.paymentsDesc'),
         icon: 'card',
         target: tabTargets[1],
       },
       {
         id: 'complaints',
-        title: 'Requests',
-        description: 'Raise and track maintenance requests and complaints with live updates.',
+        title: t('tabs.requests'),
+        description: t('tabs.requestsDesc'),
         icon: 'construct',
         target: tabTargets[2],
       },
       {
         id: 'profile',
-        title: 'Profile',
-        description: 'Manage your account, security settings, privacy and more.',
+        title: t('tabs.profile'),
+        description: t('tabs.profileDesc'),
         icon: 'person',
         target: tabTargets[3],
       },
     ],
-    []
+    [t]
   );
 
   useEffect(() => {
@@ -123,7 +125,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Home',
+            title: t('tabs.home'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'home' : 'home-outline'}
@@ -136,7 +138,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="rent"
           options={{
-            title: 'Payments',
+            title: t('tabs.payments'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'card' : 'card-outline'}
@@ -149,7 +151,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="complaints"
           options={{
-            title: 'Requests',
+            title: t('tabs.requests'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'construct' : 'construct-outline'}
@@ -162,7 +164,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Profile',
+            title: t('tabs.profile'),
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'person' : 'person-outline'}

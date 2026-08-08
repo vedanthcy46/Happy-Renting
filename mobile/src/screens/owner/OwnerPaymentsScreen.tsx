@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
@@ -32,19 +33,19 @@ type FilterStatus = 'all' | 'pending' | 'partial' | 'overdue' | 'paid';
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }> = {};
 
-const getStatusConfig = (status: string, colors: any) => ({
-  pending: { bg: colors.warningLight, text: colors.warning, label: 'Pending' },
-  partial: { bg: colors.infoLight, text: colors.info, label: 'Partial' },
-  overdue: { bg: colors.errorLight, text: colors.error, label: 'Overdue' },
-  paid: { bg: colors.successLight, text: colors.success, label: 'Paid' },
+const getStatusConfig = (status: string, colors: any, t: any) => ({
+  pending: { bg: colors.warningLight, text: colors.warning, label: t('owner.payments.statusPending') },
+  partial: { bg: colors.infoLight, text: colors.info, label: t('owner.payments.statusPartial') },
+  overdue: { bg: colors.errorLight, text: colors.error, label: t('owner.payments.statusOverdue') },
+  paid: { bg: colors.successLight, text: colors.success, label: t('owner.payments.statusPaid') },
 }[status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: status });
 
 
 // ─── Status badge ──────────────────────────────────────────────────────────
 
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: string; t: (key: string) => string }> = ({ status, t }) => {
   const { colors } = useTheme();
-  const cfg = getStatusConfig(status, colors);
+  const cfg = getStatusConfig(status, colors, t);
   return (
     <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
       <Text style={[styles.badgeText, { color: cfg.text }]}>{cfg.label}</Text>
@@ -59,9 +60,10 @@ interface RejectModalProps {
   onClose: () => void;
   onConfirm: (reason: string) => void;
   saving: boolean;
+  t: (key: string) => string;
 }
 
-const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, saving }) => {
+const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, saving, t }) => {
   const { colors } = useTheme();
   const [reason, setReason] = useState('');
   React.useEffect(() => { if (visible) setReason(''); }, [visible]);
@@ -71,24 +73,24 @@ const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, 
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
-          <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>Reject Payment</Text>
+          <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>{t('owner.payments.rejectModalTitle')}</Text>
           <Text style={[styles.rejectSub, { color: colors.text.secondary }]}>
-            Provide a reason so the tenant knows why their proof was rejected.
+            {t('owner.payments.rejectModalSub')}
           </Text>
           <TextInput
             style={[styles.rejectInput, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
             value={reason}
             onChangeText={setReason}
-            placeholder="e.g. Blurry image, wrong amount…"
+            placeholder={t('owner.payments.rejectPlaceholder')}
             placeholderTextColor={colors.text.tertiary}
             multiline
             numberOfLines={3}
             maxLength={300}
           />
           <View style={styles.modalActions}>
-            <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={onClose} activeOpacity={0.7}>
-              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>Cancel</Text>
-            </TouchableOpacity>
+             <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={onClose} activeOpacity={0.7}>
+               <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.payments.btnCancel')}</Text>
+             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalBtn, { backgroundColor: reason.trim() ? colors.error : colors.border }]}
               onPress={() => reason.trim() && onConfirm(reason.trim())}
@@ -96,7 +98,7 @@ const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, 
               disabled={saving || !reason.trim()}
           >
             {saving ? <ActivityIndicator color="#FFF" size="small" /> :
-              <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Reject</Text>}
+                             <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.payments.btnReject')}</Text>}
           </TouchableOpacity>
           </View>
           </ScrollView>
@@ -115,9 +117,10 @@ interface RecordCardProps {
   onReject: (txnId: string) => void;
   onPress: () => void;
   verifyingId: string | null;
+  t: (key: string) => string;
 }
 
-const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onPress, verifyingId }) => {
+const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onPress, verifyingId, t }) => {
   const { colors } = useTheme();
   const hasVerifying = (record as any).transactions?.some((t: any) => t.status === 'verifying');
 
@@ -136,7 +139,7 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onP
             {record.month} · Due {formatDate(record.dueDate)}
           </Text>
         </View>
-        <StatusBadge status={record.status} />
+        <StatusBadge status={record.status} t={t} />
       </View>
 
       {/* Amount row */}
@@ -145,21 +148,21 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onP
           <Text style={[styles.amountValue, { color: colors.text.primary }]}>
             {formatCurrency(record.totalRent)}
           </Text>
-          <Text style={[styles.amountLabel, { color: colors.text.tertiary }]}>Total</Text>
+          <Text style={[styles.amountLabel, { color: colors.text.tertiary }]}>{t('owner.payments.amountTotal')}</Text>
         </View>
         <View style={[styles.amountDivider, { backgroundColor: colors.border }]} />
         <View style={styles.amountItem}>
           <Text style={[styles.amountValue, { color: colors.success }]}>
             {formatCurrency(record.totalPaid)}
           </Text>
-          <Text style={[styles.amountLabel, { color: colors.text.tertiary }]}>Paid</Text>
+          <Text style={[styles.amountLabel, { color: colors.text.tertiary }]}>{t('owner.payments.amountPaid')}</Text>
         </View>
         <View style={[styles.amountDivider, { backgroundColor: colors.border }]} />
         <View style={styles.amountItem}>
           <Text style={[styles.amountValue, { color: record.remainingAmount > 0 ? colors.error : colors.success }]}>
             {formatCurrency(record.remainingAmount)}
           </Text>
-          <Text style={[styles.amountLabel, { color: colors.text.tertiary }]}>Remaining</Text>
+          <Text style={[styles.amountLabel, { color: colors.text.tertiary }]}>{t('owner.payments.amountRemaining')}</Text>
         </View>
       </View>
 
@@ -168,7 +171,7 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onP
         <View style={[styles.proofBanner, { backgroundColor: colors.warningLight }]}>
           <Ionicons name="time-outline" size={16} color={colors.warning} />
           <Text style={[styles.proofBannerText, { color: colors.warning }]}>
-            Payment proof awaiting verification
+            {t('owner.payments.proofAwaiting')}
           </Text>
           <View style={styles.proofActions}>
             <TouchableOpacity
@@ -182,7 +185,7 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onP
               {verifyingId === (record as any).transactions?.find((t: any) => t.status === 'verifying')?._id ? (
                 <ActivityIndicator color="#FFF" size="small" />
               ) : (
-                <Text style={styles.proofBtnText}>Verify</Text>
+                <Text style={styles.proofBtnText}>{t('owner.payments.btnVerify')}</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity
@@ -192,9 +195,9 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onP
                 if (txn) onReject(txn._id);
               }}
               activeOpacity={0.8}
-            >
-              <Text style={styles.proofBtnText}>Reject</Text>
-            </TouchableOpacity>
+              >
+                <Text style={styles.proofBtnText}>{t('owner.payments.btnReject')}</Text>
+              </TouchableOpacity>
           </View>
         </View>
       )}
@@ -206,6 +209,7 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onVerify, onReject, onP
 // ─── Main screen ──────────────────────────────────────────────────────────
 
 export const OwnerPaymentsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
@@ -255,11 +259,11 @@ export const OwnerPaymentsScreen: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setVerifyingId(null);
-      Alert.alert('Verified', 'Payment has been verified and credited.');
+      Alert.alert(t('owner.payments.verifiedAlertTitle'), t('owner.payments.verifiedAlertMsg'));
     },
     onError: (err: any) => {
       setVerifyingId(null);
-      Alert.alert('Error', err?.message || 'Verification failed.');
+      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.payments.errVerify'));
     },
   });
 
@@ -269,15 +273,15 @@ export const OwnerPaymentsScreen: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
       setRejectModalVisible(false);
       setRejectTargetId(null);
-      Alert.alert('Rejected', 'Payment proof has been rejected. Tenant will be notified.');
+      Alert.alert(t('owner.payments.rejectedAlertTitle'), t('owner.payments.rejectedAlertMsg'));
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Rejection failed.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.payments.errReject')),
   });
 
   const handleVerify = (txnId: string) => {
-    Alert.alert('Verify Payment', 'Confirm this payment proof and credit it to the tenant?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Verify', onPress: () => verifyMutation.mutate(txnId) },
+    Alert.alert(t('owner.payments.verifyAlertTitle'), t('owner.payments.verifyAlertMsg'), [
+      { text: t('owner.payments.btnCancel'), style: 'cancel' },
+      { text: t('owner.payments.verifyAlertConfirm'), onPress: () => verifyMutation.mutate(txnId) },
     ]);
   };
 
@@ -291,12 +295,12 @@ export const OwnerPaymentsScreen: React.FC = () => {
     rejectMutation.mutate({ id: rejectTargetId, reason });
   };
 
-  const tabs: { key: FilterStatus; label: string; count?: number }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'overdue', label: 'Overdue', count: metrics?.overdueCount },
-    { key: 'pending', label: 'Pending', count: metrics?.pendingCount },
-    { key: 'partial', label: 'Partial', count: metrics?.partialCount },
-    { key: 'paid', label: 'Paid', count: metrics?.paidCount },
+  const tabs: { key: FilterStatus; label: string }[] = [
+    { key: 'all', label: t('owner.payments.tabAll') },
+    { key: 'overdue', label: t('owner.payments.tabOverdue'), count: metrics?.overdueCount },
+    { key: 'pending', label: t('owner.payments.tabPending'), count: metrics?.pendingCount },
+    { key: 'partial', label: t('owner.payments.tabPartial'), count: metrics?.partialCount },
+    { key: 'paid', label: t('owner.payments.tabPaid'), count: metrics?.paidCount },
   ];
 
 
@@ -308,10 +312,10 @@ export const OwnerPaymentsScreen: React.FC = () => {
           <Ionicons name="menu" size={26} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Payments</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.payments.title')}</Text>
           {metrics && (
             <Text style={[styles.headerSub, { color: colors.text.secondary }]}>
-              Collected ₹{(metrics.collectionsToday ?? 0).toLocaleString('en-IN')} today
+              {t('owner.payments.headerSub', { amount: (metrics.collectionsToday ?? 0).toLocaleString('en-IN') })}
             </Text>
           )}
         </View>
@@ -324,21 +328,21 @@ export const OwnerPaymentsScreen: React.FC = () => {
             <Text style={[styles.stripValue, { color: colors.error }]}>
               {formatCurrency(metrics.totalOverdue)}
             </Text>
-            <Text style={[styles.stripLabel, { color: colors.text.tertiary }]}>Overdue</Text>
+            <Text style={[styles.stripLabel, { color: colors.text.tertiary }]}>{t('owner.payments.stripOverdue')}</Text>
           </View>
           <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stripItem}>
             <Text style={[styles.stripValue, { color: colors.warning }]}>
               {formatCurrency(metrics.totalPending)}
             </Text>
-            <Text style={[styles.stripLabel, { color: colors.text.tertiary }]}>Pending</Text>
+            <Text style={[styles.stripLabel, { color: colors.text.tertiary }]}>{t('owner.payments.stripPending')}</Text>
           </View>
           <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stripItem}>
             <Text style={[styles.stripValue, { color: colors.success }]}>
               {formatCurrency(metrics.totalCollected)}
             </Text>
-            <Text style={[styles.stripLabel, { color: colors.text.tertiary }]}>Collected</Text>
+            <Text style={[styles.stripLabel, { color: colors.text.tertiary }]}>{t('owner.payments.stripCollected')}</Text>
           </View>
         </View>
       )}
@@ -367,7 +371,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
             style={[styles.searchInput, { color: colors.text.primary }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search by tenant, room, month…"
+            placeholder={t('owner.payments.searchPlaceholder')}
             placeholderTextColor={colors.text.tertiary}
             clearButtonMode="while-editing"
           />
@@ -387,7 +391,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
         <View style={styles.center}>
           <Ionicons name="wallet-outline" size={48} color={colors.text.tertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>
-            {search ? 'No results found' : `No ${filterStatus === 'all' ? '' : filterStatus} records`}
+            {search ? t('owner.payments.emptyNoSearch') : t('owner.payments.emptyNoRecords', { status: filterStatus === 'all' ? '' : filterStatus })}
           </Text>
         </View>
       ) : (
@@ -404,6 +408,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
               onReject={handleRejectTap}
               onPress={() => router.push({ pathname: '/owner/transactions/[rentRecordId]', params: { rentRecordId: r._id } } as any)}
               verifyingId={verifyingId}
+              t={t}
             />
           ))}
         </ScrollView>
@@ -414,6 +419,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
         onClose={() => { setRejectModalVisible(false); setRejectTargetId(null); }}
         onConfirm={handleRejectConfirm}
         saving={rejectMutation.isPending}
+        t={t}
       />
     </View>
   );

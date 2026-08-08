@@ -7,25 +7,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { getComplaintDetail, addComplaintComment } from '../../api/complaint';
 import { updateComplaint } from '../../api/owner';
 import type { Complaint } from '../../types/complaint';
 
-const STATUS_CFG = (colors: any): Record<string, { bg: string; text: string; label: string }> => ({
-  pending: { bg: colors.warningLight, text: colors.warning, label: 'Pending' },
-  'in-progress': { bg: colors.infoLight, text: colors.info, label: 'In Progress' },
-  resolved: { bg: colors.successLight, text: colors.success, label: 'Resolved' },
-  rejected: { bg: colors.errorLight, text: colors.error, label: 'Rejected' },
-  closed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Closed' },
+const STATUS_CFG = (colors: any, t: any): Record<string, { bg: string; text: string; label: string }> => ({
+  pending: { bg: colors.warningLight, text: colors.warning, label: t('owner.complaintDetail.statusOpen') },
+  'in-progress': { bg: colors.infoLight, text: colors.info, label: t('owner.complaintDetail.statusInProgress') },
+  resolved: { bg: colors.successLight, text: colors.success, label: t('owner.complaintDetail.statusResolved') },
+  rejected: { bg: colors.errorLight, text: colors.error, label: t('owner.complaintDetail.statusRejected') },
+  closed: { bg: colors.borderLight, text: colors.text.secondary, label: t('owner.complaintDetail.statusClosed') },
 });
 
-const PRIORITY_CFG = (colors: any): Record<string, { bg: string; text: string; label: string }> => ({
-  low: { bg: colors.successLight, text: colors.success, label: 'Low' },
-  medium: { bg: colors.infoLight, text: colors.info, label: 'Medium' },
-  high: { bg: colors.warningLight, text: colors.warning, label: 'High' },
-  urgent: { bg: colors.errorLight, text: colors.error, label: 'Urgent' },
+const PRIORITY_CFG = (colors: any, t: any): Record<string, { bg: string; text: string; label: string }> => ({
+  low: { bg: colors.successLight, text: colors.success, label: t('owner.complaints.priorityLow') },
+  medium: { bg: colors.infoLight, text: colors.info, label: t('owner.complaints.priorityMedium') },
+  high: { bg: colors.warningLight, text: colors.warning, label: t('owner.complaints.priorityHigh') },
+  urgent: { bg: colors.errorLight, text: colors.error, label: t('owner.complaints.priorityUrgent') },
 });
 
 const formatDateTime = (iso?: string) => {
@@ -46,6 +47,7 @@ const formatTime = (iso?: string) => {
 const TERMINAL = new Set(['resolved', 'closed', 'rejected']);
 
 export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -107,9 +109,9 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
   const isTerminal = complaint ? TERMINAL.has(complaint.status) : false;
 
   const statusOptions = [
-    { key: 'in-progress', label: 'In Progress' },
-    { key: 'resolved', label: 'Resolved' },
-    { key: 'rejected', label: 'Rejected' },
+    { key: 'in-progress', label: t('owner.complaintDetail.statusInProgress') },
+    { key: 'resolved', label: t('owner.complaintDetail.statusResolved') },
+    { key: 'rejected', label: t('owner.complaintDetail.statusRejected') },
   ];
 
   const commentCount = complaint?.comments?.length ?? 0;
@@ -133,16 +135,16 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.text.tertiary} />
-        <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>Could not load complaint</Text>
+        <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>{t('owner.complaintDetail.errLoad')}</Text>
         <TouchableOpacity style={[styles.retryBtn, { backgroundColor: colors.primary }]} onPress={() => refetch()} activeOpacity={0.8}>
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t('owner.complaintDetail.btnRetry')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const sc = STATUS_CFG(colors)[complaint.status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.status };
-  const pc = PRIORITY_CFG(colors)[complaint.priority] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.priority };
+  const sc = STATUS_CFG(colors, t)[complaint.status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.status };
+  const pc = PRIORITY_CFG(colors, t)[complaint.priority] ?? { bg: colors.borderLight, text: colors.text.secondary, label: complaint.priority };
   const statusBtnDisabled = !newStatus || (newStatus !== 'in-progress' && !resolutionNotes.trim());
 
   return (
@@ -152,7 +154,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]} numberOfLines={1}>Complaint</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]} numberOfLines={1}>{t('owner.complaintDetail.title')}</Text>
           <Text style={[styles.headerSub, { color: colors.text.secondary }]}>{formatDate(complaint.createdAt)}</Text>
         </View>
         <View style={[styles.badge, { backgroundColor: sc.bg }]}>
@@ -172,7 +174,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
             <Text style={[styles.title, { color: colors.text.primary }]}>{complaint.title}</Text>
             <View style={styles.badgeRow}>
               <View style={[styles.badge, { backgroundColor: pc.bg }]}>
-                <Text style={[styles.badgeText, { color: pc.text }]}>{pc.label} priority</Text>
+                 <Text style={[styles.badgeText, { color: pc.text }]}>{t('owner.complaintDetail.badgePrioritySuffix', { label: pc.label })}</Text>
               </View>
               {complaint.category ? (
                 <View style={[styles.badge, { backgroundColor: colors.borderLight }]}>
@@ -183,7 +185,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
             <Text style={[styles.desc, { color: colors.text.primary }]}>{complaint.description}</Text>
             {complaint.resolutionNotes ? (
               <View style={[styles.notesBox, { backgroundColor: colors.successLight }]}>
-                <Text style={[styles.notesLabel, { color: colors.success }]}>Resolution Notes</Text>
+                 <Text style={[styles.notesLabel, { color: colors.success }]}>{t('owner.complaintDetail.resolutionNotes')}</Text>
                 <Text style={[styles.notesText, { color: colors.text.primary }]}>{complaint.resolutionNotes}</Text>
               </View>
             ) : null}
@@ -192,11 +194,11 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
           {/* Status update panel (owner) */}
           {!isTerminal && (
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
-              <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Update Status</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.complaintDetail.sectionUpdateStatus')}</Text>
               <View style={styles.statusRow}>
                 {statusOptions.map(opt => {
                   const selected = newStatus === opt.key;
-                  const cfg = STATUS_CFG(colors)[opt.key] ?? {};
+                  const cfg = STATUS_CFG(colors, t)[opt.key] ?? {};
                   const color = selected ? cfg.text ?? colors.primary : colors.text.secondary;
                   const border = selected ? cfg.bg ?? colors.primary : colors.border;
                   return (
@@ -213,12 +215,12 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
               </View>
               {newStatus && newStatus !== 'in-progress' && (
                 <View style={{ marginTop: spacing.md }}>
-                  <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Resolution Notes *</Text>
+                  <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.complaintDetail.fieldResolutionNotes')}</Text>
                   <TextInput
                     style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                     value={resolutionNotes}
                     onChangeText={setResolutionNotes}
-                    placeholder="Briefly describe the resolution…"
+                    placeholder={t('owner.complaintDetail.placeholderResolution')}
                     placeholderTextColor={colors.text.tertiary}
                     multiline
                     numberOfLines={3}
@@ -232,7 +234,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
                 activeOpacity={0.8}
                 disabled={!newStatus || updateMutation.isPending || statusBtnDisabled}
               >
-                {updateMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.saveBtnText}>Update Status</Text>}
+                {updateMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :                  <Text style={styles.saveBtnText}>{t('owner.complaintDetail.btnUpdateStatus')}</Text>}
               </TouchableOpacity>
             </View>
           )}
@@ -240,7 +242,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
           {/* Chat */}
           <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
             <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
-              {commentCount === 0 ? 'Comments' : `Comments (${commentCount})`}
+              {t('owner.complaintDetail.sectionComments', { count: commentCount })}
             </Text>
             <View style={{ gap: spacing.md, marginTop: spacing.md }}>
               {(complaint.comments ?? []).map(c => {
@@ -256,7 +258,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
                 );
               })}
               {complaint.comments?.length === 0 && (
-                <Text style={[styles.noComments, { color: colors.text.tertiary }]}>No comments yet. Start a conversation below.</Text>
+                 <Text style={[styles.noComments, { color: colors.text.tertiary }]}>{t('owner.complaintDetail.noComments')}</Text>
               )}
             </View>
           </View>
@@ -268,7 +270,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
             style={[styles.composerInput, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
             value={message}
             onChangeText={setMessage}
-            placeholder={isTerminal ? 'This complaint is closed' : 'Reply to the tenant…'}
+            placeholder={isTerminal ? t('owner.complaintDetail.composerClosed') : t('owner.complaintDetail.composerReply')}
             placeholderTextColor={colors.text.tertiary}
             multiline
             editable={!isTerminal}

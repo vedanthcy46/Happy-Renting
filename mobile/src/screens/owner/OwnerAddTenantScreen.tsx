@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import {
@@ -29,9 +30,10 @@ interface CalendarModalProps {
   value: string;
   onSelect: (iso: string) => void;
   onClose: () => void;
+  t: (key: string) => string;
 }
 
-const CalendarModal: React.FC<CalendarModalProps> = ({ visible, value, onSelect, onClose }) => {
+const CalendarModal: React.FC<CalendarModalProps> = ({ visible, value, onSelect, onClose, t }) => {
   const { colors } = useTheme();
   const initial = value ? new Date(`${value}T00:00:00`) : new Date();
   const [viewYear, setViewYear] = useState(initial.getFullYear());
@@ -75,7 +77,7 @@ const CalendarModal: React.FC<CalendarModalProps> = ({ visible, value, onSelect,
     <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
       <TouchableOpacity style={styles.calendarOverlay} onPress={onClose} activeOpacity={1}>
         <View style={[styles.calendarSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.calendarTitle, { color: colors.text.primary }]}>Select Join Date</Text>
+          <Text style={[styles.calendarTitle, { color: colors.text.primary }]}>{t('owner.addTenant.selectDateTitle')}</Text>
 
           <View style={styles.calendarNav}>
             <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
@@ -175,6 +177,7 @@ const SelectSheet: React.FC<SelectSheetProps> = ({ visible, title, options, sele
 };
 
 export const OwnerAddTenantScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -255,10 +258,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
     onSuccess: (res) => { setSelectedUserId(res.user._id); },
     onError: (err: any) => {
       if (__DEV__) console.error('Register failed', err);
-      Alert.alert(
-        'Register failed',
-        err?.response?.data?.message || err?.message || 'Failed to create account.'
-      );
+      Alert.alert(t('owner.addTenant.alertRegisterTitle'), err?.response?.data?.message || err?.message || t('owner.addTenant.alertRegisterMsg'));
     },
   });
 
@@ -267,10 +267,10 @@ export const OwnerAddTenantScreen: React.FC = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerTenants'] });
       qc.invalidateQueries({ queryKey: ['ownerRooms'] });
-      Alert.alert('Done', 'Tenant has been moved in successfully.');
+      Alert.alert(t('owner.addTenant.alertDone'), t('owner.addTenant.alertDoneMsg'));
       router.back();
     },
-    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to add tenant.'),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.addTenant.alertErr')),
   });
 
   const roomOptions = rooms
@@ -306,13 +306,13 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const handleVerifyOtp = () => { if (otp.trim()) verifyOtpMutation.mutate({ email: newEmail.trim(), otp: otp.trim() }); };
 
   const handleRegister = () => {
-    if (!newName.trim()) return Alert.alert('Missing details', 'Please enter the tenant name.');
-    if (newName.trim().length < 2) return Alert.alert('Invalid name', 'Name must be at least 2 characters.');
-    if (newPassword.length < 8) return Alert.alert('Weak password', 'Password must be at least 8 characters.');
+    if (!newName.trim()) return Alert.alert(t('owner.addTenant.alertMissingTitle'), t('owner.addTenant.alertMissingName'));
+    if (newName.trim().length < 2) return Alert.alert(t('owner.addTenant.alertInvalidNameTitle'), t('owner.addTenant.alertInvalidNameMsg'));
+    if (newPassword.length < 8) return Alert.alert(t('owner.addTenant.alertWeakPwTitle'), t('owner.addTenant.alertWeakPwMin'));
     if (!/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/\d/.test(newPassword) || !/[@$!%*?&]/.test(newPassword)) {
       return Alert.alert(
-        'Weak password',
-        'Password must contain uppercase, lowercase, number, and special character (@$!%*?&).'
+        t('owner.addTenant.alertWeakPwTitle'),
+        t('owner.addTenant.alertWeakPwChars')
       );
     }
     registerMutation.mutate({
@@ -346,8 +346,8 @@ export const OwnerAddTenantScreen: React.FC = () => {
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Add Tenant</Text>
-          <Text style={[styles.headerSub, { color: colors.text.secondary }]}>Move a tenant into a room</Text>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{t('owner.addTenant.title')}</Text>
+          <Text style={[styles.headerSub, { color: colors.text.secondary }]}>{t('owner.addTenant.sub')}</Text>
         </View>
       </View>
 
@@ -361,7 +361,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
         >
           {/* Room */}
           <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>1. Assign Room</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.addTenant.sectionRoom')}</Text>
             <TouchableOpacity style={[styles.selectField, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => setRoomSheet(true)} activeOpacity={0.7}>
               {selectedRoom ? (
                 <View style={{ flex: 1 }}>
@@ -371,18 +371,18 @@ export const OwnerAddTenantScreen: React.FC = () => {
                   </Text>
                 </View>
               ) : (
-                <Text style={[styles.selectPlaceholder, { color: colors.text.tertiary }]}>Select a vacant room…</Text>
+                 <Text style={[styles.selectPlaceholder, { color: colors.text.tertiary }]}>{t('owner.addTenant.selectRoomPlaceholder')}</Text>
               )}
               <Ionicons name="chevron-down" size={18} color={colors.text.tertiary} />
             </TouchableOpacity>
             {selectedRoom && (selectedRoom.currentOccupancy ?? 0) >= selectedRoom.capacity && (
-              <Text style={[styles.errText, { color: colors.error }]}>This room is full.</Text>
+               <Text style={[styles.errText, { color: colors.error }]}>{t('owner.addTenant.errRoomFull')}</Text>
             )}
           </View>
 
           {/* Tenant source */}
           <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>2. Tenant</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.addTenant.sectionTenant')}</Text>
             <View style={styles.segment}>
               {(['existing', 'new'] as const).map(m => (
                 <TouchableOpacity
@@ -391,9 +391,9 @@ export const OwnerAddTenantScreen: React.FC = () => {
                   onPress={() => { setMode(m); }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.segmentText, { color: mode === m ? '#FFFFFF' : colors.text.secondary }]}>
-                    {m === 'existing' ? 'Existing User' : 'Create New'}
-                  </Text>
+                 <Text style={[styles.segmentText, { color: mode === m ? '#FFFFFF' : colors.text.secondary }]}>
+                   {m === 'existing' ? t('owner.addTenant.segmentExisting') : t('owner.addTenant.segmentNew')}
+                 </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -406,30 +406,30 @@ export const OwnerAddTenantScreen: React.FC = () => {
                     <Text style={[styles.selectHint, { color: colors.text.secondary }]}>{selectedUser.email}</Text>
                   </View>
                 ) : (
-                  <Text style={[styles.selectPlaceholder, { color: colors.text.tertiary }]}>Select a registered user…</Text>
+                  <Text style={[styles.selectPlaceholder, { color: colors.text.tertiary }]}>{t('owner.addTenant.selectUserPlaceholder')}</Text>
                 )}
                 <Ionicons name="chevron-down" size={18} color={colors.text.tertiary} />
               </TouchableOpacity>
             ) : (
               <View style={styles.formBody}>
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Full Name *</Text>
-                <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={newName} onChangeText={setNewName} placeholder="Tenant name" placeholderTextColor={colors.text.tertiary} />
+                 <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelFullName')}</Text>
+                <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={newName} onChangeText={setNewName}                  placeholder={t('owner.addTenant.placeholderName')} placeholderTextColor={colors.text.tertiary} />
 
-                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Email *</Text>
-                <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={newEmail} onChangeText={setNewEmail} placeholder="tenant@email.com" placeholderTextColor={colors.text.tertiary} keyboardType="email-address" autoCapitalize="none" />
+                 <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelEmail')}</Text>
+                <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={newEmail} onChangeText={setNewEmail}                  placeholder={t('owner.addTenant.placeholderEmail')} placeholderTextColor={colors.text.tertiary} keyboardType="email-address" autoCapitalize="none" />
 
                 {!otpSent && (
                   <TouchableOpacity style={[styles.outlineBtn, { borderColor: colors.primary }]} onPress={handleSendOtp} disabled={!canSendOtp || sendOtpMutation.isPending} activeOpacity={0.7}>
-                    {sendOtpMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={[styles.outlineBtnText, { color: colors.primary }]}>Send OTP</Text>}
+                    {sendOtpMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> :                      <Text style={[styles.outlineBtnText, { color: colors.primary }]}>{t('owner.addTenant.btnSendOtp')}</Text>}
                   </TouchableOpacity>
                 )}
                 {otpSent && !otpVerified && (
                   <>
-                    <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>OTP</Text>
+                     <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelOtp')}</Text>
                     <View style={styles.otpRow}>
-                      <TextInput style={[styles.input, styles.otpInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={otp} onChangeText={setOtp} keyboardType="number-pad" placeholder="6-digit" placeholderTextColor={colors.text.tertiary} maxLength={6} />
+                       <TextInput style={[styles.input, styles.otpInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={otp} onChangeText={setOtp} keyboardType="number-pad" placeholder={t('owner.addTenant.placeholderOtp')} placeholderTextColor={colors.text.tertiary} maxLength={6} />
                       <TouchableOpacity style={[styles.verifyBtn, { backgroundColor: otp.trim() ? colors.primary : colors.border }]} onPress={handleVerifyOtp} disabled={!otp.trim() || verifyOtpMutation.isPending} activeOpacity={0.8}>
-                        {verifyOtpMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.verifyText}>Verify</Text>}
+                        {verifyOtpMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :                          <Text style={styles.verifyText}>{t('owner.addTenant.btnVerify')}</Text>}
                       </TouchableOpacity>
                     </View>
                   </>
@@ -437,18 +437,18 @@ export const OwnerAddTenantScreen: React.FC = () => {
                 {otpVerified && (
                   <View style={[styles.verifiedBox, { backgroundColor: colors.successLight }]}>
                     <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                    <Text style={[styles.verifiedText, { color: colors.success }]}>Email verified</Text>
+                     <Text style={[styles.verifiedText, { color: colors.success }]}>{t('owner.addTenant.verified')}</Text>
                   </View>
                 )}
                 {otpVerified && (
                   <>
-                    <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Temporary Password *</Text>
+                    <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelPassword')}</Text>
                     <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={newPassword} onChangeText={setNewPassword} placeholder="Set a password" placeholderTextColor={colors.text.tertiary} secureTextEntry />
-                    <Text style={[styles.passwordHint, { color: colors.text.tertiary }]}>
-                      Min 8 chars with uppercase, lowercase, number & special character (@$!%*?&)
-                    </Text>
+                     <Text style={[styles.passwordHint, { color: colors.text.tertiary }]}>
+                       {t('owner.addTenant.passwordHint')}
+                     </Text>
                     <TouchableOpacity style={[styles.fullBtn, { backgroundColor: newPassword ? colors.primary : colors.border }]} onPress={handleRegister} disabled={!newPassword || registerMutation.isPending || !!selectedUserId} activeOpacity={0.8}>
-                      {registerMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>{selectedUserId ? 'Account created' : 'Create Account'}</Text>}
+                      {registerMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :                        <Text style={styles.fullBtnText}>{selectedUserId ? t('owner.addTenant.btnAccountCreated') : t('owner.addTenant.btnCreateAccount')}</Text>}
                     </TouchableOpacity>
                   </>
                 )}
@@ -458,34 +458,34 @@ export const OwnerAddTenantScreen: React.FC = () => {
 
           {/* Details */}
           <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>3. Lease Details</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.addTenant.sectionDetails')}</Text>
             <View style={styles.formBody}>
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Phone *</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="Tenant phone" placeholderTextColor={colors.text.tertiary} />
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelPhone')}</Text>
+              <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={phone} onChangeText={setPhone} keyboardType="phone-pad"                  placeholder={t('owner.addTenant.placeholderPhone')} placeholderTextColor={colors.text.tertiary} />
 
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>ID Number</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={idProof} onChangeText={setIdProof} placeholder="Aadhaar / Govt ID number" placeholderTextColor={colors.text.tertiary} />
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelIdNumber')}</Text>
+              <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={idProof} onChangeText={setIdProof}                  placeholder={t('owner.addTenant.placeholderIdNumber')} placeholderTextColor={colors.text.tertiary} />
 
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Join Date *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelJoinDate')}</Text>
               <TouchableOpacity
                 style={[styles.input, styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
                 onPress={() => setJoinDatePickerVisible(true)}
                 activeOpacity={0.7}
               >
                 <Text style={{ color: joinDate ? colors.text.primary : colors.text.tertiary, fontSize: 15 }}>
-                  {joinDate ? joinDate : 'Select date…'}
+                  {joinDate ? joinDate : t('owner.addTenant.placeholderJoinDate')}
                 </Text>
                 <Ionicons name="calendar-outline" size={18} color={colors.text.tertiary} />
               </TouchableOpacity>
 
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Security Deposit (₹)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelSecurityDeposit')}</Text>
               <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={securityDeposit} onChangeText={setSecurityDeposit} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.text.tertiary} />
 
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Advance Paid (₹)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelAdvancePaid')}</Text>
               <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={advancePaid} onChangeText={setAdvancePaid} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.text.tertiary} />
 
-              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Notes</Text>
-              <TextInput style={[styles.input, styles.inputMultiline, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={notes} onChangeText={setNotes} multiline numberOfLines={3} placeholder="Optional notes" placeholderTextColor={colors.text.tertiary} maxLength={500} />
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelNotes')}</Text>
+              <TextInput style={[styles.input, styles.inputMultiline, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={notes} onChangeText={setNotes} multiline numberOfLines={3}                  placeholder={t('owner.addTenant.placeholderNotes')} placeholderTextColor={colors.text.tertiary} maxLength={500} />
             </View>
           </View>
         </ScrollView>
@@ -497,14 +497,14 @@ export const OwnerAddTenantScreen: React.FC = () => {
             disabled={!canAdd || addTenantMutation.isPending}
             activeOpacity={0.8}
           >
-            {addTenantMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.submitText}>Add Tenant</Text>}
+            {addTenantMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :              <Text style={styles.submitText}>{t('owner.addTenant.btnSubmit')}</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
       <SelectSheet
         visible={roomSheet}
-        title="Select Room"
+        title={t('owner.addTenant.selectRoomTitle')}
         options={roomOptions}
         selectedKey={selectedRoomId}
         onSelect={setSelectedRoomId}
@@ -512,7 +512,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
       />
       <SelectSheet
         visible={userSheet}
-        title="Select User"
+        title={t('owner.addTenant.selectUserTitle')}
         options={userOptions}
         selectedKey={selectedUserId}
         onSelect={setSelectedUserId}
@@ -524,6 +524,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
         value={joinDate}
         onSelect={setJoinDate}
         onClose={() => setJoinDatePickerVisible(false)}
+        t={t}
       />
     </View>
   );
