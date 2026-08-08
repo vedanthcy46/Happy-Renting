@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
@@ -61,28 +62,8 @@ function MessageBubble({ message, isUser }: { message: string; isUser: boolean }
   );
 }
 
-const TENANT_SUGGESTIONS = [
-  'How much rent do I need to pay?',
-  'Show my previous receipts',
-  'Raise a complaint for water leakage',
-  'What complaints are open?',
-  'Have I paid rent this month?',
-];
-
-const OWNER_SUGGESTIONS = [
-  'Who hasn\u2019t paid rent this month?',
-  'Show this month\u2019s income',
-  'Which property earns the most?',
-  'Draft rent reminders',
-  'What is my occupancy rate?',
-  'Give me a monthly business report',
-  'Why is my income low this month?',
-  'Who pays rent late regularly?',
-  'What should I improve?',
-  'Send reminders to everyone',
-];
-
 export const AIAssistantScreen = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -92,8 +73,10 @@ export const AIAssistantScreen = () => {
   const headerHeight = useRef(0);
 
   const isOwner = workspace === 'owner';
-  const suggestions = isOwner ? OWNER_SUGGESTIONS : TENANT_SUGGESTIONS;
-  const subtitle = isOwner ? 'Owner workspace' : 'Tenant workspace';
+  const suggestions = isOwner
+    ? [t('ai.sOwner1'), t('ai.sOwner2'), t('ai.sOwner3'), t('ai.sOwner4'), t('ai.sOwner5'), t('ai.sOwner6'), t('ai.sOwner7'), t('ai.sOwner8'), t('ai.sOwner9'), t('ai.sOwner10')]
+    : [t('ai.sTenant1'), t('ai.sTenant2'), t('ai.sTenant3'), t('ai.sTenant4'), t('ai.sTenant5')];
+  const subtitle = isOwner ? t('ai.subtitleOwner') : t('ai.subtitleTenant');
 
   const iosOffset = Platform.OS === 'ios' ? headerHeight.current + insets.top : 0;
 
@@ -107,7 +90,7 @@ export const AIAssistantScreen = () => {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <View onLayout={(e) => { headerHeight.current = e.nativeEvent.layout.height; }}>
         <AppHeader
-          title="AI Assistant"
+          title={t('ai.titleAssistant')}
           subtitle={subtitle}
           rightIcon="trash-outline"
           onRightPress={clearChat}
@@ -133,10 +116,10 @@ export const AIAssistantScreen = () => {
                 <Ionicons name="sparkles" size={34} color={colors.primary} />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
-                {isOwner ? 'Hi, I\u2019m your property copilot' : 'Hi, I\u2019m your tenancy assistant'}
+                {isOwner ? t('ai.emptyTitleOwner') : t('ai.emptyTitleTenant')}
               </Text>
               <Text style={[styles.emptySub, { color: colors.text.secondary }]}>
-                I can read your {isOwner ? 'business' : 'rent'} data and act on it. Try one of these:
+                {isOwner ? t('ai.emptySubOwner') : t('ai.emptySubTenant')}
               </Text>
               <View style={styles.suggestions}>
                 {suggestions.map((s) => (
@@ -161,7 +144,7 @@ export const AIAssistantScreen = () => {
             <View style={[styles.bubble, { backgroundColor: colors.surface, alignSelf: 'flex-start' }]}>
               <View style={styles.typingRow}>
                 <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.typing, { color: colors.text.secondary }]}>Thinking…</Text>
+                <Text style={[styles.typing, { color: colors.text.secondary }]}>{t('ai.thinking')}</Text>
               </View>
             </View>
           )}
@@ -177,7 +160,7 @@ export const AIAssistantScreen = () => {
         <View style={[styles.inputBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: spacing.md + insets.bottom }]}>
           <TextInput
             style={[styles.input, { backgroundColor: colors.card, color: colors.text.primary }]}
-            placeholder={isOwner ? 'Ask about income, tenants, occupancy…' : 'Ask about your rent, receipts, complaints…'}
+            placeholder={isOwner ? t('ai.placeholderOwner') : t('ai.placeholderTenant')}
             placeholderTextColor={colors.text.tertiary}
             value={input}
             onChangeText={setInput}

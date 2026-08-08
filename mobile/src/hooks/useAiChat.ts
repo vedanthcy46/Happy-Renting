@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/useAuthStore';
 import { sendAiMessage } from '../api/ai';
 import { AiChatMessage, Workspace } from '../types/ai';
@@ -16,6 +17,7 @@ const sessionCache: Record<Workspace, AiChatMessage[]> = {
 const MAX_SESSION_MESSAGES = 20;
 
 export function useAiChat() {
+  const { t } = useTranslation();
   const activeWorkspace = useAuthStore((s) => s.activeWorkspace || 'tenant');
   const [messages, setMessages] = useState<AiChatMessage[]>(() => [...sessionCache[activeWorkspace]]);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,14 +50,14 @@ export function useAiChat() {
       const history = sessionCache[ws].slice(-MAX_SESSION_MESSAGES);
       const res = await sendAiMessage({ message: trimmed, workspace: ws, history, language: getCurrentLanguage() });
       if (!res.success) {
-        throw new Error(res.message || 'Could not reach the assistant.');
+        throw new Error(res.message || t('ai.unreachable'));
       }
       const reply: AiChatMessage = { role: 'assistant', content: res.reply };
       const withReply = [...next, reply];
       sessionCache[ws] = withReply.slice(-MAX_SESSION_MESSAGES);
       setMessages(withReply);
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Something went wrong. Please try again.');
+      setError(e?.response?.data?.message || e?.message || t('errors.generic'));
       setMessages(next);
     } finally {
       setIsLoading(false);

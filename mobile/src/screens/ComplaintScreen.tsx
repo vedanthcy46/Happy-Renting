@@ -16,6 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -28,17 +29,18 @@ import { useTheme } from '../theme/ThemeProvider';
 import { formatRelativeTime } from '../utils';
 
 const COMPLAINT_CATEGORIES = [
-  { id: 'plumbing', label: 'Plumbing', icon: 'water-outline' },
-  { id: 'electrical', label: 'Electrical', icon: 'flash-outline' },
-  { id: 'pest_control', label: 'Pest Control', icon: 'bug-outline' },
-  { id: 'cleaning', label: 'Cleaning', icon: 'brush-outline' },
-  { id: 'security', label: 'Security', icon: 'shield-outline' },
-  { id: 'noise', label: 'Noise', icon: 'volume-high-outline' },
-  { id: 'internet', label: 'Internet/Wifi', icon: 'wifi-outline' },
-  { id: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline' },
+  { id: 'plumbing', labelKey: 'plumbing', icon: 'water-outline' },
+  { id: 'electrical', labelKey: 'electrical', icon: 'flash-outline' },
+  { id: 'pest_control', labelKey: 'pestControl', icon: 'bug-outline' },
+  { id: 'cleaning', labelKey: 'cleaning', icon: 'brush-outline' },
+  { id: 'security', labelKey: 'security', icon: 'shield-outline' },
+  { id: 'noise', labelKey: 'noise', icon: 'volume-high-outline' },
+  { id: 'internet', labelKey: 'internet', icon: 'wifi-outline' },
+  { id: 'other', labelKey: 'other', icon: 'ellipsis-horizontal-outline' },
 ];
 
 export const ComplaintScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -67,10 +69,10 @@ export const ComplaintScreen: React.FC = () => {
       setImageUri(null);
       const isQueued = typeof res?.complaint?._id === 'string' && res.complaint._id.startsWith('local-');
       if (isQueued) {
-        Alert.alert('Saved Offline', 'Complaint saved on this device. It will be submitted automatically when you are back online.');
+        Alert.alert(t('complaint.savedOfflineTitle'), t('complaint.savedOfflineDesc'));
       }
     },
-    onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to submit complaint'),
+    onError: (error: any) => Alert.alert(t('common.error'), error.response?.data?.message || t('complaint.failedSubmit')),
   });
 
   const pickImage = async () => {
@@ -86,7 +88,7 @@ export const ComplaintScreen: React.FC = () => {
 
   const handleCreate = () => {
     if (!form.title.trim() || !form.description.trim()) {
-      Alert.alert('Error', 'Title and description are required');
+      Alert.alert(t('common.error'), t('complaint.titleDescRequired'));
       return;
     }
 
@@ -120,7 +122,7 @@ export const ComplaintScreen: React.FC = () => {
           <View style={styles.resolutionBox}>
             <View style={styles.resolutionHeader}>
               <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-              <Text style={styles.resolutionLabel}>Resolution</Text>
+              <Text style={styles.resolutionLabel}>{t('complaint.resolution')}</Text>
             </View>
             <Text style={styles.resolutionText}>{item.resolutionNotes}</Text>
           </View>
@@ -133,12 +135,12 @@ export const ComplaintScreen: React.FC = () => {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Complaints</Text>
-          <Text style={styles.headerSubtitle}>Track and manage issues</Text>
+          <Text style={styles.headerTitle}>{t('complaint.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('complaint.subtitle')}</Text>
         </View>
         <TouchableOpacity style={styles.headerAddBtn} onPress={() => setShowAddModal(true)} activeOpacity={0.8}>
           <Ionicons name="add" size={22} color="#FFFFFF" />
-          <Text style={styles.headerAddText}>Add</Text>
+          <Text style={styles.headerAddText}>{t('common.add')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -153,9 +155,9 @@ export const ComplaintScreen: React.FC = () => {
         ListEmptyComponent={
           <EmptyState
             icon="chatbubble-ellipses-outline"
-            title="No Complaints"
-            description="No issues raised yet. Tap + to raise a complaint."
-            actionLabel="Raise a Complaint"
+            title={t('complaint.noComplaintsTitle')}
+            description={t('complaint.noComplaintsDesc')}
+            actionLabel={t('complaint.addComplaint')}
             onAction={() => setShowAddModal(true)}
           />
         }
@@ -166,7 +168,7 @@ export const ComplaintScreen: React.FC = () => {
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Raise a Complaint</Text>
+              <Text style={styles.modalTitle}>{t('complaint.addComplaint')}</Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
                 <Ionicons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
@@ -174,16 +176,16 @@ export const ComplaintScreen: React.FC = () => {
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
               <AppInput
-                label="Title"
-                placeholder="e.g. Leaking Tap"
+                label={t('complaint.titleLabel')}
+                placeholder={t('complaint.titlePlaceholderEx')}
                 value={form.title}
                 onChangeText={(text) => setForm({ ...form, title: text })}
               />
 
-              <Text style={styles.fieldLabel}>Description</Text>
+              <Text style={styles.fieldLabel}>{t('complaint.description')}</Text>
               <TextInput
                 style={styles.textArea}
-                placeholder="Describe the issue in detail..."
+                placeholder={t('complaint.descriptionPlaceholderEx')}
                 placeholderTextColor={colors.text.tertiary}
                 multiline
                 numberOfLines={4}
@@ -191,7 +193,7 @@ export const ComplaintScreen: React.FC = () => {
                 onChangeText={(text) => setForm({ ...form, description: text })}
               />
 
-              <Text style={styles.fieldLabel}>Priority</Text>
+              <Text style={styles.fieldLabel}>{t('complaint.priority')}</Text>
               <View style={styles.priorityRow}>
                 {(['low', 'medium', 'high'] as const).map((p) => (
                   <TouchableOpacity
@@ -201,13 +203,13 @@ export const ComplaintScreen: React.FC = () => {
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.priorityChipText, form.priority === p && { color: '#FFFFFF' }]}>
-                      {p.toUpperCase()}
+                      {t(`complaint.${p}`)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.fieldLabel}>Category</Text>
+              <Text style={styles.fieldLabel}>{t('complaint.category')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
                 {COMPLAINT_CATEGORIES.map((c) => (
                   <TouchableOpacity
@@ -218,13 +220,13 @@ export const ComplaintScreen: React.FC = () => {
                   >
                     <Ionicons name={c.icon as any} size={16} color={form.category === c.id ? '#FFFFFF' : colors.text.secondary} />
                     <Text style={[styles.categoryChipText, form.category === c.id && { color: '#FFFFFF' }]}>
-                      {c.label}
+                      {t(`complaint.${c.labelKey}`)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
 
-              <Text style={styles.fieldLabel}>Photo Attachment</Text>
+              <Text style={styles.fieldLabel}>{t('complaint.photoAttachment')}</Text>
               {imageUri ? (
                 <View style={styles.imageContainer}>
                   <Image source={{ uri: imageUri }} style={styles.attachedImage} />
@@ -235,13 +237,13 @@ export const ComplaintScreen: React.FC = () => {
               ) : (
                 <TouchableOpacity style={styles.attachBtn} onPress={pickImage} activeOpacity={0.7}>
                   <Ionicons name="camera-outline" size={20} color={colors.primary} />
-                  <Text style={styles.attachBtnText}>Add Photo Proof</Text>
+                  <Text style={styles.attachBtnText}>{t('complaint.addPhotoProof')}</Text>
                 </TouchableOpacity>
               )}
 
               <View style={styles.modalButtons}>
-                <AppButton title="Cancel" onPress={() => setShowAddModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
-                <AppButton title="Submit" onPress={handleCreate} loading={mutation.isPending} style={{ flex: 1, marginLeft: spacing.sm }} />
+                <AppButton title={t('common.cancel')} onPress={() => setShowAddModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
+                <AppButton title={t('common.submit')} onPress={handleCreate} loading={mutation.isPending} style={{ flex: 1, marginLeft: spacing.sm }} />
               </View>
             </ScrollView>
           </View>

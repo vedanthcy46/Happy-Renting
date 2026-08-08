@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +30,7 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { colors } = useTheme();
   const queryClient = useQueryClient();
@@ -73,7 +75,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       setShowRoommateModal(false);
       setRoommateForm({ name: '', phone: '', idProof: '' });
     },
-    onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to add roommate'),
+    onError: (error: any) => Alert.alert(t('common.error'), error.response?.data?.message || t('home.addRoommateFailed')),
   });
 
   const mutationUpdate = useMutation({
@@ -84,18 +86,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       setEditingRoommate(null);
       setRoommateForm({ name: '', phone: '', idProof: '' });
     },
-    onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to update roommate'),
+    onError: (error: any) => Alert.alert(t('common.error'), error.response?.data?.message || t('home.updateRoommateFailed')),
   });
 
   const mutationDelete = useMutation({
     mutationFn: (coId: string) => deleteRoommate(tenant!._id, coId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['myTenancy'] }),
-    onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to remove roommate'),
+    onError: (error: any) => Alert.alert(t('common.error'), error.response?.data?.message || t('home.removeRoommateFailed')),
   });
 
   const handleSaveRoommate = () => {
     if (!roommateForm.name || !roommateForm.phone) {
-      Alert.alert('Error', 'Name and phone are required');
+      Alert.alert(t('common.error'), t('home.namePhoneRequired'));
       return;
     }
     if (editingRoommate) mutationUpdate.mutate(roommateForm);
@@ -103,9 +105,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   };
 
   const confirmDeleteRoommate = (co: any) => {
-    Alert.alert('Remove Roommate', `Are you sure you want to remove ${co.name}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => mutationDelete.mutate(co._id) },
+    Alert.alert(t('home.removeRoommate'), t('home.removeRoommateConfirm', { name: co.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('home.remove'), style: 'destructive', onPress: () => mutationDelete.mutate(co._id) },
     ]);
   };
 
@@ -142,15 +144,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         <View style={[styles.centerContainer, { paddingTop: insets.top + spacing.huge }]}>
           <EmptyState
             icon={tenant?.status === 'vacated' ? 'exit-outline' : 'home-outline'}
-            title={tenant?.status === 'vacated' ? 'Tenancy Ended' : 'No Active Tenancy'}
+            title={tenant?.status === 'vacated' ? t('home.tenancyEnded') : t('home.noActiveTenancy')}
             description={
               isError
-                ? 'Failed to load your tenancy data. Pull down to retry.'
+                ? t('home.failedLoad')
                 : tenant?.status === 'vacated'
-                ? `Your stay ended on ${tenant.exitDate ? formatDate(tenant.exitDate) : 'an unknown date'}.`
-                : "You haven't been assigned to a room yet. Contact your property owner."
+                ? t('home.stayEnded', { date: tenant.exitDate ? formatDate(tenant.exitDate) : t('home.unknownDate') })
+                : t('home.notAssigned')
             }
-            actionLabel="Try Again"
+            actionLabel={t('home.tryAgain')}
             onAction={onRefresh}
           />
         </View>
@@ -176,8 +178,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <Ionicons name="menu-outline" size={24} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={[styles.headerTextBlock, { flex: 1, marginHorizontal: spacing.sm }]}>
-              <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</Text>
-              <Text style={styles.userName} numberOfLines={1} adjustsFontSizeToFit>{user?.name || 'Tenant'}</Text>
+              <Text style={styles.greeting}>
+                {new Date().getHours() < 12 ? t('home.goodMorning') : new Date().getHours() < 17 ? t('home.goodAfternoon') : t('home.goodEvening')}
+              </Text>
+              <Text style={styles.userName} numberOfLines={1} adjustsFontSizeToFit>{user?.name || t('home.tenantFallback')}</Text>
             </View>
             <View style={styles.headerRight}>
               <TouchableOpacity
@@ -197,7 +201,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           <View style={styles.propertyRow}>
             <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.7)" />
             <Text style={styles.propertyText}>
-              {tenant.propertyId?.name} · Room {tenant.roomId?.roomNumber}
+              {t('home.propertyText', { tenant: tenant.propertyId?.name, room: tenant.roomId?.roomNumber })}
             </Text>
           </View>
           <View style={{ marginTop: spacing.sm, alignItems: 'flex-start' }}>
@@ -223,7 +227,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             <View style={styles.billCardContent}>
               <View style={styles.billTopRow}>
                 <View>
-                  <Text style={styles.billLabel}>Current Month</Text>
+                  <Text style={styles.billLabel}>{t('home.currentMonth')}</Text>
                   <Text style={styles.billMonth}>{formatMonth(latestRecord.month)}</Text>
                 </View>
                 <StatusBadge status={latestRecord.status} />
@@ -235,8 +239,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               </Text>
               <Text style={styles.billDueText}>
                 {latestRecord.status === 'paid' || latestRecord.status === 'overpaid'
-                  ? 'All cleared for this month ✓'
-                  : `Due: ${formatDate(latestRecord.dueDate)}`}
+                  ? t('home.allCleared')
+                  : t('home.due', { date: formatDate(latestRecord.dueDate) })}
               </Text>
               {latestRecord.status !== 'paid' && latestRecord.status !== 'overpaid' && (
                 <TouchableOpacity
@@ -244,7 +248,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                   onPress={() => onNavigate('rent')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.payNowText}>Pay Rent</Text>
+                  <Text style={styles.payNowText}>{t('home.payRent')}</Text>
                   <Ionicons name="arrow-forward" size={18} color="#4B6BED" />
                 </TouchableOpacity>
               )}
@@ -254,15 +258,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           <AppCard style={styles.billCard} variant="elevated">
             <View style={styles.noBillContent}>
               <Ionicons name="document-text-outline" size={32} color={colors.text.tertiary} />
-              <Text style={styles.noBillTitle}>No Bills Yet</Text>
-              <Text style={styles.noBillDesc}>Bills are generated on the 1st of each month.</Text>
+              <Text style={styles.noBillTitle}>{t('home.noBillsYet')}</Text>
+              <Text style={styles.noBillDesc}>{t('home.noBillsDesc')}</Text>
             </View>
           </AppCard>
         )}
 
         <View style={styles.statsRow}>
           <StatCard
-            label="Pending Amount"
+            label={t('home.pendingAmount')}
             value={formatCurrency(totalPending)}
             icon="card-outline"
             color={colors.primary}
@@ -275,8 +279,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                 <Ionicons name="wallet-outline" size={18} color={colors.success} />
               </View>
               <View style={styles.advanceHeaderText}>
-                <Text style={styles.advanceLabel}>Advance Balance</Text>
-                <Text style={styles.advanceCaption}>Security Deposit</Text>
+                <Text style={styles.advanceLabel}>{t('home.advanceBalance')}</Text>
+                <Text style={styles.advanceCaption}>{t('home.securityDeposit')}</Text>
               </View>
               {depositFullyPaid && (
                 <View style={[styles.paidTick, { backgroundColor: colors.success }]}>
@@ -289,24 +293,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             </Text>
             <View style={styles.advanceRows}>
               <View style={styles.advanceRow}>
-                <Text style={styles.advanceRowLabel}>Total Deposit</Text>
+                <Text style={styles.advanceRowLabel}>{t('home.totalDeposit')}</Text>
                 <Text style={styles.advanceRowValue}>{formatCurrency(depositTotal)}</Text>
               </View>
               <View style={styles.advanceRow}>
-                <Text style={styles.advanceRowLabel}>Paid</Text>
+                <Text style={styles.advanceRowLabel}>{t('home.paid')}</Text>
                 <Text style={[styles.advanceRowValue, { color: colors.success }]}>{formatCurrency(depositPaid)}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
         <View style={styles.quickActions}>
           {[
-            { icon: 'card', label: 'Pay Rent', color: colors.primary, bgColor: colors.primaryLight, screen: 'rent' },
-            { icon: 'chatbubble-ellipses', label: 'Complaint', color: colors.warning, bgColor: colors.warningLight, screen: 'complaints' },
-            { icon: 'receipt', label: 'Receipts', color: colors.success, bgColor: colors.successLight, screen: 'rent' },
-            { icon: 'call', label: 'Contact Owner', color: colors.info, bgColor: colors.infoLight, screen: '', action: handleCallOwner },
+            { icon: 'card', label: t('home.payRent'), color: colors.primary, bgColor: colors.primaryLight, screen: 'rent' },
+            { icon: 'chatbubble-ellipses', label: t('home.complaint'), color: colors.warning, bgColor: colors.warningLight, screen: 'complaints' },
+            { icon: 'receipt', label: t('home.receipts'), color: colors.success, bgColor: colors.successLight, screen: 'rent' },
+            { icon: 'call', label: t('home.contactOwner'), color: colors.info, bgColor: colors.infoLight, screen: '', action: handleCallOwner },
           ].map((item, idx) => (
             <TouchableOpacity
               key={idx}
@@ -322,14 +326,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <Text style={styles.sectionTitle}>{t('home.recentActivity')}</Text>
         <AppCard variant="elevated" padding={spacing.md}>
           {records.slice(0, 3).length > 0 ? (
             records.slice(0, 3).map((record, idx) => (
               <ActivityCard
                 key={record._id}
-                title={`${formatMonth(record.month)} Rent`}
-                description={record.status === 'paid' ? 'Payment completed' : `${formatCurrency(record.remainingAmount)} remaining`}
+                title={t('home.monthRent', { month: formatMonth(record.month) })}
+                description={record.status === 'paid' ? t('home.paymentCompleted') : t('home.remaining', { amount: formatCurrency(record.remainingAmount) })}
                 amount={formatCurrency(record.totalRent)}
                 type="payment"
                 timestamp={record.dueDate}
@@ -339,46 +343,46 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           ) : (
             <View style={styles.noActivity}>
               <Ionicons name="time-outline" size={24} color={colors.text.tertiary} />
-              <Text style={styles.noActivityText}>No recent activity</Text>
+              <Text style={styles.noActivityText}>{t('home.recentActivityEmpty')}</Text>
             </View>
           )}
         </AppCard>
 
-        <Text style={styles.sectionTitle}>Room Details</Text>
+        <Text style={styles.sectionTitle}>{t('home.roomDetails')}</Text>
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.detailGrid}>
             <View style={styles.detailItem}>
               <Ionicons name="business-outline" size={16} color={colors.text.secondary} />
-              <Text style={styles.detailLabel}>Property</Text>
+              <Text style={styles.detailLabel}>{t('home.property')}</Text>
               <Text style={styles.detailValue}>{tenant.propertyId?.name}</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="home-outline" size={16} color={colors.text.secondary} />
-              <Text style={styles.detailLabel}>Room</Text>
+              <Text style={styles.detailLabel}>{t('home.room')}</Text>
               <Text style={styles.detailValue}>{tenant.roomId?.roomNumber}</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="people-outline" size={16} color={colors.text.secondary} />
-              <Text style={styles.detailLabel}>Capacity</Text>
+              <Text style={styles.detailLabel}>{t('home.capacity')}</Text>
               <Text style={styles.detailValue}>
-                {(tenant.roomId as any)?.capacity != null ? `${(tenant.roomId as any).capacity} ${(tenant.roomId as any).capacity > 1 ? 'people' : 'person'}` : '—'}
+                {(tenant.roomId as any)?.capacity != null ? `${(tenant.roomId as any).capacity} ${(tenant.roomId as any).capacity > 1 ? t('home.people') : t('home.person')}` : '—'}
               </Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="cash-outline" size={16} color={colors.text.secondary} />
-              <Text style={styles.detailLabel}>Monthly Rent</Text>
+              <Text style={styles.detailLabel}>{t('home.monthlyRent')}</Text>
               <Text style={styles.detailValue}>{formatCurrency(tenant.roomId?.monthlyRent)}</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="calendar-outline" size={16} color={colors.text.secondary} />
-              <Text style={styles.detailLabel}>Due Day</Text>
+              <Text style={styles.detailLabel}>{t('home.dueDay')}</Text>
               <Text style={styles.detailValue}>5th</Text>
             </View>
           </View>
         </AppCard>
 
         <>
-          <Text style={styles.sectionTitle}>Roommates</Text>
+          <Text style={styles.sectionTitle}>{t('home.roommates')}</Text>
           <AppCard variant="elevated" style={styles.sectionCard}>
             {coOccupants.length > 0 && coOccupants.map((co: any, idx: number) => (
               <View key={co._id} style={[styles.roommateRow, idx === coOccupants.length - 1 && { borderBottomWidth: 0 }]}>
@@ -413,12 +417,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             {isPrivateRoom ? (
               <View style={styles.noRoommates}>
                 <Ionicons name="lock-closed-outline" size={24} color={colors.text.tertiary} />
-                <Text style={styles.noRoommatesText}>This is a private room reserved for one tenant.</Text>
+                <Text style={styles.noRoommatesText}>{t('home.privateRoom')}</Text>
               </View>
             ) : coOccupants.length === 0 ? (
               <View style={styles.noRoommates}>
                 <Ionicons name="people-outline" size={24} color={colors.text.tertiary} />
-                <Text style={styles.noRoommatesText}>No roommates yet. Add one below.</Text>
+                <Text style={styles.noRoommatesText}>{t('home.noRoommates')}</Text>
               </View>
             ) : null}
 
@@ -433,7 +437,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                 activeOpacity={0.7}
               >
                 <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                <Text style={styles.addRoommateText}>Add Roommate</Text>
+                <Text style={styles.addRoommateText}>{t('home.addRoommate')}</Text>
               </TouchableOpacity>
             )}
           </AppCard>
@@ -445,19 +449,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <Ionicons name="person-circle-outline" size={40} color={colors.primary} />
               <View style={styles.ownerInfoBlock}>
                 <Text style={styles.ownerName}>{tenant.ownerId?.name}</Text>
-                <Text style={styles.ownerRole}>Property Owner</Text>
+                <Text style={styles.ownerRole}>{t('home.propertyOwner')}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.ownerCallButton} onPress={handleCallOwner} activeOpacity={0.8}>
               <Ionicons name="call-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.ownerCallText}>Call Owner</Text>
+              <Text style={styles.ownerCallText}>{t('home.callOwner')}</Text>
             </TouchableOpacity>
           </View>
         </AppCard>
 
         <View style={styles.footerSection}>
           <Ionicons name="calendar-outline" size={12} color={colors.text.tertiary} />
-          <Text style={styles.joinedText}>Joined {formatDate(tenant.joinDate)}</Text>
+          <Text style={styles.joinedText}>{t('home.joined', { date: formatDate(tenant.joinDate) })}</Text>
         </View>
 
         <Text style={styles.aiDisclosure}>
@@ -470,31 +474,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         onClose={() => setShowRoommateModal(false)}
       >
         <Text style={styles.modalTitle}>
-          {editingRoommate ? 'Edit Roommate' : 'Add Roommate'}
+          {editingRoommate ? t('home.editRoommate') : t('home.addRoommate')}
         </Text>
         <AppInput
-          label="Name"
-          placeholder="Enter name"
+          label={t('home.name')}
+          placeholder={t('home.enterName')}
           value={roommateForm.name}
           onChangeText={(text) => setRoommateForm({ ...roommateForm, name: text })}
         />
         <AppInput
-          label="Phone"
-          placeholder="Enter phone number"
+          label={t('home.phone')}
+          placeholder={t('home.enterPhone')}
           value={roommateForm.phone}
           onChangeText={(text) => setRoommateForm({ ...roommateForm, phone: text })}
           keyboardType="phone-pad"
         />
         <AppInput
-          label="ID Proof (Optional)"
-          placeholder="Enter ID proof reference"
+          label={t('home.idProof')}
+          placeholder={t('home.enterIdProof')}
           value={roommateForm.idProof}
           onChangeText={(text) => setRoommateForm({ ...roommateForm, idProof: text })}
         />
         <View style={styles.modalButtons}>
           <View style={{ flex: 1 }}>
             <AppButton
-              title="Cancel"
+              title={t('common.cancel')}
               onPress={() => setShowRoommateModal(false)}
               variant="ghost"
               fullWidth
@@ -502,7 +506,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           </View>
           <View style={{ flex: 1 }}>
             <AppButton
-              title={editingRoommate ? 'Update' : 'Add'}
+              title={editingRoommate ? t('home.update') : t('common.add')}
               onPress={handleSaveRoommate}
               loading={mutationAdd.isPending || mutationUpdate.isPending}
               fullWidth

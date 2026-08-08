@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { triggerBillingSync } from '../api/payment';
@@ -24,6 +25,7 @@ interface RentScreenProps {
 }
 
 export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -38,9 +40,9 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
     mutationFn: triggerBillingSync,
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
-      Alert.alert('Sync Complete', `Billing synced successfully.`);
+      Alert.alert(t('rent.syncTitle'), t('rent.syncComplete'));
     },
-    onError: (error: any) => Alert.alert('Sync Failed', error.response?.data?.message || 'Failed to sync'),
+    onError: (error: any) => Alert.alert(t('rent.syncFailedTitle'), error.response?.data?.message || t('rent.syncFailed')),
   });
 
   const onRefresh = useCallback(() => {
@@ -66,8 +68,8 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
-          <Text style={styles.headerTitle}>Rent Payments</Text>
-          <Text style={styles.headerSubtitle}>Track and manage your rent</Text>
+          <Text style={styles.headerTitle}>{t('rent.titlePayments')}</Text>
+          <Text style={styles.headerSubtitle}>{t('rent.subtitle')}</Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -83,8 +85,8 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
       <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text style={styles.headerTitle}>Rent Payments</Text>
-            <Text style={styles.headerSubtitle}>Track and manage your rent</Text>
+            <Text style={styles.headerTitle}>{t('rent.titlePayments')}</Text>
+            <Text style={styles.headerSubtitle}>{t('rent.subtitle')}</Text>
           </View>
           <TouchableOpacity
             onPress={() => onNavigate('transaction-history')}
@@ -105,7 +107,7 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
           <View style={styles.overpayNote}>
             <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
             <Text style={styles.overpayNoteText}>
-              You can pay more than the rent amount — the extra is kept as advance and automatically adjusted against your pending bills.
+              {t('rent.overpayNote')}
             </Text>
           </View>
         }
@@ -116,9 +118,9 @@ export const RentScreen: React.FC<RentScreenProps> = ({ onNavigate }) => {
           <View style={styles.emptyContainer}>
             <EmptyState
               icon="card-outline"
-              title="No Payments Yet"
-              description="Bills are generated on the 1st of each month. If you just joined, sync your billing."
-              actionLabel="Sync My Billing"
+              title={t('rent.noPaymentsYet')}
+              description={t('rent.noPaymentsDesc')}
+              actionLabel={t('rent.syncMyBilling')}
               onAction={() => mutationSync.mutate()}
             />
           </View>

@@ -157,6 +157,9 @@ export const OwnerProfileScreen: React.FC = () => {
           <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Profile</Text>
           <Text style={[styles.headerSub, { color: colors.text.secondary }]}>Manage payment & account details</Text>
         </View>
+        <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="settings-outline" size={24} color={colors.text.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
@@ -233,14 +236,9 @@ export const OwnerProfileScreen: React.FC = () => {
             {/* Account */}
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.sectionHeader}>
-                <Ionicons name="settings-outline" size={18} color={colors.text.primary} />
+                <Ionicons name="person-outline" size={18} color={colors.text.primary} />
                 <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Account</Text>
               </View>
-              <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/settings')} activeOpacity={0.7}>
-                <Ionicons name="settings-outline" size={18} color={colors.text.secondary} />
-                <Text style={[styles.linkText, { color: colors.text.primary }]}>App Settings</Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.logoutBtn, { backgroundColor: colors.errorLight }]}
                 onPress={() => Alert.alert('Logout', 'Are you sure you want to logout?', [

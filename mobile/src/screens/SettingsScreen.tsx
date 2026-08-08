@@ -309,19 +309,17 @@ export const SettingsScreen: React.FC = () => {
               <View style={[styles.iconBox, { backgroundColor: '#6366F115' }]}>
                 <Ionicons name="language-outline" size={20} color="#6366F1" />
               </View>
-              <View>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Language</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>Choose your preferred language</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.language')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>{t('settings.languageDesc')}</Text>
+                <LanguageSelector onLanguageChange={(lang) => { if (lang !== 'device') setPreferredLanguage(lang).catch(() => {}); }} />
               </View>
             </View>
-          </View>
-          <View style={{ paddingVertical: spacing.sm }}>
-            <LanguageSelector onLanguageChange={(lang) => { if (lang !== 'device') setPreferredLanguage(lang).catch(() => {}); }} />
           </View>
         </AppCard>
 
         {/* Support & Storage Section */}
-        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>System & Data</Text>
+        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>{t('settings.systemData')}</Text>
         <AppCard variant="elevated" style={[styles.card, { backgroundColor: themeColors.surface }]}>
           {/* Clear Cache */}
           <TouchableOpacity style={styles.row} onPress={handleClearCache} activeOpacity={0.7}>
@@ -330,8 +328,8 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="trash-outline" size={20} color="#F59E0B" />
               </View>
               <View>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Clear Cache & Reset</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>Clear local database and log out</Text>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.clearCache')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]}>{t('settings.clearCacheDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.text.tertiary} />
@@ -347,9 +345,9 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: '#EF4444' }]}>Delete Account</Text>
+                <Text style={[styles.rowTitle, { color: '#EF4444' }]}>{t('settings.deleteAccount')}</Text>
                 <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>
-                  Permanently remove all data
+                  {t('settings.deleteAccountDesc')}
                 </Text>
               </View>
             </View>
@@ -376,7 +374,7 @@ export const SettingsScreen: React.FC = () => {
                   </View>
                   {(deletionStatus.status === 'pending_owner' || deletionStatus.status === 'owner_approved') && (
                     <TouchableOpacity onPress={handleCancelDeletion} activeOpacity={0.7}>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#EF4444' }}>Cancel</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#EF4444' }}>{t('settings.cancelDeletion')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -389,15 +387,15 @@ export const SettingsScreen: React.FC = () => {
 
                 {deletionStatus.scheduledDeletionAt && (
                   <Text style={{ fontSize: 12, color: '#4B6BED', marginTop: 4 }}>
-                    Scheduled for: {new Date(deletionStatus.scheduledDeletionAt).toLocaleDateString()}
+                    {t('settings.scheduledFor')} {new Date(deletionStatus.scheduledDeletionAt).toLocaleDateString()}
                   </Text>
                 )}
 
                 {deletionStatus.status === 'owner_rejected' && (
                   <View style={{ marginTop: spacing.sm }}>
-                    <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>Previous request was not approved.</Text>
+                    <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>{t('settings.prevRequestRejected')}</Text>
                     {deletionStatus.deletionRejectedReason && (
-                      <Text style={{ fontSize: 11, color: '#EF4444AA', marginTop: 2 }}>Reason: {deletionStatus.deletionRejectedReason}</Text>
+                      <Text style={{ fontSize: 11, color: '#EF4444AA', marginTop: 2 }}>{t('settings.deleteReason')}: {deletionStatus.deletionRejectedReason}</Text>
                     )}
                     <TouchableOpacity
                       onPress={handleReRequestDeletion}
@@ -407,14 +405,14 @@ export const SettingsScreen: React.FC = () => {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.text.inverse }}>Re-request Deletion</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.text.inverse }}>{t('settings.reRequestDeletion')}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
                 {deletionStatus.status === 'cancelled' && (
                   <View style={{ marginTop: spacing.sm }}>
-                    <Text style={{ fontSize: 12, color: '#94A3B8' }}>Previous request was cancelled.</Text>
+                    <Text style={{ fontSize: 12, color: '#94A3B8' }}>{t('settings.prevRequestCancelled')}</Text>
                     <TouchableOpacity
                       onPress={handleReRequestDeletion}
                       style={{
@@ -423,13 +421,13 @@ export const SettingsScreen: React.FC = () => {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.text.inverse }}>Request Deletion</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.text.inverse }}>{t('settings.requestDeletion')}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
                 {deletionStatus.status === 'completed' && (
-                  <Text style={{ fontSize: 12, color: '#10B981', marginTop: 4 }}>Account deletion has been processed.</Text>
+                  <Text style={{ fontSize: 12, color: '#10B981', marginTop: 4 }}>{t('settings.deletionProcessed')}</Text>
                 )}
               </View>
             </View>
@@ -437,7 +435,7 @@ export const SettingsScreen: React.FC = () => {
         </AppCard>
 
         {/* Support & Legal Section */}
-        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>Support & Legal</Text>
+        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>{t('settings.supportLegal')}</Text>
         <AppCard variant="elevated" style={[styles.card, { backgroundColor: themeColors.surface }]}>
           <TouchableOpacity style={styles.row} onPress={() => router.push('/help')} activeOpacity={0.7}>
             <View style={styles.rowLeft}>
@@ -445,8 +443,8 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="help-circle-outline" size={20} color="#4B6BED" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Help Center & FAQ</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>FAQ, WhatsApp and bug reporting</Text>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.helpCenter')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>{t('settings.helpCenterDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.text.tertiary} />
@@ -460,8 +458,8 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="information-circle-outline" size={20} color="#7C3AED" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>About Happy Renting</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>App version, status check and licenses</Text>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.about')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>{t('settings.aboutDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.text.tertiary} />
@@ -475,8 +473,8 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="star-outline" size={20} color="#F59E0B" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Rate Your App</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>Loved the app? Leave us a review</Text>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.rateApp')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>{t('settings.rateDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.text.tertiary} />
@@ -490,8 +488,8 @@ export const SettingsScreen: React.FC = () => {
                 <Ionicons name="globe-outline" size={20} color="#10B981" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>Visit Website</Text>
-                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>Go to https://happyrenting.netlify.app</Text>
+                <Text style={[styles.rowTitle, { color: themeColors.text.primary }]}>{t('settings.visitWebsite')}</Text>
+                <Text style={[styles.rowDesc, { color: themeColors.text.tertiary }]} numberOfLines={1}>{t('settings.visitWebsiteDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.text.tertiary} />
@@ -499,36 +497,36 @@ export const SettingsScreen: React.FC = () => {
         </AppCard>
 
         {/* App Info Section */}
-        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>App Information</Text>
+        <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>{t('settings.appInfo')}</Text>
         <AppCard variant="elevated" style={[styles.card, { backgroundColor: themeColors.surface }]}>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.text.primary }]}>Version</Text>
-            <Text style={[styles.infoValue, { color: themeColors.text.secondary }]}>v{APP_VERSION} (Build {APP_BUILD_NUMBER})</Text>
+            <Text style={[styles.infoLabel, { color: themeColors.text.primary }]}>{t('settings.version')}</Text>
+            <Text style={[styles.infoValue, { color: themeColors.text.secondary }]}>v{APP_VERSION} ({t('settings.build')} {APP_BUILD_NUMBER})</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.text.primary }]}>Developer</Text>
-            <Text style={[styles.infoValue, { color: themeColors.text.secondary }]}>Happy Renting Team</Text>
+            <Text style={[styles.infoLabel, { color: themeColors.text.primary }]}>{t('settings.developer')}</Text>
+            <Text style={[styles.infoValue, { color: themeColors.text.secondary }]}>{t('settings.developerName')}</Text>
           </View>
         </AppCard>
       </ScrollView>
 
       {/* Biometric Password Input Modal */}
       <Modal visible={showBiometricModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={[styles.modalContent, { backgroundColor: themeColors.surface, flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.modalCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Confirm Biometrics</Text>
-              <TouchableOpacity onPress={handleCancelBiometric}>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>{t('settings.confirmBiometrics')}</Text>
+              <TouchableOpacity onPress={handleCancelBiometric} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={24} color={themeColors.text.primary} />
               </TouchableOpacity>
             </View>
             <Text style={[styles.modalDesc, { color: themeColors.text.secondary }]}>
-              Please enter your password to confirm and securely save your login credentials on this device.
+              {t('settings.confirmBioDesc')}
             </Text>
             <AppInput
-              label="Account Password"
-              placeholder="Enter your password"
+              label={t('settings.accountPassword')}
+              placeholder={t('login.passwordPlaceholder')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -539,7 +537,7 @@ export const SettingsScreen: React.FC = () => {
                 onPress={handleCancelBiometric}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.modalCancelText, { color: themeColors.text.secondary }]}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: themeColors.text.secondary }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalConfirmBtn, { backgroundColor: themeColors.primary }]}
@@ -550,30 +548,30 @@ export const SettingsScreen: React.FC = () => {
                 {submittingBiometric ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Confirm</Text>
+                  <Text style={styles.modalConfirmText}>{t('common.confirm')}</Text>
                 )}
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
       {/* Account Deletion Request Modal */}
       <Modal visible={showDeletionModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={[styles.modalContent, { backgroundColor: themeColors.surface, flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.modalCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Delete Account</Text>
-              <TouchableOpacity onPress={() => setShowDeletionModal(false)}>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>{t('settings.deleteAccount')}</Text>
+              <TouchableOpacity onPress={() => setShowDeletionModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={24} color={themeColors.text.primary} />
               </TouchableOpacity>
             </View>
             <Text style={[styles.modalDesc, { color: themeColors.text.secondary }]}>
-              This sends a deletion request to your property owner for review. After owner approval, your account will be deleted after a 30-day grace period. Payment records will be retained for compliance.
+              {t('settings.deleteBody')}
             </Text>
             <AppInput
-              label="Reason (optional)"
-              placeholder="Let your owner know why you're leaving..."
+              label={t('settings.deleteReason')}
+              placeholder={t('settings.deleteReasonPlaceholder')}
               value={deletionReason}
               onChangeText={setDeletionReason}
               multiline
@@ -585,7 +583,7 @@ export const SettingsScreen: React.FC = () => {
                 onPress={() => setShowDeletionModal(false)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.modalCancelText, { color: themeColors.text.secondary }]}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: themeColors.text.secondary }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalConfirmBtn, { backgroundColor: '#EF4444' }]}
@@ -596,11 +594,11 @@ export const SettingsScreen: React.FC = () => {
                 {deletionLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Request Deletion</Text>
+                  <Text style={styles.modalConfirmText}>{t('settings.requestDeletion')}</Text>
                 )}
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -703,7 +701,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
   },
-  modalContent: {
+  modalCard: {
     width: '100%',
     maxWidth: 340,
     borderRadius: radius.lg,

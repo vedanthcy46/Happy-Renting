@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  Modal,
+  ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { colors, spacing, radius } from '../theme';
+import { spacing, radius } from '../theme';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type SupportedLanguage } from './i18n';
 import {
   saveLanguagePreference,
@@ -17,20 +20,26 @@ import {
 } from './languageService';
 
 export interface LanguageSelectorProps {
-  /** Persist the choice to the backend as well (needs auth) */
   onLanguageChange?: (language: SupportedLanguage | 'device') => Promise<void> | void;
 }
 
-/**
- * Reusable language selector used in Settings. "Follow Device" uses the device
- * language; otherwise the choice is persisted locally (and optionally synced to
- * the backend via onLanguageChange).
- */
+type Option = { code: SupportedLanguage | 'device'; label: string };
+
+const OPTIONS: Option[] = [
+  { code: 'device', label: 'Follow Device' },
+  ...(SUPPORTED_LANGUAGES as readonly SupportedLanguage[]).map((code) => ({
+    code,
+    label: LANGUAGE_NAMES[code],
+  })),
+];
+
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ onLanguageChange }) => {
   const { i18n } = useTranslation();
+  const { colors } = useTheme();
   const [saving, setSaving] = useState(false);
   const [followDevice, setFollowDevice] = useState(true);
   const [active, setActive] = useState<SupportedLanguage>('en');
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     restoreLanguagePreference().then((state) => {
@@ -39,8 +48,13 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ onLanguageCh
     });
   }, []);
 
+  const currentCode: SupportedLanguage | 'device' = followDevice ? 'device' : active;
+  const currentLabel = OPTIONS.find((o) => o.code === currentCode)?.label ?? 'English';
+
   const handleSelect = useCallback(
     async (code: SupportedLanguage | 'device') => {
+      setOpen(false);
+      if (code === currentCode) return;
       setSaving(true);
       try {
         if (code === 'device') {
@@ -57,72 +71,123 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ onLanguageCh
         setSaving(false);
       }
     },
-    [i18n.language, onLanguageChange],
+    [currentCode, i18n.language, onLanguageChange],
   );
 
   return (
-    <View>
+    <>
+      {/* Dropdown trigger */}
       <TouchableOpacity
-        style={[styles.option, followDevice ? styles.optionSelected : null]}
-        onPress={() => handleSelect('device')}
+        style={[styles.trigger, { borderColor: colors.border, backgroundColor: colors.background }]}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.75}
         disabled={saving}
-        activeOpacity={0.7}
       >
-        <Text style={[styles.optionLabel, followDevice ? styles.optionLabelActive : null]}>
-          Follow Device
-        </Text>
-        {followDevice && <Text style={styles.check}>✓</Text>}
+        <View style={styles.triggerLeft}>
+          <Ionicons name="language-outline" size={16} color={colors.primary} style={{ marginRight: spacing.sm }} />
+          <Text style={[styles.triggerText, { color: colors.text.primary }]}>{currentLabel}</Text>
+        </View>
+        {saving ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="chevron-down" size={16} color={colors.text.tertiary} />
+        )}
       </TouchableOpacity>
 
-      {(SUPPORTED_LANGUAGES as readonly SupportedLanguage[]).map((code) => {
-        const selected = !followDevice && active === code;
-        return (
-          <TouchableOpacity
-            key={code}
-            style={[styles.option, selected ? styles.optionSelected : null]}
-            onPress={() => handleSelect(code)}
-            disabled={saving}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.optionLabel, selected ? styles.optionLabelActive : null]}>
-              {LANGUAGE_NAMES[code]}
-            </Text>
-            {selected && <Text style={styles.check}>✓</Text>}
-          </TouchableOpacity>
-        );
-      })}
-      {saving && <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />}
-    </View>
+      {/* Picker sheet */}
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setOpen(false)} />
+        <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.sheetTitle, { color: colors.text.primary }]}>Select Language</Text>
+            <TouchableOpacity onPress={() => setOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+            {OPTIONS.map((opt, idx) => {
+              const selected = opt.code === currentCode;
+              return (
+                <TouchableOpacity
+                  key={opt.code}
+                  style={[
+                    styles.option,
+                    selected && { backgroundColor: colors.primaryLight },
+                    idx < OPTIONS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+                  ]}
+                  onPress={() => handleSelect(opt.code)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.optionLabel, { color: selected ? colors.primary : colors.text.primary }, selected && styles.optionLabelActive]}>
+                    {opt.label}
+                  </Text>
+                  {selected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  spinner: {
-    marginTop: spacing.md,
+  trigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    marginTop: spacing.xs,
+  },
+  triggerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  triggerText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheet: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 40,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
+    maxHeight: 380,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sheetTitle: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   option: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    marginVertical: 2,
-  },
-  optionSelected: {
-    backgroundColor: colors.primaryLight,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
   },
   optionLabel: {
     fontSize: 15,
-    color: colors.text.primary,
   },
   optionLabelActive: {
-    color: colors.primary,
     fontWeight: '700',
-  },
-  check: {
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: 16,
   },
 });

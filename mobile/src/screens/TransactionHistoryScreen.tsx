@@ -13,6 +13,7 @@ import { FlashList } from '@shopify/flash-list';
 const TypedFlashList = FlashList as any;
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cachedTransactionHistory } from '../repositories';
 import { PaymentTransaction } from '../types/payment';
@@ -36,17 +37,21 @@ const methodIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   other: 'ellipsis-horizontal-circle-outline',
 };
 
-const methodLabels: Record<string, string> = {
-  upi: 'UPI',
-  cash: 'Cash',
-  bank_transfer: 'Bank Transfer',
-  cheque: 'Cheque',
-  other: 'Other',
-};
-
 const methodColors: Record<string, string> = {};
 
+const methodLabelFor = (method: string): string => {
+  switch (method) {
+    case 'upi': return 'transactions.methodUpi';
+    case 'cash': return 'transactions.methodCash';
+    case 'bank_transfer': return 'transactions.methodBankTransfer';
+    case 'cheque': return 'transactions.methodCheque';
+    case 'other': return 'transactions.methodOther';
+    default: return method;
+  }
+};
+
 export const TransactionHistoryScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -62,7 +67,7 @@ export const TransactionHistoryScreen: React.FC = () => {
     try {
       await refetch();
     } catch {
-      Alert.alert('Error', 'Failed to refresh transactions');
+      Alert.alert(t('common.error'), t('transactions.refreshFailed'));
     }
   };
 
@@ -120,7 +125,7 @@ export const TransactionHistoryScreen: React.FC = () => {
   }, [processedData]);
 
   if (isError) {
-    Alert.alert('Error', 'Could not load transaction history');
+    Alert.alert(t('common.error'), t('transactions.loadFailed'));
   }
 
   const renderItem = ({ item }: { item: ListItem }) => {
@@ -138,7 +143,7 @@ export const TransactionHistoryScreen: React.FC = () => {
 
     const tx = item.transaction;
     const methodIcon = methodIcons[tx.paymentMethod] || 'ellipsis-horizontal-circle-outline';
-    const methodLabel = methodLabels[tx.paymentMethod] || tx.paymentMethod;
+    const methodLabel = methodLabelFor(tx.paymentMethod);
     const isFailed = tx.status === 'rejected';
     const isPending = tx.status === 'pending' || tx.status === 'verifying';
 
@@ -152,7 +157,7 @@ export const TransactionHistoryScreen: React.FC = () => {
           <View style={styles.txDetails}>
             <View style={styles.amountRow}>
               <View style={styles.amountLeft}>
-                <Text style={styles.txMethod}>{methodLabel}</Text>
+                <Text style={styles.txMethod}>{t(methodLabel)}</Text>
                 {tx.referenceId && (
                   <Text style={styles.refText} numberOfLines={1}>Ref: {tx.referenceId}</Text>
                 )}
@@ -173,11 +178,11 @@ export const TransactionHistoryScreen: React.FC = () => {
   };
 
   const filterChips: { label: string; value: FilterType }[] = [
-    { label: 'All', value: 'all' },
-    { label: 'UPI', value: 'upi' },
-    { label: 'Cash', value: 'cash' },
-    { label: 'Bank Transfer', value: 'bank_transfer' },
-    { label: 'Other', value: 'other' },
+    { label: t('common.all'), value: 'all' },
+    { label: t('transactions.methodUpi'), value: 'upi' },
+    { label: t('transactions.methodCash'), value: 'cash' },
+    { label: t('transactions.methodBankTransfer'), value: 'bank_transfer' },
+    { label: t('transactions.methodOther'), value: 'other' },
   ];
 
   return (
@@ -187,8 +192,8 @@ export const TransactionHistoryScreen: React.FC = () => {
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.topBarCenter}>
-          <Text style={styles.topBarTitle}>Transactions</Text>
-          <Text style={styles.topBarSubtitle}>{filteredCount} payment{filteredCount !== 1 ? 's' : ''}</Text>
+          <Text style={styles.topBarTitle}>{t('transactions.title')}</Text>
+          <Text style={styles.topBarSubtitle}>{t('transactions.paymentsCount', { count: filteredCount })}</Text>
         </View>
         <TouchableOpacity onPress={handleRefresh} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="refresh" size={22} color={colors.primary} />
@@ -197,7 +202,7 @@ export const TransactionHistoryScreen: React.FC = () => {
 
       {!isLoading && data?.transactions && data.transactions.length > 0 && (
         <View style={[styles.summaryBar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={styles.summaryLabel}>Total paid</Text>
+          <Text style={styles.summaryLabel}>{t('transactions.totalPaid')}</Text>
           <Text style={styles.summaryValue}>{formatCurrency(summaryTotal)}</Text>
         </View>
       )}
@@ -250,8 +255,8 @@ export const TransactionHistoryScreen: React.FC = () => {
               <View style={styles.emptyBox}>
                 <EmptyState
                   icon="receipt-outline"
-                  title="No Transactions"
-                  description="No payments match your filter query."
+                  title={t('transactions.emptyTitle')}
+                  description={t('transactions.emptyDesc')}
                 />
               </View>
             }

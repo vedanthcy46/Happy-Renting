@@ -23,6 +23,7 @@ import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatDate, formatRelativeTime } from '../utils';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTranslation } from 'react-i18next';
 
 interface ComplaintDetailScreenProps {
   complaintId: string;
@@ -30,6 +31,7 @@ interface ComplaintDetailScreenProps {
 }
 
 export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ complaintId, onBack }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
@@ -62,7 +64,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
       }, 300);
     },
     onError: (err: any) => {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to submit comment');
+      Alert.alert(t('common.error'), err.response?.data?.message || t('complaint.failedSubmit'));
     },
   });
 
@@ -85,9 +87,9 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
     return (
       <View style={[styles.container, styles.centerContainer]}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-        <Text style={styles.errorText}>Complaint not found</Text>
+        <Text style={styles.errorText}>{t('complaintDetail.notFound')}</Text>
         <TouchableOpacity style={styles.backButtonBtn} onPress={onBack}>
-          <Text style={styles.backButtonBtnText}>Go Back</Text>
+          <Text style={styles.backButtonBtnText}>{t('complaintDetail.goBack')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -97,10 +99,10 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
 
   // Determine visual steps
   const steps = [
-    { label: 'Submitted', key: 'pending' },
-    { label: 'Assigned', key: 'assigned' },
-    { label: 'In Progress', key: 'in_progress' },
-    { label: complaint.status === 'rejected' ? 'Rejected' : 'Resolved', key: 'resolved' },
+    { label: t('complaintDetail.stepSubmitted'), key: 'pending' },
+    { label: t('complaintDetail.stepAssigned'), key: 'assigned' },
+    { label: t('complaintDetail.stepInProgress'), key: 'in_progress' },
+    { label: complaint.status === 'rejected' ? t('complaintDetail.stepRejected') : t('complaintDetail.stepResolved'), key: 'resolved' },
   ];
 
   let currentStepIndex = 0;
@@ -128,7 +130,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
         <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.topBarTitle} numberOfLines={1}>Complaint Details</Text>
+        <Text style={styles.topBarTitle} numberOfLines={1}>{t('complaintDetail.title')}</Text>
         <TouchableOpacity onPress={() => refetch()} style={styles.iconButton} activeOpacity={0.7}>
           <Ionicons name="refresh" size={22} color={colors.primary} />
         </TouchableOpacity>
@@ -142,7 +144,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
       >
         {/* Timeline Indicator */}
         <AppCard variant="default" style={{ marginBottom: 24 }}>
-          <Text style={styles.sectionHeaderTitle}>Status Progress</Text>
+          <Text style={styles.sectionHeaderTitle}>{t('complaintDetail.statusProgress')}</Text>
           <View style={styles.timelineWrapper}>
             {/* Background Line */}
             <View style={styles.lineBackground} />
@@ -214,15 +216,15 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
           </View>
 
           <Text style={styles.complaintTitle}>{complaint.title}</Text>
-          <Text style={styles.createdAtText}>Raised on {formatDate(complaint.createdAt)}</Text>
+          <Text style={styles.createdAtText}>{t('complaintDetail.raisedOn', { date: formatDate(complaint.createdAt) })}</Text>
           <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>Description</Text>
+          <Text style={styles.sectionLabel}>{t('complaintDetail.description')}</Text>
           <Text style={styles.descriptionText}>{complaint.description}</Text>
 
           {/* Attachments */}
           {complaint.images && complaint.images.length > 0 && (
             <View style={styles.attachmentsSection}>
-              <Text style={styles.sectionLabel}>Attachments</Text>
+              <Text style={styles.sectionLabel}>{t('complaintDetail.attachments')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imagesScroll}>
                 {complaint.images.map((imgUri, index) => (
                   <CachedImage
@@ -241,12 +243,12 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
             <View style={styles.resolutionBox}>
               <View style={styles.resolutionHeader}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                <Text style={styles.resolutionLabel}>Resolution Notes</Text>
+                <Text style={styles.resolutionLabel}>{t('complaintDetail.resolutionNotes')}</Text>
               </View>
               <Text style={styles.resolutionText}>{complaint.resolutionNotes}</Text>
               {complaint.resolvedAt && (
                 <Text style={styles.resolvedAtText}>
-                  Resolved at {formatDate(complaint.resolvedAt)}
+                  {t('complaintDetail.resolvedAt', { date: formatDate(complaint.resolvedAt) })}
                 </Text>
               )}
             </View>
@@ -255,7 +257,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
 
         {/* Comments Section */}
         <AppCard variant="default" style={styles.commentsContainer}>
-          <Text style={styles.commentsTitle}>Comments & Updates</Text>
+          <Text style={styles.commentsTitle}>{t('complaintDetail.commentsTitle')}</Text>
           <ScrollView 
             ref={commentsScrollRef}
             style={{ maxHeight: 350 }} 
@@ -266,7 +268,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
             {(!complaint.comments || complaint.comments.length === 0) ? (
               <View style={styles.noCommentsBox}>
                 <Ionicons name="chatbubble-outline" size={24} color={colors.text.tertiary} />
-                <Text style={styles.noCommentsText}>No updates or comments yet.</Text>
+                <Text style={styles.noCommentsText}>{t('complaintDetail.noComments')}</Text>
               </View>
             ) : (
               complaint.comments.map((comment) => {
@@ -312,7 +314,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
       <View style={[styles.inputFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         <TextInput
           style={[styles.textInput, isClosed && { opacity: 0.6 }]}
-          placeholder={isClosed ? "This complaint is closed." : "Add a follow-up message..."}
+          placeholder={isClosed ? t('complaintDetail.closedPlaceholder') : t('complaintDetail.inputPlaceholder')}
           placeholderTextColor={colors.text.tertiary}
           value={message}
           onChangeText={setMessage}

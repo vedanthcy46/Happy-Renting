@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
 import { spacing, radius, shadows, typography } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
@@ -28,76 +29,6 @@ interface FAQItem {
   q: string;
   a: string;
 }
-
-const faqs: FAQItem[] = [
-  {
-    q: 'How do I pay my rent?',
-    a: 'Go to the Payments tab and tap on your current bill. You can pay via UPI, Cashfree, or mark as paid after bank transfer. Your owner will be notified immediately.',
-  },
-  {
-    q: 'How do I raise a maintenance complaint?',
-    a: 'Tap the Complaints tab, then tap "+ New Complaint". Select a category, describe the issue, attach photos if needed, and submit. Your owner will be notified.',
-  },
-  {
-    q: 'When is my rent due?',
-    a: 'Your rent due date is set by your property owner — typically the 5th of every month. You will receive a push notification and email reminder 2 days before the due date.',
-  },
-  {
-    q: 'How do I download a rent receipt?',
-    a: 'Go to Payments → select a paid bill → tap the Download Receipt button. The PDF will be saved and can be shared directly from the app.',
-  },
-  {
-    q: 'How do I change my password?',
-    a: 'Go to Profile → Settings → Change Password. You will need to enter your current password first. If you forgot it, use Forgot Password on the login screen.',
-  },
-  {
-    q: 'Why is my account locked?',
-    a: 'Your account gets locked after 5 failed login attempts for security. Wait 15 minutes and try again, or use Forgot Password to reset your credentials.',
-  },
-  {
-    q: 'Is my payment data secure?',
-    a: 'Yes. All payment data is encrypted and processed through certified payment gateways. Happy Renting never stores your card or UPI credentials.',
-  },
-  {
-    q: 'How do I update my profile?',
-    a: 'Go to the Profile tab and tap Edit Profile. You can update your name, phone number. Contact your owner to update your email or room details.',
-  },
-];
-
-const ownerFaqs: FAQItem[] = [
-  {
-    q: 'How do I add a property?',
-    a: 'Go to Properties in the drawer and tap "+ Add". Enter the property name, address and city, and save. You can then add rooms and tenants to it.',
-  },
-  {
-    q: 'How do I add a tenant to a room?',
-    a: 'Open a property, tap a room, then Assign Tenant. You can also use "Add Tenant" in the drawer to create a tenant account and link them to a room.',
-  },
-  {
-    q: 'How do I verify a tenant rent payment?',
-    a: 'Go to Payments and tap "Verify" on any record awaiting verification. Confirm the proof to credit the tenant, or Reject it with a reason.',
-  },
-  {
-    q: 'How do I set / edit rent amounts?',
-    a: 'Open a room under Properties and edit the monthly rent and due date. New rent amounts apply to future bills immediately.',
-  },
-  {
-    q: 'How do I record expenses?',
-    a: 'Go to Expenses in the drawer and tap "+" to add a new expense. Categorize it, add the amount and date; it will flow into your summary and reports.',
-  },
-  {
-    q: 'How do I generate reports?',
-    a: 'Open the Reports screen to view collections, receivables and expenses. Use the date range picker to filter and tap Export to save as PDF.',
-  },
-  {
-    q: 'How do I handle a maintenance complaint?',
-    a: 'Go to Complaints, open a request to see photos and the tenant message, then change its status (e.g. In Progress, Resolved) as you act on it.',
-  },
-  {
-    q: 'When do I get paid?',
-    a: 'Tenants receive a rent due notification, and you are paid as soon as a payment is verified. Track collected and pending amounts on your Dashboard.',
-  },
-];
 
 // â”€â”€â”€ Contact Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ContactItem {
@@ -115,10 +46,11 @@ export const HelpScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { colors: themeColors } = useTheme();
   const { activeWorkspace } = useAuthStore();
+  const { t } = useTranslation();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const isOwner = activeWorkspace === 'owner';
-  const faqList = isOwner ? ownerFaqs : faqs;
+  const faqList: FAQItem[] = isOwner ? t('help.ownerFaq', { returnObjects: true }) as FAQItem[] : t('help.tenantFaq', { returnObjects: true }) as FAQItem[];
 
   const handleToggle = (index: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -143,24 +75,24 @@ export const HelpScreen: React.FC = () => {
       icon: 'mail',
       iconColor: '#4B6BED',
       iconBg: '#4B6BED18',
-      label: 'Email Support',
-      subtitle: 'support@happyrenting.co.in',
+      label: t('help.emailLabel'),
+      subtitle: t('help.emailSubtitle'),
       onPress: () => openEmail(),
     },
     {
       icon: 'bug',
       iconColor: '#F59E0B',
       iconBg: '#F59E0B18',
-      label: 'Report a Bug',
-      subtitle: 'Help us improve',
+      label: t('help.bugLabel'),
+      subtitle: t('help.bugSubtitle'),
       onPress: () => openEmail('Bug Report - Happy Renting App'),
     },
     {
       icon: 'star',
       iconColor: '#F59E0B',
       iconBg: '#F59E0B18',
-      label: 'Rate the App',
-      subtitle: 'Love us? Let us know!',
+      label: t('help.rateLabel'),
+      subtitle: t('help.rateSubtitle'),
       onPress: openPlayStore,
     },
   ];
@@ -186,7 +118,7 @@ export const HelpScreen: React.FC = () => {
         >
           <Ionicons name="chevron-back" size={24} color={themeColors.text.primary} />
         </TouchableOpacity>
-        <Text style={[styles.topBarTitle, { color: themeColors.text.primary }]}>Help Center</Text>
+        <Text style={[styles.topBarTitle, { color: themeColors.text.primary }]}>{t('help.title')}</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -207,15 +139,15 @@ export const HelpScreen: React.FC = () => {
           <View style={styles.heroIconContainer}>
             <Ionicons name="help-buoy" size={40} color="#FFFFFF" />
           </View>
-          <Text style={styles.heroTitle}>How can we help you?</Text>
+          <Text style={styles.heroTitle}>{t('help.heroTitle')}</Text>
           <Text style={styles.heroSubtitle}>
-            {isOwner ? 'Owner FAQ, billing and property guides' : 'Browse our FAQ or contact us'}
+            {isOwner ? t('help.heroSubtitleOwner') : t('help.heroSubtitleTenant')}
           </Text>
         </LinearGradient>
 
         {/* FAQ Section */}
         <Text style={[styles.sectionTitle, { color: themeColors.text.primary }]}>
-          Frequently Asked Questions
+          {t('help.faqSection')}
         </Text>
 
         {faqList.map((item, index) => {
@@ -281,7 +213,7 @@ export const HelpScreen: React.FC = () => {
 
         {/* Contact Us Section */}
         <Text style={[styles.sectionTitle, { color: themeColors.text.primary, marginTop: 28 }]}>
-          Still need help?
+          {t('help.contactSection')}
         </Text>
 
         <View
@@ -320,7 +252,7 @@ export const HelpScreen: React.FC = () => {
 
         {/* Footer */}
         <Text style={[styles.footerText, { color: themeColors.text.tertiary }]}>
-          Response time: Usually within 24 hours
+          {t('help.responseTime')}
         </Text>
       </ScrollView>
     </View>

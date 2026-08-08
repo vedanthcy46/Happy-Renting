@@ -18,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Image as CachedImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment } from '../api/payment';
@@ -38,6 +39,7 @@ interface RentDetailScreenProps {
 const PAYMENT_GATEWAY_ENABLED = false;
 
 export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId, onBack }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const queryClient = useQueryClient();
@@ -79,13 +81,13 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
       setShowManualModal(false);
       resetManualForm();
       if (res.transaction?.queued) {
-        Alert.alert('Payment Queued', 'Saved offline. It will be submitted automatically when you are back online.');
+        Alert.alert(t('rentDetail.paymentQueuedTitle'), t('rentDetail.paymentQueuedBody'));
       } else {
-        Alert.alert('Submitted', 'Payment submitted for verification');
+        Alert.alert(t('rentDetail.submittedTitle'), t('rentDetail.submittedBody'));
         maybeRequestRating();
       }
     },
-    onError: (error: any) => Alert.alert('Error', error.response?.data?.message || 'Failed to submit payment'),
+    onError: (error: any) => Alert.alert(t('common.error'), error.response?.data?.message || t('rentDetail.submitFailed')),
   });
 
   const resetManualForm = () => {
@@ -106,8 +108,8 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
     if (!data?.rentRecord) return;
     if (!PAYMENT_GATEWAY_ENABLED) {
       Alert.alert(
-        'Gateway Unavailable',
-        'Online gateway payments are temporarily disabled. Please pay via UPI / Bank Transfer or upload a payment proof.'
+        t('rentDetail.gatewayUnavailableTitle'),
+        t('rentDetail.gatewayUnavailableBody')
       );
       return;
     }
@@ -152,11 +154,11 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
         // in case the deep link never fires (e.g. user completes payment but
         // the browser doesn't close)
         Alert.alert(
-          'Payment Opened',
-          'Complete your payment in the browser. The app will update automatically when done.',
+          t('rentDetail.paymentOpenedTitle'),
+          t('rentDetail.paymentOpenedBody'),
           [
             {
-              text: 'Check Status Manually',
+              text: t('rentDetail.checkStatus'),
               onPress: () => {
                 subscription?.remove();
                 setPaying(false);
@@ -164,7 +166,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               },
             },
             {
-              text: 'Cancel',
+              text: t('common.cancel'),
               style: 'cancel',
               onPress: () => {
                 subscription?.remove();
@@ -175,7 +177,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
         );
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to initiate payment');
+      Alert.alert(t('common.error'), error.response?.data?.message || t('rentDetail.initiateFailed'));
       setPaying(false);
     }
   };
@@ -185,17 +187,17 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
     try {
       const response = await getCashfreePaymentStatus(orderId);
       if (response.status === 'PAID') {
-        Alert.alert('Success', 'Payment received!');
+        Alert.alert(t('common.success'), t('rentDetail.paymentReceived'));
         queryClient.invalidateQueries({ queryKey: ['rentRecordDetail', rentRecordId] });
         queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
         maybeRequestRating();
       } else if (response.status === 'FAILED') {
-        Alert.alert('Payment Failed', 'Transaction failed.');
+        Alert.alert(t('rentDetail.paymentFailedTitle'), t('rentDetail.transactionFailed'));
       } else {
-        Alert.alert('Pending', 'May take a few minutes to reflect.');
+        Alert.alert(t('rentDetail.pendingTitle'), t('rentDetail.pendingBody'));
       }
     } catch {
-      Alert.alert('Error', 'Could not check payment status');
+      Alert.alert(t('common.error'), t('rentDetail.statusCheckFailed'));
     } finally {
       setPolling(false);
     }
@@ -205,25 +207,25 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
     if (!record) return;
     try {
       await generateAndShareReceipt({
-        tenantName: (data as any)?.rentRecord?.userId?.name || (data as any)?.rentRecord?.tenantId?.userId?.name || 'Tenant',
-        propertyName: (data as any)?.rentRecord?.propertyId?.name || 'Property',
+        tenantName: (data as any)?.rentRecord?.userId?.name || (data as any)?.rentRecord?.tenantId?.userId?.name || t('rentDetail.fallbackTenant'),
+        propertyName: (data as any)?.rentRecord?.propertyId?.name || t('rentDetail.fallbackProperty'),
         roomNumber: (data as any)?.rentRecord?.roomId?.roomNumber || '',
         month: formatMonth(record.month),
         totalRent: record.totalRent || 0,
         totalPaid: record.totalPaid || 0,
         paidDate: formatDate(transactions[0]?.paymentDate || record.dueDate || new Date()),
-        ownerName: (record.ownerId as any)?.name || 'Property Owner',
+        ownerName: (record.ownerId as any)?.name || t('rentDetail.fallbackOwner'),
         transactionId: transactions[0]?._id || transactions[0]?.referenceId,
       });
     } catch (e: any) {
       console.error('Failed to generate receipt:', e);
-      Alert.alert('Error', `Failed to generate receipt: ${e?.message || String(e)}`);
+      Alert.alert(t('common.error'), t('rentDetail.receiptFailed', { error: e?.message || String(e) }));
     }
   };
 
   const handleManualSubmit = () => {
     if (!manualForm.amount || isNaN(Number(manualForm.amount))) {
-      Alert.alert('Error', 'Enter a valid amount');
+      Alert.alert(t('common.error'), t('rentDetail.invalidAmount'));
       return;
     }
     const formData = new FormData();
@@ -258,8 +260,8 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-          <Text style={styles.errorText}>Record not found</Text>
-          <AppButton title="Go Back" onPress={onBack} variant="outline" style={{ marginTop: spacing.lg }} />
+          <Text style={styles.errorText}>{t('rentDetail.recordNotFound')}</Text>
+          <AppButton title={t('common.back')} onPress={onBack} variant="outline" style={{ marginTop: spacing.lg }} />
         </View>
       </View>
     );
@@ -293,7 +295,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
         <GradientCard gradient={['#4B6BED', '#3D56C9'] as const} style={styles.summaryCard}>
           <View style={styles.summaryContent}>
             <View style={styles.summaryTop}>
-              <Text style={styles.summaryLabel}>Total Rent</Text>
+              <Text style={styles.summaryLabel}>{t('rent.totalRent')}</Text>
               <StatusBadge status={record.status} />
             </View>
             <Text style={styles.summaryAmount}>{formatCurrency(record.totalRent)}</Text>
@@ -303,24 +305,24 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                 <View style={[styles.progressBar, { width: `${Math.min(progress * 100, 100)}%` }]} />
               </View>
               <View style={styles.progressLabels}>
-                <Text style={styles.progressLabel}>Paid: {formatCurrency(record.totalPaid)}</Text>
-                <Text style={styles.progressLabel}>Remaining: {formatCurrency(record.remainingAmount)}</Text>
+                <Text style={styles.progressLabel}>{t('rentDetail.paidLabel', { amount: formatCurrency(record.totalPaid) })}</Text>
+                <Text style={styles.progressLabel}>{t('rentDetail.remainingLabel', { amount: formatCurrency(record.remainingAmount) })}</Text>
               </View>
               {(record.advanceBalance || 0) > 0 && (
                 <View style={styles.floatingBadge}>
                   <Ionicons name="trending-up" size={12} color="#BBF7D0" />
-                  <Text style={styles.floatingBadgeText}>+{formatCurrency(record.advanceBalance || 0)} Floating — applied to pending bills</Text>
+                  <Text style={styles.floatingBadgeText}>{t('rentDetail.floatingBalance', { amount: formatCurrency(record.advanceBalance || 0) })}</Text>
                 </View>
               )}
             </View>
 
             <View style={styles.summaryDetails}>
               <View style={styles.summaryDetailItem}>
-                <Text style={styles.summaryDetailLabel}>Due Date</Text>
+                <Text style={styles.summaryDetailLabel}>{t('rent.dueDate')}</Text>
                 <Text style={styles.summaryDetailValue}>{formatDate(record.dueDate)}</Text>
               </View>
               <View style={styles.summaryDetailItem}>
-                <Text style={styles.summaryDetailLabel}>Month</Text>
+                <Text style={styles.summaryDetailLabel}>{t('rent.month')}</Text>
                 <Text style={styles.summaryDetailValue}>{formatMonth(record.month)}</Text>
               </View>
             </View>
@@ -340,10 +342,10 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               <LinearGradient colors={colors.gradient.secondary as any} style={styles.payManualGradient}>
                 <View style={styles.payManualContent}>
                   <Ionicons name="wallet-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.payManualText}>Pay via UPI / Bank</Text>
+                  <Text style={styles.payManualText}>{t('rentDetail.payViaUpi')}</Text>
                   <View style={styles.savingsBadge}>
                     <Ionicons name="leaf" size={12} color="#16A34A" />
-                    <Text style={styles.savingsText}>Save charges</Text>
+                    <Text style={styles.savingsText}>{t('rentDetail.saveCharges')}</Text>
                   </View>
                 </View>
               </LinearGradient>
@@ -357,24 +359,24 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               <Ionicons name={PAYMENT_GATEWAY_ENABLED ? 'globe-outline' : 'lock-closed-outline'} size={20} color={PAYMENT_GATEWAY_ENABLED ? colors.text.secondary : colors.text.tertiary} />
               <Text style={[styles.payOnlineText, !PAYMENT_GATEWAY_ENABLED && styles.payOnlineTextDisabled]}>
                 {PAYMENT_GATEWAY_ENABLED
-                  ? paying ? 'Initiating...' : polling ? 'Checking...' : 'Pay Online (Gateway)'
-                  : 'Online Gateway Unavailable'}
+                  ? paying ? t('rentDetail.initiating') : polling ? t('rentDetail.checking') : t('rentDetail.payOnline')
+                  : t('rentDetail.gatewayUnavailable')}
               </Text>
             </TouchableOpacity>
             {!PAYMENT_GATEWAY_ENABLED && (
               <Text style={styles.gatewayNotice}>
-                Gateway payments are temporarily disabled. Use Pay via UPI / Bank instead.
+                {t('rentDetail.gatewayNotice')}
               </Text>
             )}
           </View>
         ) : (
           <TouchableOpacity style={styles.downloadReceiptButton} onPress={handleDownloadReceipt} activeOpacity={0.8}>
             <Ionicons name="download-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.downloadReceiptText}>Download Receipt</Text>
+            <Text style={styles.downloadReceiptText}>{t('rentDetail.downloadReceipt')}</Text>
           </TouchableOpacity>
         )}
 
-        <Text style={styles.sectionTitle}>Transaction History</Text>
+        <Text style={styles.sectionTitle}>{t('rentDetail.transactionHistory')}</Text>
         <AppCard variant="elevated" padding={spacing.md}>
           {transactions.length > 0 ? (
             transactions.map((txn: PaymentTransaction, idx: number) => (
@@ -395,7 +397,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                   <View>
                     <Text style={styles.txnMethod}>{txn.paymentMethod.replace('_', ' ').toUpperCase()}</Text>
                     <Text style={styles.txnDate}>{formatDate(txn.paymentDate)}</Text>
-                    {txn.queued && <Text style={styles.txnQueued}>Queued — syncs when online</Text>}
+                    {txn.queued && <Text style={styles.txnQueued}>{t('rentDetail.queued')}</Text>}
                   </View>
                 </View>
                 <View style={styles.txnRight}>
@@ -407,7 +409,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
           ) : (
             <View style={styles.emptyTxn}>
               <Ionicons name="receipt-outline" size={40} color={colors.text.tertiary} />
-              <Text style={styles.emptyTxnText}>No transactions yet</Text>
+              <Text style={styles.emptyTxnText}>{t('rentDetail.noTransactions')}</Text>
             </View>
           )}
         </AppCard>
@@ -418,7 +420,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Manual Payment</Text>
+              <Text style={styles.modalTitle}>{t('rentDetail.manualPayment')}</Text>
               <TouchableOpacity onPress={() => setShowManualModal(false)}>
                 <Ionicons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
@@ -426,8 +428,8 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
               <AppInput
-                label="Amount Paid"
-                placeholder="Enter amount"
+                label={t('rentDetail.amountPaid')}
+                placeholder={t('rentDetail.enterAmount')}
                 value={manualForm.amount}
                 onChangeText={(text) => setManualForm({ ...manualForm, amount: text })}
                 keyboardType="numeric"
@@ -436,11 +438,11 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               <View style={styles.overpayNote}>
                 <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
                 <Text style={styles.overpayNoteText}>
-                  You can pay more than the rent amount. The extra is kept as advance and automatically adjusted against your pending bills.
+                  {t('rent.overpayNote')}
                 </Text>
               </View>
 
-              <Text style={styles.fieldLabel}>Payment Method</Text>
+              <Text style={styles.fieldLabel}>{t('rentDetail.paymentMethod')}</Text>
               <View style={styles.methodRow}>
                 {['upi', 'bank_transfer', 'cash', 'other'].map((m) => (
                   <TouchableOpacity
@@ -458,13 +460,13 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
 
               {manualForm.paymentMethod === 'upi' && record.ownerId && (
                 <View style={styles.upiBox}>
-                  <Text style={styles.upiTitle}>Pay to Owner via UPI</Text>
-                  <Text selectable style={styles.upiText}>UPI Name: {(record.ownerId as any)?.upiDetails?.upiName || 'N/A'}</Text>
+                  <Text style={styles.upiTitle}>{t('rentDetail.payUpiOwner')}</Text>
+                  <Text selectable style={styles.upiText}>{t('rentDetail.upiName', { value: (record.ownerId as any)?.upiDetails?.upiName || 'N/A' })}</Text>
                   {(record.ownerId as any)?.upiId && (
-                    <Text selectable style={styles.upiText}>ID: {(record.ownerId as any).upiId}</Text>
+                    <Text selectable style={styles.upiText}>{t('rentDetail.upiId', { value: (record.ownerId as any).upiId })}</Text>
                   )}
                   {(record.ownerId as any)?.upiNumber && (
-                    <Text selectable style={styles.upiText}>Phone: {(record.ownerId as any).upiNumber}</Text>
+                    <Text selectable style={styles.upiText}>{t('rentDetail.upiPhone', { value: (record.ownerId as any).upiNumber })}</Text>
                   )}
                   {(record.ownerId as any)?.qrCodeImage?.secureUrl && (
                     <CachedImage source={{ uri: (record.ownerId as any).qrCodeImage.secureUrl }} style={styles.qrImage} contentFit="contain" />
@@ -473,33 +475,33 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               )}
 
               <AppInput
-                label="Transaction ID (Optional)"
-                placeholder="e.g. UPI Ref Number"
+                label={t('rentDetail.transactionId')}
+                placeholder={t('rentDetail.transactionIdPlaceholder')}
                 value={manualForm.transactionId}
                 onChangeText={(text) => setManualForm({ ...manualForm, transactionId: text })}
               />
               <AppInput
-                label="Note (Optional)"
-                placeholder="Additional info"
+                label={t('rentDetail.noteOptional')}
+                placeholder={t('rentDetail.notePlaceholder')}
                 value={manualForm.note}
                 onChangeText={(text) => setManualForm({ ...manualForm, note: text })}
               />
 
-              <Text style={styles.fieldLabel}>Payment Proof (Optional)</Text>
+              <Text style={styles.fieldLabel}>{t('rentDetail.proofOptional')}</Text>
               <TouchableOpacity style={styles.imagePicker} onPress={pickImage} activeOpacity={0.7}>
                 {proofImage ? (
                   <Image source={{ uri: proofImage }} style={styles.previewImage} />
                 ) : (
                   <View style={styles.imagePickerPlaceholder}>
                     <Ionicons name="camera-outline" size={32} color={colors.text.tertiary} />
-                    <Text style={styles.imagePickerText}>Upload Receipt</Text>
+                    <Text style={styles.imagePickerText}>{t('rentDetail.uploadReceipt')}</Text>
                   </View>
                 )}
               </TouchableOpacity>
 
               <View style={styles.manualButtons}>
-                <AppButton title="Cancel" onPress={() => setShowManualModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
-                <AppButton title="Submit" onPress={handleManualSubmit} loading={mutationManual.isPending} style={{ flex: 1, marginLeft: spacing.sm }} />
+                <AppButton title={t('common.cancel')} onPress={() => setShowManualModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
+                <AppButton title={t('common.submit')} onPress={handleManualSubmit} loading={mutationManual.isPending} style={{ flex: 1, marginLeft: spacing.sm }} />
               </View>
             </ScrollView>
           </View>
@@ -510,7 +512,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
         <View style={styles.payingOverlay}>
           <View style={styles.payingCard}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.payingText}>Initiating payment...</Text>
+            <Text style={styles.payingText}>{t('rentDetail.initiatingPayment')}</Text>
           </View>
         </View>
       )}

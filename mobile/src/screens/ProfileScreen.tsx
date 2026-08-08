@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -37,6 +38,7 @@ interface ProfileScreenProps {
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNavigate }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const { user, setAuth, token } = useAuthStore();
   const insets = useSafeAreaInsets();
@@ -77,18 +79,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
     } else {
       await clearBiometricCredentials();
       setBiometricActive(false);
-      Alert.alert('Success', 'Biometric login disabled.');
+      Alert.alert(t('common.success'), t('settings.bioDisabled'));
     }
   };
 
   const handleConfirmBiometric = async () => {
     if (!biometricPassword) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert(t('common.error'), t('settings.bioEnterPassword'));
       return;
     }
     try {
       if (!user?.email) {
-        Alert.alert('Error', 'User email not found. Please log in again.');
+        Alert.alert(t('common.error'), t('settings.bioEmailNotFound'));
         return;
       }
       await login(user.email, biometricPassword);
@@ -96,9 +98,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
       setBiometricActive(true);
       setShowBiometricModal(false);
       setBiometricPassword('');
-      Alert.alert('Success', 'Biometric login enabled successfully.');
+      Alert.alert(t('common.success'), t('settings.bioEnabled'));
     } catch {
-      Alert.alert('Error', 'Invalid password. Biometric login was not enabled.');
+      Alert.alert(t('common.error'), t('settings.bioInvalidPassword'));
       setBiometricActive(false);
     }
   };
@@ -132,7 +134,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
 
   const handleUpdateProfile = async () => {
     if (!formData.name || !formData.email) {
-      Alert.alert('Error', 'Name and email are required');
+      Alert.alert(t('common.error'), t('profile.nameEmailRequired'));
       return;
     }
     setLoading(true);
@@ -141,13 +143,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
       if (res.success) {
         await setAuth(res.user, token!);
         if (res.queued) {
-          Alert.alert('Saved Offline', 'Profile updated on this device. It will sync automatically when you are back online.');
+          Alert.alert(t('profile.savedOfflineTitle'), t('profile.savedOfflineBody'));
         } else {
-          Alert.alert('Success', 'Profile updated successfully');
+          Alert.alert(t('common.success'), t('profile.updateProfileSuccess'));
         }
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to update profile');
+      Alert.alert(t('common.error'), error.response?.data?.message || t('profile.updateProfileFailed'));
     } finally {
       setLoading(false);
     }
@@ -155,11 +157,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
 
   const handleChangePassword = async () => {
     if (!passData.currentPassword || !passData.newPassword || !passData.confirmPassword) {
-      Alert.alert('Error', 'All fields are required');
+      Alert.alert(t('common.error'), t('profile.allFieldsRequired'));
       return;
     }
     if (passData.newPassword !== passData.confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
+      Alert.alert(t('common.error'), t('profile.passwordsMismatch'));
       return;
     }
     setPassLoading(true);
@@ -169,12 +171,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
         newPassword: passData.newPassword,
       });
       if (res.success) {
-        Alert.alert('Success', 'Password changed successfully');
+        Alert.alert(t('common.success'), t('profile.passwordChanged'));
         setShowPassModal(false);
         setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to change password');
+      Alert.alert(t('common.error'), error.response?.data?.message || t('profile.changePasswordFailed'));
     } finally {
       setPassLoading(false);
     }
@@ -185,8 +187,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
       <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <Text style={styles.headerSubtitle}>Manage your account</Text>
+            <Text style={styles.headerTitle}>{t('profile.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('profile.subtitle')}</Text>
           </View>
           <TouchableOpacity onPress={() => onNavigate?.('settings')} style={{ padding: spacing.xs }}>
             <Ionicons name="settings-outline" size={24} color={colors.text.primary} />
@@ -203,41 +205,41 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
           <Text style={styles.profileEmail}>{user?.email}</Text>
           <View style={styles.roleBadge}>
             <Ionicons name="person" size={12} color={colors.primary} />
-            <Text style={styles.roleText}>Tenant</Text>
+            <Text style={styles.roleText}>{user?.role === 'owner' ? t('profile.owner') : t('profile.tenant')}</Text>
           </View>
         </View>
 
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="create-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.sectionTitle}>Edit Profile</Text>
+            <Text style={styles.sectionTitle}>{t('profile.editProfile')}</Text>
           </View>
           {loadingProfile ? (
             <ActivityIndicator size="small" color={colors.primary} style={{ margin: spacing.xl }} />
           ) : (
             <>
               <AppInput
-                label="Name"
-                placeholder="Enter your name"
+                label={t('profile.name')}
+                placeholder={t('profile.enterName')}
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
               />
               <AppInput
-                label="Email"
-                placeholder="Enter your email"
+                label={t('profile.email')}
+                placeholder={t('profile.enterEmail')}
                 value={formData.email}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
               <AppInput
-                label="Phone"
-                placeholder="Enter your phone"
+                label={t('profile.phone')}
+                placeholder={t('profile.enterPhone')}
                 value={formData.phone}
                 onChangeText={(text) => setFormData({ ...formData, phone: text })}
                 keyboardType="phone-pad"
               />
-              <AppButton title="Update Profile" onPress={handleUpdateProfile} loading={loading} fullWidth />
+              <AppButton title={t('profile.updateProfile')} onPress={handleUpdateProfile} loading={loading} fullWidth />
             </>
           )}
         </AppCard>
@@ -245,10 +247,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="shield-checkmark-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.sectionTitle}>Security</Text>
+            <Text style={styles.sectionTitle}>{t('profile.security')}</Text>
           </View>
           <AppButton
-            title="Change Password"
+            title={t('profile.changePassword')}
             onPress={() => setShowPassModal(true)}
             variant="outline"
             fullWidth
@@ -259,7 +261,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             <View style={styles.biometricRow}>
               <View style={styles.biometricLabelCol}>
                 <Ionicons name="finger-print-outline" size={18} color={colors.text.secondary} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.biometricText}>Biometric Login</Text>
+                <Text style={styles.biometricText}>{t('settings.biometricLogin')}</Text>
               </View>
               <Switch
                 value={biometricActive}
@@ -274,10 +276,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="apps-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.sectionTitle}>Quick Links</Text>
+            <Text style={styles.sectionTitle}>{t('profile.quickLinks')}</Text>
           </View>
           <AppButton
-            title="App Settings"
+            title={t('profile.appSettings')}
             onPress={() => router.push('/settings')}
             variant="outline"
             fullWidth
@@ -285,7 +287,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             icon={<Ionicons name="settings-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
-            title="Help Center & FAQ"
+            title={t('settings.helpCenter')}
             onPress={() => router.push('/help')}
             variant="outline"
             fullWidth
@@ -293,7 +295,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             icon={<Ionicons name="help-circle-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
-            title="About Happy Renting"
+            title={t('settings.about')}
             onPress={() => router.push('/about')}
             variant="outline"
             fullWidth
@@ -301,7 +303,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             icon={<Ionicons name="information-circle-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
-            title="Rate Your App"
+            title={t('settings.rateApp')}
             onPress={rateApp}
             variant="outline"
             fullWidth
@@ -309,7 +311,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             icon={<Ionicons name="star-outline" size={18} color="#F59E0B" />}
           />
           <AppButton
-            title="Visit Website"
+            title={t('settings.visitWebsite')}
             onPress={() => Linking.openURL('https://happyrenting.netlify.app')}
             variant="outline"
             fullWidth
@@ -320,10 +322,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="information-circle-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.sectionTitle}>Legal</Text>
+            <Text style={styles.sectionTitle}>{t('profile.legal')}</Text>
           </View>
           <AppButton
-            title="Privacy Policy"
+            title={t('profile.privacyPolicy')}
             onPress={() => router.push('/privacy-policy')}
             variant="outline"
             fullWidth
@@ -331,7 +333,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
             icon={<Ionicons name="shield-outline" size={18} color={colors.text.secondary} />}
           />
           <AppButton
-            title="Terms of Service"
+            title={t('profile.termsOfService')}
             onPress={() => router.push('/terms-of-service')}
             variant="outline"
             fullWidth
@@ -343,7 +345,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
           <View style={styles.logoutIcon}>
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
           </View>
-          <Text style={styles.logoutText}>Sign Out</Text>
+          <Text style={styles.logoutText}>{t('profile.signOut')}</Text>
         </TouchableOpacity>
 
         <Text style={styles.versionText}>Happy Renting v{APP_VERSION} · Made with ❤️ in India</Text>
@@ -353,28 +355,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
         <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
-              <Text style={styles.passTitle}>Change Password</Text>
+              <Text style={styles.passTitle}>{t('profile.changePassword')}</Text>
               <TouchableOpacity onPress={() => setShowPassModal(false)}>
                 <Ionicons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
             <AppInput
-              label="Current Password"
-              placeholder="Enter current password"
+              label={t('profile.currentPassword')}
+              placeholder={t('profile.enterCurrentPassword')}
               value={passData.currentPassword}
               onChangeText={(text) => setPassData({ ...passData, currentPassword: text })}
               secureTextEntry
             />
             <AppInput
-              label="New Password"
-              placeholder="Enter new password"
+              label={t('profile.newPassword')}
+              placeholder={t('profile.enterNewPassword')}
               value={passData.newPassword}
               onChangeText={(text) => setPassData({ ...passData, newPassword: text })}
               secureTextEntry
             />
             <AppInput
-              label="Confirm New Password"
-              placeholder="Confirm new password"
+              label={t('profile.confirmNewPassword')}
+              placeholder={t('profile.confirmNewPasswordPlaceholder')}
               value={passData.confirmPassword}
               onChangeText={(text) => setPassData({ ...passData, confirmPassword: text })}
               secureTextEntry
@@ -385,7 +387,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
                 onPress={() => setShowPassModal(false)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.passCancelText}>Cancel</Text>
+                <Text style={styles.passCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.passChangeBtn}
@@ -396,7 +398,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
                 {passLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.passChangeText}>Change Password</Text>
+                  <Text style={styles.passChangeText}>{t('profile.changePassword')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -408,17 +410,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
         <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
-              <Text style={styles.passTitle}>Confirm Biometrics</Text>
+              <Text style={styles.passTitle}>{t('settings.confirmBiometrics')}</Text>
               <TouchableOpacity onPress={handleCancelBiometric}>
                 <Ionicons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
             <Text style={{ fontSize: 14, color: colors.text.secondary, marginBottom: spacing.lg, lineHeight: 20 }}>
-              Please enter your password to confirm and securely save your login credentials on this device.
+              {t('settings.confirmBioDesc')}
             </Text>
             <AppInput
-              label="Account Password"
-              placeholder="Enter your password"
+              label={t('settings.accountPassword')}
+              placeholder={t('login.passwordPlaceholder')}
               value={biometricPassword}
               onChangeText={setBiometricPassword}
               secureTextEntry
@@ -429,14 +431,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
                 onPress={handleCancelBiometric}
                 activeOpacity={0.7}
               >
-                <Text style={styles.passCancelText}>Cancel</Text>
+                <Text style={styles.passCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.passChangeBtn}
                 onPress={handleConfirmBiometric}
                 activeOpacity={0.8}
               >
-                <Text style={styles.passChangeText}>Confirm</Text>
+                <Text style={styles.passChangeText}>{t('common.confirm')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

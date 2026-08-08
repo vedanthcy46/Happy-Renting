@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, sendTestPush, Notification } from '../api/notifications';
 import { cachedNotifications } from '../repositories';
 import { usePushStore } from '../store/usePushStore';
+import { useTranslation } from 'react-i18next';
 import { AppCard, EmptyState, ErrorState } from '../components';
 import { typography, spacing, radius } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
@@ -43,6 +44,7 @@ const notificationIcons: Record<string, { name: keyof typeof Ionicons.glyphMap; 
 };
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack, onNavigate }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -291,7 +293,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
         <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={[styles.topBarTitle, { color: colors.text.primary }]}>Notifications</Text>
+        <Text style={[styles.topBarTitle, { color: colors.text.primary }]}>{t('notifications.title')}</Text>
         <View style={styles.headerActions}>
           {__DEV__ && (
             <TouchableOpacity
@@ -310,7 +312,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
           )}
           {(data?.unreadCount ?? 0) > 0 ? (
             <TouchableOpacity onPress={() => mutationMarkAllRead.mutate()} activeOpacity={0.7} style={styles.markAllButton}>
-              <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all read</Text>
+              <Text style={[styles.markAllText, { color: colors.primary }]}>{t('notifications.markAllRead')}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.markAllButton} />
@@ -325,7 +327,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
       ) : error ? (
         <View style={[styles.center, { backgroundColor: colors.background }]}>
           <ErrorState
-            message="Could not load notifications. Pull down to try again."
+            message={t('notifications.loadFailed')}
             onRetry={() => refetch()}
           />
         </View>
@@ -340,16 +342,14 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             (data?.notifications?.length ?? 0) > 0 ? (
-              <Text style={styles.swipeHintText}>
-                Tip: Swipe left on a notification to delete it
-              </Text>
+              <Text style={styles.swipeHintText}>{t('notifications.swipeHint')}</Text>
             ) : null
           }
           ListEmptyComponent={
             <EmptyState
               icon="notifications-off-outline"
-              title="No Notifications"
-              description="You're all caught up!"
+              title={t('notifications.title')}
+              description={t('notifications.empty')}
             />
           }
         />
