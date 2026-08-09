@@ -635,6 +635,106 @@ const unwindAdvanceDistribution = async (transaction, sourceRecord) => {
 };
 
 /**
+ * reapplyAdvanceDistribution(transaction, sourceRecord)
+ * Mirror of unwindAdvanceDistribution. When a reversed overpaid payment is
+ * re-activated (undo reversal), the advance_applied / advance_deducted rows it
+ * spawned must be re-applied so every other month the overpayment had
+ * auto-adjusted regains its credit and falls back to the correct outstanding
+ * balance.
+ */
+const reapplyAdvanceDistribution = async (transaction, sourceRecord) => {
+  let applied = await PaymentTransaction.find({
+    tenantId: transaction.tenantId,
+    transactionType: 'advance_applied',
+    sourceTransactionId: transaction._id,
+    status: 'reversed',
+  });
+
+  // Legacy fallback (rows created before sourceTransactionId existed):
+  // match by the source month referenced in the note.
+  if (applied.length === 0 && sourceRecord) {
+    const monthStr = String(sourceRecord.month || '').trim();
+    if (monthStr) {
+      const esc = monthStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      applied = await PaymentTransaction.find({
+        tenantId: transaction.tenantId,
+        transactionType: 'advance_applied',
+        status: 'reversed',
+        sourceTransactionId: { $exists: false },
+        note: { $regex: new RegExp(`from month ${esc}$`), $options: 'i' },
+      });
+    }
+  }
+
+  if (applied.length === 0) return;
+
+  const reason = 'Reversal undone / Re-activated';
+
+  for (const app of applied) {
+    // 1. Receiving month regains the advance credit
+    const recv = await MonthlyRentRecord.findById(app.rentRecordId);
+    if (recv) {
+      recv.totalPaid = Math.max(0, recv.totalPaid + Math.abs(app.amount));
+      await recv.save();
+    }
+
+    // 2. Find every system advance_deducted row spawned from this advance
+    //    (any amount — robust against partial/tiered applications), including
+    //    legacy rows that carry no sourceTransactionId.
+    const deductedQuery = {
+      tenantId: transaction.tenantId,
+      transactionType: 'advance_deducted',
+      status: 'reversed',
+      rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
+      ...(app.sourceTransactionId
+        ? { sourceTransactionId: app.sourceTransactionId }
+        : { sourceTransactionId: { $exists: false } }),
+    };
+    let deductedRows = await PaymentTransaction.find(deductedQuery);
+
+    // Legacy fallback: a deducted row whose note references receiving month
+    if (deductedRows.length === 0 && app.rentRecordId) {
+      const recv = await MonthlyRentRecord.findById(app.rentRecordId);
+      const monthStr = recv ? String(recv.month || '').trim() : '';
+      if (monthStr) {
+        const esc = monthStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        deductedRows = await PaymentTransaction.find({
+          tenantId: transaction.tenantId,
+          transactionType: 'advance_deducted',
+          status: 'reversed',
+          rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
+          note: { $regex: new RegExp(`month ${esc}$`), $options: 'i' },
+        });
+      }
+    }
+
+    // Only remove the amount for rows that are actually being re-applied so the
+    // source month's totalPaid never gets deflated twice.
+    const restoreAmount = deductedRows.reduce((sum, d) => sum + Math.abs(d.amount), 0) || Math.abs(app.amount);
+    if (sourceRecord && sourceRecord.totalPaid != null) {
+      sourceRecord.totalPaid = Math.max(0, sourceRecord.totalPaid - restoreAmount);
+    }
+
+    // 3. Reactivate every matching advance_deducted row (updateMany, never one)
+    await PaymentTransaction.updateMany(
+      { _id: { $in: deductedRows.map(r => r._id) } },
+      { $set: { status: 'completed', statusReason: reason } }
+    );
+
+    // 4. Reactivate the advance_applied transaction itself
+    app.status = 'completed';
+    app.statusReason = reason;
+    await app.save();
+  }
+
+  if (sourceRecord) await sourceRecord.save();
+
+  logger.info(
+    `[TRANSACTION] Re-applied ${applied.length} advance application(s) for tenant ${transaction.tenantId}`
+  );
+};
+
+/**
  * reverseTransaction(transactionId, reason, caller)
  * Marks transaction as reversed (doesn't delete, maintains history)
  */
@@ -685,6 +785,13 @@ const reverseTransaction = async (transactionId, reason, caller) => {
   if (isReversing && rented) {
     await unwindAdvanceDistribution(transaction, rented).catch(err =>
       logger.error(`Failed to unwind advance distribution: ${err.message}`)
+    );
+  } else if (!isReversing && rented) {
+    // Undo: re-activate the auto-adjusted advance rows that were unwound on
+    // reversal so every other month the overpayment had adjusted regains its
+    // credit, then the source month's totalPaid is restored below.
+    await reapplyAdvanceDistribution(transaction, rented).catch(err =>
+      logger.error(`Failed to reapply advance distribution: ${err.message}`)
     );
   }
 
