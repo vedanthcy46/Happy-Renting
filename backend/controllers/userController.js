@@ -198,6 +198,108 @@ const updateProfile = async (req, res, next) => {
 };
 
 
+// ── POST /api/users/profile/change-email/request ─────────────────────────
+const requestEmailChange = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const newEmail = (email || '').toString().trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(newEmail)) {
+      return res.status(400).json({ success: false, message: 'A valid email address is required.' });
+    }
+
+    const user = await User.findById(req.user._id).select('+pendingEmail +emailChangeOtp +emailChangeOtpExpires');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    if (newEmail === user.email.toLowerCase()) {
+      return res.status(400).json({ success: false, message: 'New email is the same as your current email.' });
+    }
+
+    const existing = await User.findOne({ email: newEmail });
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Email is already taken.' });
+    }
+
+    const otp = require('crypto').randomInt(100000, 999999).toString();
+    user.pendingEmail = newEmail;
+    user.emailChangeOtp = otp;
+    user.emailChangeOtpExpires = Date.now() + 10 * 60 * 1000; // 10 mins
+    await user.save({ validateBeforeSave: false });
+
+    await emailService.sendEmailChangeOtpEmail(newEmail, otp);
+
+    logger.info(`[EMAIL CHANGE OTP] Sent OTP to ${newEmail} for user=${user._id}`);
+    res.status(200).json({ success: true, message: 'OTP sent to your new email address.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/users/profile/change-email/verify ───────────────────────────
+const verifyEmailChange = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const newEmail = (email || '').toString().trim().toLowerCase();
+    if (!newEmail || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
+    }
+
+    const user = await User.findById(req.user._id).select('+pendingEmail +emailChangeOtp +emailChangeOtpExpires');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    if (!user.pendingEmail || user.pendingEmail.toLowerCase() !== newEmail) {
+      return res.status(400).json({ success: false, message: 'No pending email change for this address. Please request a new OTP.' });
+    }
+
+    if (!user.emailChangeOtpExpires || user.emailChangeOtpExpires < Date.now()) {
+      return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+    }
+
+    if (String(user.emailChangeOtp) !== String(otp).trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP.' });
+    }
+
+    user.email = user.pendingEmail;
+    user.emailVerified = true;
+    user.pendingEmail = undefined;
+    user.emailChangeOtp = undefined;
+    user.emailChangeOtpExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    logger.info(`[EMAIL CHANGE] user=${user._id} email changed to ${user.email}`);
+    res.status(200).json({ success: true, message: 'Email changed successfully.', user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/users/profile/change-email/resend ───────────────────────────
+const resendEmailChangeOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const newEmail = (email || '').toString().trim().toLowerCase();
+
+    const user = await User.findById(req.user._id).select('+pendingEmail +emailChangeOtp +emailChangeOtpExpires');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    if (!user.pendingEmail || user.pendingEmail.toLowerCase() !== newEmail) {
+      return res.status(400).json({ success: false, message: 'No pending email change for this address. Please request a new OTP.' });
+    }
+
+    const otp = require('crypto').randomInt(100000, 999999).toString();
+    user.emailChangeOtp = otp;
+    user.emailChangeOtpExpires = Date.now() + 10 * 60 * 1000; // 10 mins
+    await user.save({ validateBeforeSave: false });
+
+    await emailService.sendEmailChangeOtpEmail(newEmail, otp);
+
+    logger.info(`[EMAIL CHANGE OTP] Resent OTP to ${newEmail} for user=${user._id}`);
+    res.status(200).json({ success: true, message: 'OTP resent to your new email address.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 // ── POST /api/users ────────────────────────────────────────────────────────
 const createUser = async (req, res, next) => {
   try {
@@ -575,4 +677,7 @@ module.exports = {
   resendVerificationEmail,
   getUserImpact,
   forcePasswordReset,
+  requestEmailChange,
+  verifyEmailChange,
+  resendEmailChangeOtp,
 };

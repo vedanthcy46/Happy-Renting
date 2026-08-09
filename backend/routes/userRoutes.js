@@ -6,6 +6,7 @@ const {
   getAdminStats, getOwnerPropertyMapping, uploadQRCode, getActivityLogs, changePassword,
   resetUserPassword, createUserValidation, savePushToken, setPreferredLanguage,
   resendVerificationEmail, getUserImpact, forcePasswordReset,
+  requestEmailChange, verifyEmailChange, resendEmailChangeOtp,
 } = require('../controllers/userController');
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -22,6 +23,9 @@ router.patch('/profile', updateProfile);
 router.patch('/profile/password', changePassword);
 router.patch('/profile/push-token', savePushToken); // Mobile app — Expo push tokens
 router.patch('/profile/language', setPreferredLanguage); // Mobile/Web — sync preferredLanguage
+router.post('/profile/change-email/request', requestEmailChange); // Mobile — send OTP to new email
+router.post('/profile/change-email/verify',   verifyEmailChange); // Mobile — verify OTP & apply change
+router.post('/profile/change-email/resend',   resendEmailChangeOtp); // Mobile — resend OTP
 
 router.get ('/admin/stats',   authorize('superadmin'), getAdminStats);
 router.get ('/admin/mapping', authorize('superadmin'), getOwnerPropertyMapping);

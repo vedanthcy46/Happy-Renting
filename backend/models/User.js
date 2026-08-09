@@ -93,6 +93,9 @@ const userSchema = new mongoose.Schema(
     },
     emailVerificationToken  : { type: String, select: false },
     emailVerificationExpires: { type: Date,   select: false },
+    pendingEmail         : { type: String, trim: true, lowercase: true, select: false },
+    emailChangeOtp       : { type: String, select: false },
+    emailChangeOtpExpires: { type: Date,   select: false },
     passwordResetToken  : { type: String, select: false },
     passwordResetExpires: { type: Date,   select: false },
     // ── Expo Push Tokens (multi-device) ─────────────────────────────────────
