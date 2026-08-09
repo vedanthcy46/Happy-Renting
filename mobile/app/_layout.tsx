@@ -23,7 +23,7 @@ import { WorkspacePicker } from '../src/components/WorkspacePicker';
 import { queryClient } from '../src/queryClient';
 import { sqlitePersister } from '../src/persist/sqlitePersister';
 import { startSyncEngine } from '../src/sync/syncEngine';
-import { initializeLanguage, syncUserLanguage } from '../src/localization';
+import { initializeLanguage } from '../src/localization';
 
 const ONBOARDING_KEY = 'onboarding_completed';
 const CACHE_BUSTER = 'v1';
@@ -112,14 +112,6 @@ function AppContent() {
   useEffect(() => {
     initialize();
   }, [initialize]);
-
-  // Apply the backend `preferredLanguage` once a session is restored, but only
-  // if the user hasn't made an explicit local language choice on this device.
-  useEffect(() => {
-    if (user?.preferredLanguage) {
-      syncUserLanguage(user.preferredLanguage);
-    }
-  }, [user?.preferredLanguage]);
 
   useEffect(() => {
     initializeLanguage().then(() => setLanguageReady(true));

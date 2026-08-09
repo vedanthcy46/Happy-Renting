@@ -24,7 +24,7 @@ import {
   saveBiometricCredentials,
 } from '../hooks/useBiometric';
 import { useAuthStore } from '../store/useAuthStore';
-import { updateProfile, changePassword as apiChangePassword, getProfile } from '../api/user';
+import { updateProfile, changePassword as apiChangePassword, getProfile, requestEmailChange, verifyEmailChange, resendEmailChangeOtp } from '../api/user';
 import { login } from '../api/auth';
 import { AppCard, AppButton, AppInput } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
@@ -56,6 +56,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
   const [showPassModal, setShowPassModal] = useState(false);
   const [passData, setPassData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [passLoading, setPassLoading] = useState(false);
+
+  const [emailVisible, setEmailVisible] = useState(false);
+  const [emailNew, setEmailNew] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailStep, setEmailStep] = useState<1 | 2>(1);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
 
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [biometricActive, setBiometricActive] = useState(false);
@@ -133,25 +140,82 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
   }, []);
 
   const handleUpdateProfile = async () => {
-    if (!formData.name || !formData.email) {
+    if (!formData.name) {
       Alert.alert(t('common.error'), t('profile.nameEmailRequired'));
       return;
     }
     setLoading(true);
     try {
-      const res = await updateProfile(formData);
+      const res = await updateProfile({ name: formData.name, phone: formData.phone } as any);
       if (res.success) {
         await setAuth(res.user, token!);
         if (res.queued) {
           Alert.alert(t('profile.savedOfflineTitle'), t('profile.savedOfflineBody'));
         } else {
-          Alert.alert(t('common.success'), t('profile.updateProfileSuccess'));
+          Alert.alert(t('common.success'), t('profile.alertSavedBasicMsg'));
         }
       }
     } catch (error: any) {
       Alert.alert(t('common.error'), error.response?.data?.message || t('profile.updateProfileFailed'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    const email = emailNew.trim().toLowerCase();
+    if (!email) { Alert.alert(t('profile.alertEmailErrTitle'), t('profile.alertEmailErrEmpty')); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { Alert.alert(t('profile.alertEmailErrTitle'), t('profile.alertEmailErrInvalid')); return; }
+    setSavingEmail(true);
+    try {
+      const res = await requestEmailChange(email);
+      if (res.success) {
+        setEmailOtp('');
+        setEmailStep(2);
+        Alert.alert(t('profile.emailChangeTitle'), t('profile.alertEmailOtpSent'));
+      }
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error?.response?.data?.message || t('profile.alertEmailErrGeneric'));
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const email = emailNew.trim().toLowerCase();
+    const otp = emailOtp.trim();
+    if (!otp) { Alert.alert(t('profile.alertEmailErrTitle'), t('profile.alertEmailErrOtpEmpty')); return; }
+    if (!/^\d{6}$/.test(otp)) { Alert.alert(t('profile.alertEmailErrTitle'), t('profile.alertEmailErrOtpInvalid')); return; }
+    setSavingEmail(true);
+    try {
+      const res = await verifyEmailChange(email, otp);
+      if (res.success && res.user) {
+        await setAuth(res.user, token!);
+        setEmailVisible(false);
+        setEmailStep(1);
+        setEmailNew('');
+        setEmailOtp('');
+        Alert.alert(t('profile.alertEmailChangedTitle'), t('profile.alertEmailChangedMsg'));
+      }
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error?.response?.data?.message || t('profile.alertEmailErrGeneric'));
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    const email = emailNew.trim().toLowerCase();
+    setResendingEmail(true);
+    try {
+      const res = await resendEmailChangeOtp(email);
+      if (res.success) {
+        Alert.alert(t('profile.emailChangeTitle'), t('profile.alertEmailOtpResent'));
+      }
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error?.response?.data?.message || t('profile.alertEmailErrGeneric'));
+    } finally {
+      setResendingEmail(false);
     }
   };
 
@@ -211,35 +275,46 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
 
         <AppCard variant="elevated" style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="create-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.sectionTitle}>{t('profile.editProfile')}</Text>
+            <Ionicons name="person-circle-outline" size={18} color={colors.text.primary} />
+            <Text style={styles.sectionTitle}>{t('profile.sectionBasic')}</Text>
           </View>
           {loadingProfile ? (
             <ActivityIndicator size="small" color={colors.primary} style={{ margin: spacing.xl }} />
           ) : (
             <>
               <AppInput
-                label={t('profile.name')}
+                label={t('profile.fieldName')}
                 placeholder={t('profile.enterName')}
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
               />
               <AppInput
-                label={t('profile.email')}
-                placeholder={t('profile.enterEmail')}
-                value={formData.email}
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <AppInput
-                label={t('profile.phone')}
+                label={t('profile.fieldPhone')}
                 placeholder={t('profile.enterPhone')}
                 value={formData.phone}
                 onChangeText={(text) => setFormData({ ...formData, phone: text })}
                 keyboardType="phone-pad"
               />
-              <AppButton title={t('profile.updateProfile')} onPress={handleUpdateProfile} loading={loading} fullWidth />
+              <View style={[styles.infoRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={colors.text.secondary} style={{ marginRight: spacing.sm }} />
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>{t('profile.role')}</Text>
+                  <Text style={styles.infoValue}>{user?.role === 'owner' ? t('profile.owner') : t('profile.tenant')}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.infoRow, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => { setEmailVisible(true); setEmailNew(''); setEmailOtp(''); setEmailStep(1); }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="mail-outline" size={18} color={colors.text.secondary} style={{ marginRight: spacing.sm }} />
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>{t('profile.email')}</Text>
+                  <Text style={styles.infoValue}>{user?.email}</Text>
+                </View>
+                <Text style={styles.infoAction}>{t('profile.btnChangeEmail')}</Text>
+              </TouchableOpacity>
+              <AppButton title={t('profile.btnSaveBasic')} onPress={handleUpdateProfile} loading={loading} fullWidth />
             </>
           )}
         </AppCard>
@@ -353,7 +428,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
 
       <Modal visible={showPassModal} transparent animationType="fade">
         <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
               <Text style={styles.passTitle}>{t('profile.changePassword')}</Text>
               <TouchableOpacity onPress={() => setShowPassModal(false)}>
@@ -408,7 +483,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
 
       <Modal visible={showBiometricModal} transparent animationType="fade">
         <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
               <Text style={styles.passTitle}>{t('settings.confirmBiometrics')}</Text>
               <TouchableOpacity onPress={handleCancelBiometric}>
@@ -441,6 +516,112 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
                 <Text style={styles.passChangeText}>{t('common.confirm')}</Text>
               </TouchableOpacity>
             </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={emailVisible} transparent animationType="fade">
+        <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={styles.passHeader}>
+              <Text style={styles.passTitle}>{t('profile.emailChangeTitle')}</Text>
+              <TouchableOpacity onPress={() => setEmailVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 14, color: colors.text.secondary, marginBottom: spacing.lg, lineHeight: 20 }}>
+              {t('profile.emailChangeSub')}
+            </Text>
+            <View style={[styles.infoRow, { backgroundColor: colors.background, borderColor: colors.border, marginBottom: spacing.lg }]}>
+              <View style={styles.infoCol}>
+                <Text style={styles.infoLabel}>{t('profile.email')}</Text>
+                <Text style={styles.infoValue}>{user?.email}</Text>
+              </View>
+            </View>
+            {emailStep === 1 ? (
+              <>
+                <AppInput
+                  label={t('profile.fieldNewEmail')}
+                  placeholder={t('profile.enterEmail')}
+                  value={emailNew}
+                  onChangeText={setEmailNew}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <View style={styles.passButtons}>
+                  <TouchableOpacity
+                    style={styles.passCancelBtn}
+                    onPress={() => setEmailVisible(false)}
+                    disabled={savingEmail}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.passCancelText}>{t('profile.btnCancelEmail')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.passChangeBtn, { opacity: !emailNew.trim() || savingEmail ? 0.6 : 1 }]}
+                    onPress={handleSendOtp}
+                    disabled={!emailNew.trim() || savingEmail}
+                    activeOpacity={0.8}
+                  >
+                    {savingEmail ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.passChangeText}>{t('profile.btnSendOtp')}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={[styles.infoRow, { backgroundColor: colors.background, borderColor: colors.border, marginBottom: spacing.lg }]}>
+                  <View style={styles.infoCol}>
+                    <Text style={styles.infoLabel}>{t('profile.fieldNewEmail')}</Text>
+                    <Text style={styles.infoValue}>{emailNew.trim().toLowerCase()}</Text>
+                  </View>
+                </View>
+                <AppInput
+                  label={t('profile.fieldOtp')}
+                  placeholder={t('profile.fieldOtpPlaceholder')}
+                  value={emailOtp}
+                  onChangeText={setEmailOtp}
+                  keyboardType="number-pad"
+                />
+                <View style={styles.passButtons}>
+                  <TouchableOpacity
+                    style={styles.passCancelBtn}
+                    onPress={() => setEmailVisible(false)}
+                    disabled={savingEmail}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.passCancelText}>{t('profile.btnCancelEmail')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.passChangeBtn, { opacity: !emailOtp.trim() || savingEmail ? 0.6 : 1 }]}
+                    onPress={handleVerifyOtp}
+                    disabled={!emailOtp.trim() || savingEmail}
+                    activeOpacity={0.8}
+                  >
+                    {savingEmail ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.passChangeText}>{t('profile.btnVerifyOtp')}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  onPress={handleResendOtp}
+                  disabled={resendingEmail}
+                  activeOpacity={0.7}
+                  style={{ alignItems: 'center', marginTop: spacing.md }}
+                >
+                  {resendingEmail ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600' }}>{t('profile.btnResendOtp')}</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -531,6 +712,36 @@ const makeStyles = (colors: any) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+  },
+  infoCol: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: colors.text.secondary,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text.primary,
+    marginTop: 2,
+  },
+  infoAction: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   logoutButton: {
     flexDirection: 'row',

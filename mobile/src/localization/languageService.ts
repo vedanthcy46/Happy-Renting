@@ -59,18 +59,15 @@ export const followDeviceLanguage = async (): Promise<void> => {
   await i18n.changeLanguage(getDeviceLanguage());
 };
 
-/** Restore the persisted preference, else fall back to device language. */
+/** Restore the persisted preference, else fall back to following the device. */
 export const restoreLanguagePreference = async (): Promise<LanguageState> => {
   const saved = await storeGet(LANGUAGE_STORAGE_KEY);
-  const followRaw = await storeGet(FOLLOW_DEVICE_KEY);
 
   if (saved) {
     return { language: normalizeLanguage(saved), followDevice: false };
   }
-  if (followRaw === 'true') {
-    return { language: getDeviceLanguage(), followDevice: true };
-  }
-  return { language: getDeviceLanguage(), followDevice: false };
+  // No explicit choice made — follow the device language by default.
+  return { language: getDeviceLanguage(), followDevice: true };
 };
 
 /**
@@ -84,19 +81,3 @@ export const initializeLanguage = async (): Promise<void> => {
 
 /** Initialization for first install — detect device language before showing UI. */
 export const detectDeviceLanguage = (): SupportedLanguage => getDeviceLanguage();
-
-/**
- * Sync the user's backend `preferredLanguage` into the app when no explicit
- * local choice exists yet (fresh install / logged-out device). Best effort.
- */
-export const syncUserLanguage = async (preferredLanguage?: string): Promise<void> => {
-  if (!preferredLanguage) return;
-  const saved = await storeGet(LANGUAGE_STORAGE_KEY);
-  if (saved) return; // user has an explicit local choice — keep it
-  const language = normalizeLanguage(preferredLanguage);
-  if (language !== getDeviceLanguage()) {
-    await storeSet(LANGUAGE_STORAGE_KEY, language);
-    await storeSet(FOLLOW_DEVICE_KEY, 'false');
-    await i18n.changeLanguage(language);
-  }
-};

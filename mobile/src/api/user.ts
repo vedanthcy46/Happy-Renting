@@ -62,3 +62,27 @@ export const setPreferredLanguage = async (language: string): Promise<boolean> =
     return false;
   }
 };
+
+export interface EmailChangeResponse {
+  success: boolean;
+  message?: string;
+  user?: User;
+}
+
+/** Step 1 of email change: send a 6-digit OTP to the new email address. */
+export const requestEmailChange = async (email: string): Promise<{ success: boolean; message?: string }> => {
+  const { data } = await client.post('/users/profile/change-email/request', { email });
+  return data;
+};
+
+/** Step 2 of email change: verify the OTP and apply the change. */
+export const verifyEmailChange = async (email: string, otp: string): Promise<EmailChangeResponse> => {
+  const { data } = await client.post<EmailChangeResponse>('/users/profile/change-email/verify', { email, otp });
+  return data;
+};
+
+/** Resend the email-change OTP to the pending new email address. */
+export const resendEmailChangeOtp = async (email: string): Promise<{ success: boolean; message?: string }> => {
+  const { data } = await client.post('/users/profile/change-email/resend', { email });
+  return data;
+};

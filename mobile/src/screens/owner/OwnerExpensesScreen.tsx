@@ -200,7 +200,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
             {/* Property picker */}
             <View style={styles.formField}>
               <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldProperty')}</Text>

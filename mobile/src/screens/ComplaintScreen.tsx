@@ -174,7 +174,7 @@ export const ComplaintScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <AppInput
                 label={t('complaint.titleLabel')}
                 placeholder={t('complaint.titlePlaceholderEx')}

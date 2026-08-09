@@ -70,6 +70,7 @@ export const AIAssistantScreen = () => {
   const { messages, isLoading, error, send, clearChat, workspace } = useAiChat();
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
   const headerHeight = useRef(0);
 
   const isOwner = workspace === 'owner';
@@ -77,6 +78,9 @@ export const AIAssistantScreen = () => {
     ? [t('ai.sOwner1'), t('ai.sOwner2'), t('ai.sOwner3'), t('ai.sOwner4'), t('ai.sOwner5'), t('ai.sOwner6'), t('ai.sOwner7'), t('ai.sOwner8'), t('ai.sOwner9'), t('ai.sOwner10')]
     : [t('ai.sTenant1'), t('ai.sTenant2'), t('ai.sTenant3'), t('ai.sTenant4'), t('ai.sTenant5')];
   const subtitle = isOwner ? t('ai.subtitleOwner') : t('ai.subtitleTenant');
+
+  const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
+  const showFollowUps = !isLoading && lastIsAssistant;
 
   const iosOffset = Platform.OS === 'ios' ? headerHeight.current + insets.top : 0;
 
@@ -155,10 +159,37 @@ export const AIAssistantScreen = () => {
               <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
             </View>
           )}
+
+          {showFollowUps && (
+            <View style={styles.followUps}>
+              <Text style={[styles.followUpTitle, { color: colors.text.tertiary }]}>{t('ai.followUpTitle')}</Text>
+              <View style={styles.suggestions}>
+                {suggestions.map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => submit(s)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, { color: colors.text.primary }]}>{s}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[styles.chip, styles.askElseChip, { borderColor: colors.primary }]}
+                  onPress={() => inputRef.current?.focus()}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="create-outline" size={15} color={colors.primary} />
+                  <Text style={[styles.chipText, { color: colors.primary }]}>{t('ai.askElse')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </ScrollView>
 
         <View style={[styles.inputBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: spacing.md + insets.bottom }]}>
           <TextInput
+            ref={inputRef}
             style={[styles.input, { backgroundColor: colors.card, color: colors.text.primary }]}
             placeholder={isOwner ? t('ai.placeholderOwner') : t('ai.placeholderTenant')}
             placeholderTextColor={colors.text.tertiary}
@@ -194,6 +225,9 @@ const styles = StyleSheet.create({
   suggestions: { width: '100%', gap: spacing.sm },
   chip: { borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   chipText: { ...typography.body },
+  followUps: { marginTop: spacing.sm },
+  followUpTitle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: spacing.sm },
+  askElseChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   bubble: { maxWidth: '88%', borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, paddingHorizontal: spacing.md },
   bulletRow: { flexDirection: 'row', marginVertical: 2, flex: 1 },
   bulletDot: { width: 5, height: 5, borderRadius: 2.5, marginRight: spacing.sm, marginTop: 8 },

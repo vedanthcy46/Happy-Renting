@@ -17,7 +17,6 @@ export {
   followDeviceLanguage,
   restoreLanguagePreference,
   detectDeviceLanguage,
-  syncUserLanguage,
   LANGUAGE_STORAGE_KEY,
   FOLLOW_DEVICE_KEY,
   type LanguageState,

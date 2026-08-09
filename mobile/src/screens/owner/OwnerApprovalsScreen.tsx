@@ -90,30 +90,30 @@ export const OwnerApprovalsScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          {transactions.map(t => (
-            <View key={t._id} style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}>
+          {transactions.map(txn => (
+            <View key={txn._id} style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.cardTop}>
                 <View style={[styles.iconWrap, { backgroundColor: colors.warningLight }]}>
                   <Ionicons name="time-outline" size={20} color={colors.warning} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.amount, { color: colors.text.primary }]}>{formatCurrency(t.amount)}</Text>
+                  <Text style={[styles.amount, { color: colors.text.primary }]}>{formatCurrency(txn.amount)}</Text>
                   <Text style={[styles.meta, { color: colors.text.secondary }]}>
-                    {t.paymentMethod} · {t.rentRecordId?.month ?? ''} · {formatDate(t.paymentDate || t.createdAt)}
+                    {txn.paymentMethod} · {txn.rentRecordId?.month ?? ''} · {formatDate(txn.paymentDate || txn.createdAt)}
                   </Text>
-                  {t.tenantId?.userId?.name ? <Text style={[styles.meta, { color: colors.text.secondary }]}>{t.tenantId.userId.name}{t.tenantId.roomId?.roomNumber ? ` · Room ${t.tenantId.roomId.roomNumber}` : ''}</Text> : null}
+                  {txn.tenantId?.userId?.name ? <Text style={[styles.meta, { color: colors.text.secondary }]}>{txn.tenantId.userId.name}{txn.tenantId.roomId?.roomNumber ? ` · Room ${txn.tenantId.roomId.roomNumber}` : ''}</Text> : null}
                 </View>
               </View>
-              {t.proofImage?.secureUrl && (
+              {txn.proofImage?.secureUrl && (
                 <View style={styles.proofWrap}>
-                  <Image source={{ uri: t.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
+                  <Image source={{ uri: txn.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
                 </View>
               )}
               <View style={styles.actions}>
-                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.success }]} onPress={() => verifyMutation.mutate(t._id)} disabled={verifyMutation.isPending} activeOpacity={0.8}>
+                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.success }]} onPress={() => verifyMutation.mutate(txn._id)} disabled={verifyMutation.isPending} activeOpacity={0.8}>
                   {verifyMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.btnText}>{t('owner.approvals.btnApprove')}</Text>}
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.error }]} onPress={() => setRejectTarget(t)} activeOpacity={0.8}>
+                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.error }]} onPress={() => setRejectTarget(txn)} activeOpacity={0.8}>
                   <Text style={styles.btnText}>{t('owner.approvals.btnReject')}</Text>
                 </TouchableOpacity>
               </View>
@@ -125,7 +125,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
       <Modal visible={!!rejectTarget} animationType="fade" transparent presentationStyle="overFullScreen">
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
             <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>{t('owner.approvals.rejectTitle')}</Text>
             <Text style={[styles.rejectSub, { color: colors.text.secondary }]}>{t('owner.approvals.rejectSub')}</Text>
             <TextInput

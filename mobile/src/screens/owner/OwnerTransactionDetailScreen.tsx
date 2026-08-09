@@ -89,7 +89,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldAmount')}</Text>
             <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.text.tertiary} />
 
@@ -224,10 +224,10 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
     onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.transactions.errUndo')),
   });
 
-  const confirmUndo = (t: OwnerTransaction) => {
-      Alert.alert(t('owner.transactions.undoTitle'), t('owner.transactions.undoMsg', { amount: formatCurrency(t.amount) }), [
+  const confirmUndo = (txn: OwnerTransaction) => {
+      Alert.alert(t('owner.transactions.undoTitle'), t('owner.transactions.undoMsg', { amount: formatCurrency(txn.amount) }), [
         { text: t('owner.transactions.btnCancel2'), style: 'cancel' },
-        { text: t('owner.transactions.undoConfirm'), onPress: () => undoMutation.mutate(t._id) },
+        { text: t('owner.transactions.undoConfirm'), onPress: () => undoMutation.mutate(txn._id) },
       ]);
   };
 
@@ -293,66 +293,69 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
                  <Text style={[styles.emptyText, { color: colors.text.secondary }]}>{t('owner.transactions.emptyTitle')}</Text>
               </View>
             ) : (
-              transactions.map(t => {
-                const cfg = txnStatus[t.status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: t.status };
+              transactions.map(txn => {
+                const cfg = txnStatus[txn.status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: txn.status };
+                const isAdvance = isAdvanceTx(txn);
                 return (
-                  <View key={t._id} style={[styles.txnCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                  <View key={txn._id} style={[styles.txnCard, { backgroundColor: colors.surface }, shadows.sm]}>
                     <View style={styles.txnTop}>
-                      <View style={[styles.txnIconWrap, { backgroundColor: colors.primaryLight }]}>
-                        <Ionicons name="card-outline" size={18} color={colors.primary} />
+                      <View style={[styles.txnIconWrap, { backgroundColor: isAdvance ? colors.infoLight : colors.primaryLight }]}>
+                        <Ionicons name={isAdvance ? 'swap-horizontal' : 'card-outline'} size={18} color={isAdvance ? colors.info : colors.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.txnAmount, { color: colors.text.primary }]}>{formatCurrency(t.amount)}</Text>
+                        <Text style={[styles.txnAmount, { color: colors.text.primary }]}>{formatCurrency(txn.amount)}</Text>
                          <Text style={[styles.txnMeta, { color: colors.text.secondary }]}>
-                           {t.paymentMethod} · {formatDate(t.paymentDate || t.createdAt)}
+                           {txn.paymentMethod} · {formatDate(txn.paymentDate || txn.createdAt)}
                          </Text>
                       </View>
-                      <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
-                        <Text style={[styles.badgeText, { color: cfg.text }]}>{cfg.label}</Text>
+                      <View style={[styles.badge, { backgroundColor: isAdvance ? colors.borderLight : cfg.bg }]}>
+                        <Text style={[styles.badgeText, { color: isAdvance ? colors.text.secondary : cfg.text }]}>
+                          {isAdvance ? t('owner.transactions.txnAdvance') : cfg.label}
+                        </Text>
                       </View>
                     </View>
 
-                    {isAdvanceTx(t) && (
+                    {isAdvance && (
                       <View style={[styles.floatTag, { backgroundColor: colors.infoLight }]}>
                         <Ionicons
-                          name={t.transactionType === 'advance_applied' ? 'add-circle-outline' : 'remove-circle-outline'}
+                          name={txn.transactionType === 'advance_applied' ? 'add-circle-outline' : 'remove-circle-outline'}
                           size={14}
                           color={colors.info}
                         />
                         <Text style={[styles.floatTagText, { color: colors.info }]}>
-                           {t.transactionType === 'advance_deducted'
-                             ? t('owner.transactions.floatMovedOut', { amount: formatCurrency(Math.abs(t.amount)) })
-                             : t('owner.transactions.floatMovedIn', { amount: formatCurrency(Math.abs(t.amount)) })}
+                           {txn.transactionType === 'advance_deducted'
+                             ? t('owner.transactions.floatMovedOut', { amount: formatCurrency(Math.abs(txn.amount)) })
+                             : t('owner.transactions.floatMovedIn', { amount: formatCurrency(Math.abs(txn.amount)) })}
                         </Text>
                       </View>
                     )}
 
-                     {t.transactionId ? <Text style={[styles.txnRef, { color: colors.text.tertiary }]}>{t('owner.transactions.refLabel', { ref: t.transactionId })}</Text> : null}
-                    {t.note ? <Text style={[styles.txnNote, { color: colors.text.secondary }]}>{t.note}</Text> : null}
-                     {t.recordedBy?.name ? <Text style={[styles.txnMeta, { color: colors.text.tertiary }]}>{t('owner.transactions.recordedBy', { name: t.recordedBy.name, role: t.createdByRole })}</Text> : null}
+                     {txn.transactionId ? <Text style={[styles.txnRef, { color: colors.text.tertiary }]}>{t('owner.transactions.refLabel', { ref: txn.transactionId })}</Text> : null}
+                    {txn.note ? <Text style={[styles.txnNote, { color: colors.text.secondary }]}>{txn.note}</Text> : null}
+                     {txn.recordedBy?.name ? <Text style={[styles.txnMeta, { color: colors.text.tertiary }]}>{t('owner.transactions.recordedBy', { name: txn.recordedBy.name, role: txn.createdByRole })}</Text> : null}
 
-                    {t.proofImage?.secureUrl && (
-                      <Image source={{ uri: t.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
+                    {txn.proofImage?.secureUrl && (
+                      <Image source={{ uri: txn.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
                     )}
 
-                    {t.status === 'verifying' && (
+                    {txn.status === 'verifying' && (
                       <View style={styles.txnActions}>
-                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.success }]} onPress={() => verifyMutation.mutate(t._id)} disabled={verifyMutation.isPending} activeOpacity={0.8}>
+                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.success }]} onPress={() => verifyMutation.mutate(txn._id)} disabled={verifyMutation.isPending} activeOpacity={0.8}>
                           {verifyMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.actionText}>{t('owner.transactions.btnVerify')}</Text>}
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.error }]} onPress={() => rejectMutation.mutate({ id: t._id, reason: 'Rejected by owner' })} disabled={rejectMutation.isPending} activeOpacity={0.8}>
+                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.error }]} onPress={() => rejectMutation.mutate({ id: txn._id, reason: 'Rejected by owner' })} disabled={rejectMutation.isPending} activeOpacity={0.8}>
                            <Text style={styles.actionText}>{t('owner.transactions.btnReject')}</Text>
                         </TouchableOpacity>
                       </View>
                     )}
-                    {t.status === 'completed' && (
-                      <TouchableOpacity style={[styles.reverseBtn, { borderColor: colors.error }]} onPress={() => setReverseTarget(t)} activeOpacity={0.7}>
+                    {!isAdvance && txn.status === 'completed' && (
+                      <TouchableOpacity style={[styles.reverseBtn, { borderColor: colors.error }]} onPress={() => setReverseTarget(txn)} activeOpacity={0.7}>
                         <Ionicons name="arrow-undo-outline" size={16} color={colors.error} />
                          <Text style={[styles.reverseText, { color: colors.error }]}>{t('owner.transactions.btnReverse')}</Text>
                       </TouchableOpacity>
                     )}
-                    {t.status === 'reversed' && (
-                      <TouchableOpacity style={[styles.reverseBtn, { borderColor: colors.success }]} onPress={() => confirmUndo(t)} disabled={undoMutation.isPending} activeOpacity={0.7}>
+                    {!isAdvance && txn.status === 'reversed' && (
+                      <TouchableOpacity style={[styles.reverseBtn, { borderColor: colors.success }]} onPress={() => confirmUndo(txn)} disabled={undoMutation.isPending} activeOpacity={0.7}>
                         {undoMutation.isPending ? <ActivityIndicator size="small" color={colors.success} /> : <Ionicons name="arrow-redo-outline" size={16} color={colors.success} />}
                          <Text style={[styles.reverseText, { color: colors.success }]}>{t('owner.transactions.btnUndoReversal')}</Text>
                       </TouchableOpacity>
@@ -386,7 +389,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       <Modal visible={!!reverseTarget} animationType="fade" transparent presentationStyle="overFullScreen">
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.reverseSheet, { backgroundColor: colors.surface }]}>
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
             <Text style={[styles.reverseTitle, { color: colors.text.primary }]}>{t('owner.transactions.reverseTitle')}</Text>
             <Text style={[styles.reverseSub, { color: colors.text.secondary }]}>
               {reverseTarget ? t('owner.transactions.reverseSub', { date: formatDate(reverseTarget.paymentDate || reverseTarget.createdAt), amount: formatCurrency(reverseTarget.amount) }) : ''}

@@ -72,7 +72,7 @@ const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, 
     <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
           <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>{t('owner.payments.rejectModalTitle')}</Text>
           <Text style={[styles.rejectSub, { color: colors.text.secondary }]}>
             {t('owner.payments.rejectModalSub')}

@@ -67,7 +67,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
 
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -78,7 +78,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1, maxHeight: 460 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1, maxHeight: 460 }}>
             {initial && (
               <View style={[styles.infoBanner, { backgroundColor: colors.infoLight }]}>
                 <Text style={[styles.infoText, { color: colors.info }]}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  Alert, Image, TextInput,
+  Alert, Image, TextInput, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -12,11 +12,11 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { useAuthStore } from '../../store/useAuthStore';
-import { getProfile, updateProfile } from '../../api/user';
+import { getProfile, updateProfile, requestEmailChange, verifyEmailChange, resendEmailChangeOtp } from '../../api/user';
 import { uploadQrCode } from '../../api/owner';
 import { getInitials } from '../../utils';
 
-const Field = ({ label, value, onChange }: { label: string; value: string; onChange: (t: string) => void }) => {
+const Field = ({ label, value, onChange, keyboardType }: { label: string; value: string; onChange: (t: string) => void; keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' }) => {
   const { colors } = useTheme();
   return (
     <View style={styles.field}>
@@ -27,6 +27,7 @@ const Field = ({ label, value, onChange }: { label: string; value: string; onCha
         onChangeText={onChange}
         placeholderTextColor={colors.text.tertiary}
         autoCapitalize="none"
+        keyboardType={keyboardType}
       />
     </View>
   );
@@ -45,8 +46,17 @@ export const OwnerProfileScreen: React.FC = () => {
   const [savingBank, setSavingBank] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
 
+  const [basic, setBasic] = useState({ name: '', phone: '' });
+  const [savingBasic, setSavingBasic] = useState(false);
+
   const [upi, setUpi] = useState({ upiId: '', upiName: '', upiNumber: '' });
   const [bank, setBank] = useState({ bankAccountHolder: '', bankAccountNumber: '', bankName: '', ifsc: '' });
+  const [emailVisible, setEmailVisible] = useState(false);
+  const [emailNew, setEmailNew] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailStep, setEmailStep] = useState<1 | 2>(1);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -55,6 +65,7 @@ export const OwnerProfileScreen: React.FC = () => {
         if (res.success) {
           setProfile(res.user);
           const p: any = res.user;
+          setBasic({ name: p?.name ?? '', phone: p?.phone ?? '' });
           setUpi({
             upiId: p?.upiId ?? '',
             upiName: p?.upiDetails?.upiName ?? '',
@@ -131,6 +142,82 @@ export const OwnerProfileScreen: React.FC = () => {
     }
   };
 
+  const sendOtp = async () => {
+    const email = emailNew.trim().toLowerCase();
+    if (!email) { Alert.alert(t('owner.profile.alertEmailErrTitle'), t('owner.profile.alertEmailErrEmpty')); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { Alert.alert(t('owner.profile.alertEmailErrTitle'), t('owner.profile.alertEmailErrInvalid')); return; }
+    setSavingEmail(true);
+    try {
+      const res = await requestEmailChange(email);
+      if (res.success) {
+        setEmailOtp('');
+        setEmailStep(2);
+        Alert.alert(t('owner.profile.emailChangeTitle'), t('owner.profile.alertEmailOtpSent'));
+      }
+    } catch (e: any) {
+      Alert.alert(t('owner.commonOwner.error'), e?.response?.data?.message || t('owner.profile.alertEmailErrGeneric'));
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    const email = emailNew.trim().toLowerCase();
+    const otp = emailOtp.trim();
+    if (!otp) { Alert.alert(t('owner.profile.alertEmailErrTitle'), t('owner.profile.alertEmailErrOtpEmpty')); return; }
+    if (!/^\d{6}$/.test(otp)) { Alert.alert(t('owner.profile.alertEmailErrTitle'), t('owner.profile.alertEmailErrOtpInvalid')); return; }
+    setSavingEmail(true);
+    try {
+      const res = await verifyEmailChange(email, otp);
+      if (res.success && res.user) {
+        setProfile(res.user);
+        if (token && user) setAuth({ ...user, email: res.user.email }, token);
+        setEmailVisible(false);
+        setEmailStep(1);
+        setEmailNew('');
+        setEmailOtp('');
+        Alert.alert(t('owner.profile.alertEmailChangedTitle'), t('owner.profile.alertEmailChangedMsg'));
+      }
+    } catch (e: any) {
+      Alert.alert(t('owner.commonOwner.error'), e?.response?.data?.message || t('owner.profile.alertEmailErrGeneric'));
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    const email = emailNew.trim().toLowerCase();
+    setResendingEmail(true);
+    try {
+      const res = await resendEmailChangeOtp(email);
+      if (res.success) {
+        Alert.alert(t('owner.profile.emailChangeTitle'), t('owner.profile.alertEmailOtpResent'));
+      }
+    } catch (e: any) {
+      Alert.alert(t('owner.commonOwner.error'), e?.response?.data?.message || t('owner.profile.alertEmailErrGeneric'));
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
+  const saveBasic = async () => {
+    const name = basic.name.trim();
+    if (!name) { Alert.alert(t('owner.commonOwner.error'), t('owner.profile.fieldName')); return; }
+    setSavingBasic(true);
+    try {
+      const res = await updateProfile({ name, phone: basic.phone.trim() } as any);
+      if (res.success) {
+        setProfile(res.user);
+        if (token && user) setAuth({ ...user, name, phone: basic.phone.trim() } as any, token);
+        Alert.alert(t('owner.profile.alertSavedTitle'), t('owner.profile.alertSavedBasicMsg'));
+      }
+    } catch (e: any) {
+      Alert.alert(t('owner.commonOwner.error'), e?.response?.data?.message || t('owner.profile.alertErrBasic'));
+    } finally {
+      setSavingBasic(false);
+    }
+  };
+
   const uploadQr = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert(t('owner.profile.alertPermissionTitle'), t('owner.profile.alertPermissionMsg')); return; }
@@ -181,6 +268,38 @@ export const OwnerProfileScreen: React.FC = () => {
           <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xxl }} />
         ) : (
           <>
+            {/* Basic Information */}
+            <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="person-circle-outline" size={18} color={colors.text.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.profile.sectionBasic')}</Text>
+              </View>
+              <Field label={t('owner.profile.fieldName')} value={basic.name} onChange={(t) => setBasic({ ...basic, name: t })} />
+              <Field label={t('owner.profile.fieldPhone')} value={basic.phone} onChange={(t) => setBasic({ ...basic, phone: t })} keyboardType="phone-pad" />
+              <View style={[styles.emailRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={colors.text.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.emailRowLabel, { color: colors.text.secondary }]}>{t('owner.profile.fieldRole')}</Text>
+                  <Text style={[styles.emailRowValue, { color: colors.text.primary }]} numberOfLines={1}>{user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : ''}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.emailRow, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => { setEmailVisible(true); setEmailNew(''); setEmailOtp(''); setEmailStep(1); }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="mail-outline" size={18} color={colors.text.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.emailRowLabel, { color: colors.text.secondary }]}>{t('owner.profile.fieldEmail')}</Text>
+                  <Text style={[styles.emailRowValue, { color: colors.text.primary }]} numberOfLines={1}>{user?.email}</Text>
+                </View>
+                <Text style={[styles.emailRowAction, { color: colors.primary }]}>{t('owner.profile.btnChangeEmail')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.fullBtn, { backgroundColor: colors.primary }]} onPress={saveBasic} disabled={savingBasic} activeOpacity={0.8}>
+                {savingBasic ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>{t('owner.profile.btnSaveBasic')}</Text>}
+              </TouchableOpacity>
+            </View>
+
             {/* QR code */}
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.sectionHeader}>
@@ -256,6 +375,63 @@ export const OwnerProfileScreen: React.FC = () => {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={emailVisible} animationType="slide" transparent presentationStyle="overFullScreen">
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.emailSheet, { backgroundColor: colors.surface }]}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.lg }}>
+              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>{t('owner.profile.emailChangeTitle')}</Text>
+              <Text style={[styles.modalSub, { color: colors.text.secondary }]}>{t('owner.profile.emailChangeSub')}</Text>
+              <View style={[styles.currentEmailBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Text style={[styles.modalSub, { color: colors.text.secondary }]}>{t('owner.profile.fieldEmail')}</Text>
+                <Text style={[styles.modalCurrent, { color: colors.text.primary }]}>{profile?.email || user?.email}</Text>
+              </View>
+              {emailStep === 1 ? (
+                <>
+                  <Field label={t('owner.profile.fieldNewEmail')} value={emailNew} onChange={setEmailNew} />
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => setEmailVisible(false)} disabled={savingEmail} activeOpacity={0.7}>
+                      <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.profile.btnCancelEmail')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, { backgroundColor: emailNew.trim() && !savingEmail ? colors.primary : colors.border }]}
+                      onPress={sendOtp}
+                      disabled={!emailNew.trim() || savingEmail}
+                      activeOpacity={0.8}
+                    >
+                      {savingEmail ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={[styles.modalBtnText, { color: '#FFF' }]}>{t('owner.profile.btnSendOtp')}</Text>}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={[styles.currentEmailBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Text style={[styles.modalSub, { color: colors.text.secondary }]}>{t('owner.profile.fieldNewEmail')}</Text>
+                    <Text style={[styles.modalCurrent, { color: colors.text.primary }]}>{emailNew.trim().toLowerCase()}</Text>
+                  </View>
+                  <Field label={t('owner.profile.fieldOtp')} value={emailOtp} onChange={setEmailOtp} keyboardType="numeric" />
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => setEmailVisible(false)} disabled={savingEmail} activeOpacity={0.7}>
+                      <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.profile.btnCancelEmail')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, { backgroundColor: emailOtp.trim() && !savingEmail ? colors.primary : colors.border }]}
+                      onPress={verifyOtp}
+                      disabled={!emailOtp.trim() || savingEmail}
+                      activeOpacity={0.8}
+                    >
+                      {savingEmail ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={[styles.modalBtnText, { color: '#FFF' }]}>{t('owner.profile.btnVerifyOtp')}</Text>}
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity onPress={resendOtp} disabled={resendingEmail} activeOpacity={0.7} style={{ alignItems: 'center' }}>
+                    {resendingEmail ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={[styles.modalSub, { color: colors.primary }]}>{t('owner.profile.btnResendOtp')}</Text>}
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -295,4 +471,17 @@ const styles = StyleSheet.create({
   linkText: { flex: 1, fontSize: 15, fontWeight: '500' },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderRadius: radius.lg, height: 48 },
   logoutText: { fontSize: 15, fontWeight: '700' },
+  emailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  emailRowLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  emailRowValue: { fontSize: 14, marginTop: 2 },
+  emailRowAction: { fontSize: 13, fontWeight: '700' },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', padding: spacing.xl },
+  emailSheet: { width: '100%', maxHeight: '90%', borderRadius: radius.xxl, padding: spacing.xxl },
+  modalTitle: { fontSize: 18, fontWeight: '700' },
+  modalSub: { fontSize: 13, lineHeight: 19 },
+  currentEmailBox: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, gap: spacing.xs },
+  modalCurrent: { fontSize: 15, fontWeight: '600' },
+  modalActions: { flexDirection: 'row', gap: spacing.md },
+  modalBtn: { flex: 1, height: 50, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
+  modalBtnText: { fontSize: 15, fontWeight: '600' },
 });

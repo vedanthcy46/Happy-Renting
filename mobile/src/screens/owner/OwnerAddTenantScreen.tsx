@@ -18,6 +18,19 @@ import {
 const formatCurrency = (n?: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
+const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789@$!%*?&';
+const generatePassword = () => {
+  const pick = (set: string) => set[Math.floor(Math.random() * set.length)];
+  const parts = [
+    pick('abcdefghjkmnpqrstuvwxyz'),
+    pick('ABCDEFGHJKLMNPQRSTUVWXYZ'),
+    pick('23456789'),
+    pick('@$!%*?&'),
+  ];
+  const rest = Array.from({ length: 8 }, () => pick(PASSWORD_ALPHABET)).join('');
+  return [...parts, ...rest.split('')].sort(() => Math.random() - 0.5).join('');
+};
+
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const DAYS = ['S','M','T','W','T','F','S'];
@@ -197,6 +210,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
 
@@ -243,19 +257,34 @@ export const OwnerAddTenantScreen: React.FC = () => {
 
   const sendOtpMutation = useMutation({
     mutationFn: sendOtp,
-    onSuccess: () => { setOtpSent(true); },
-    onError: (err: any) => { if (__DEV__) console.error('OTP send failed', err); },
+    onSuccess: () => { setOtpSent(true); setOtpError(''); },
+    onError: (err: any) => {
+      if (__DEV__) console.error('OTP send failed', err);
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.addTenant.otpSendFailed'));
+    },
   });
 
   const verifyOtpMutation = useMutation({
     mutationFn: ({ email, otp }: { email: string; otp: string }) => verifyOtp(email, otp),
-    onSuccess: (data) => { setVerificationToken(data.verificationToken); },
-    onError: (err: any) => { if (__DEV__) console.error('OTP verify failed', err); },
+    onSuccess: (data) => {
+      setVerificationToken(data.verificationToken);
+      setOtpError('');
+      setNewPassword(generatePassword());
+    },
+    onError: (err: any) => {
+      if (__DEV__) console.error('OTP verify failed', err);
+      const msg = err?.response?.data?.message || err?.message || t('owner.addTenant.otpVerifyFailed');
+      setOtpError(msg);
+      Alert.alert(t('owner.commonOwner.error'), msg);
+    },
   });
 
   const registerMutation = useMutation({
     mutationFn: registerTenantUser,
-    onSuccess: (res) => { setSelectedUserId(res.user._id); },
+    onSuccess: (res, vars) => {
+      setSelectedUserId(res.user._id);
+      Alert.alert(t('owner.addTenant.alertAccountCreatedTitle'), t('owner.addTenant.alertAccountCreatedMsg', { password: vars.password }));
+    },
     onError: (err: any) => {
       if (__DEV__) console.error('Register failed', err);
       Alert.alert(t('owner.addTenant.alertRegisterTitle'), err?.response?.data?.message || err?.message || t('owner.addTenant.alertRegisterMsg'));
@@ -308,17 +337,10 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const handleRegister = () => {
     if (!newName.trim()) return Alert.alert(t('owner.addTenant.alertMissingTitle'), t('owner.addTenant.alertMissingName'));
     if (newName.trim().length < 2) return Alert.alert(t('owner.addTenant.alertInvalidNameTitle'), t('owner.addTenant.alertInvalidNameMsg'));
-    if (newPassword.length < 8) return Alert.alert(t('owner.addTenant.alertWeakPwTitle'), t('owner.addTenant.alertWeakPwMin'));
-    if (!/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/\d/.test(newPassword) || !/[@$!%*?&]/.test(newPassword)) {
-      return Alert.alert(
-        t('owner.addTenant.alertWeakPwTitle'),
-        t('owner.addTenant.alertWeakPwChars')
-      );
-    }
     registerMutation.mutate({
       name: newName.trim(),
       email: newEmail.trim(),
-      password: newPassword,
+      password: newPassword || generatePassword(),
       role: 'tenant',
       verificationToken: verificationToken!,
     });
@@ -356,7 +378,6 @@ export const OwnerAddTenantScreen: React.FC = () => {
           contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
           automaticallyAdjustKeyboardInsets
         >
           {/* Room */}
@@ -423,32 +444,48 @@ export const OwnerAddTenantScreen: React.FC = () => {
                     {sendOtpMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> :                      <Text style={[styles.outlineBtnText, { color: colors.primary }]}>{t('owner.addTenant.btnSendOtp')}</Text>}
                   </TouchableOpacity>
                 )}
-                {otpSent && !otpVerified && (
+{otpSent && !otpVerified && (
                   <>
-                     <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelOtp')}</Text>
+                    <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelOtp')}</Text>
                     <View style={styles.otpRow}>
-                       <TextInput style={[styles.input, styles.otpInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={otp} onChangeText={setOtp} keyboardType="number-pad" placeholder={t('owner.addTenant.placeholderOtp')} placeholderTextColor={colors.text.tertiary} maxLength={6} />
+                      <TextInput style={[styles.input, styles.otpInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={otp} onChangeText={setOtp} keyboardType="number-pad" placeholder={t('owner.addTenant.placeholderOtp')} placeholderTextColor={colors.text.tertiary} maxLength={6} />
                       <TouchableOpacity style={[styles.verifyBtn, { backgroundColor: otp.trim() ? colors.primary : colors.border }]} onPress={handleVerifyOtp} disabled={!otp.trim() || verifyOtpMutation.isPending} activeOpacity={0.8}>
-                        {verifyOtpMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :                          <Text style={styles.verifyText}>{t('owner.addTenant.btnVerify')}</Text>}
+                        {verifyOtpMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.verifyText}>{t('owner.addTenant.btnVerify')}</Text>}
                       </TouchableOpacity>
                     </View>
+                    {otpError ? (
+                      <View style={[styles.otpErrorBox, { backgroundColor: colors.errorLight, borderColor: colors.error }]}>
+                        <Ionicons name="alert-circle" size={14} color={colors.error} />
+                        <Text style={[styles.otpErrorText, { color: colors.error }]}>{otpError}</Text>
+                      </View>
+                    ) : null}
+                    <TouchableOpacity onPress={handleSendOtp} disabled={!canSendOtp || sendOtpMutation.isPending} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                      {sendOtpMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={[styles.resendText, { color: colors.primary }]}>{t('owner.addTenant.btnResendOtp')}</Text>}
+                    </TouchableOpacity>
                   </>
                 )}
                 {otpVerified && (
                   <View style={[styles.verifiedBox, { backgroundColor: colors.successLight }]}>
                     <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                     <Text style={[styles.verifiedText, { color: colors.success }]}>{t('owner.addTenant.verified')}</Text>
+                    <Text style={[styles.verifiedText, { color: colors.success }]}>{t('owner.addTenant.verified')}</Text>
                   </View>
                 )}
                 {otpVerified && (
                   <>
-                    <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelPassword')}</Text>
-                    <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={newPassword} onChangeText={setNewPassword} placeholder="Set a password" placeholderTextColor={colors.text.tertiary} secureTextEntry />
-                     <Text style={[styles.passwordHint, { color: colors.text.tertiary }]}>
-                       {t('owner.addTenant.passwordHint')}
-                     </Text>
+                    <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelGeneratedPassword')}</Text>
+                    <View style={styles.genPwRow}>
+                      <View style={[styles.genPwBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        <Text style={[styles.genPwText, { color: colors.text.primary }]} selectable>{newPassword}</Text>
+                      </View>
+                      <TouchableOpacity style={[styles.genPwBtn, { borderColor: colors.primary }]} onPress={() => setNewPassword(generatePassword())} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Ionicons name="refresh" size={16} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.passwordHint, { color: colors.text.tertiary }]}>
+                      {t('owner.addTenant.autoPwHint')}
+                    </Text>
                     <TouchableOpacity style={[styles.fullBtn, { backgroundColor: newPassword ? colors.primary : colors.border }]} onPress={handleRegister} disabled={!newPassword || registerMutation.isPending || !!selectedUserId} activeOpacity={0.8}>
-                      {registerMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> :                        <Text style={styles.fullBtnText}>{selectedUserId ? t('owner.addTenant.btnAccountCreated') : t('owner.addTenant.btnCreateAccount')}</Text>}
+                      {registerMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.fullBtnText}>{selectedUserId ? t('owner.addTenant.btnAccountCreated') : t('owner.addTenant.btnCreateAccount')}</Text>}
                     </TouchableOpacity>
                   </>
                 )}
@@ -564,6 +601,13 @@ const styles = StyleSheet.create({
   otpInput: { flex: 1 },
   verifyBtn: { height: 46, paddingHorizontal: spacing.lg, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   verifyText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  otpErrorBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.xs },
+  otpErrorText: { fontSize: 12, fontWeight: '600', flex: 1 },
+  resendText: { fontSize: 13, fontWeight: '600', marginTop: spacing.sm },
+  genPwRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  genPwBox: { flex: 1, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+  genPwText: { fontSize: 15, fontWeight: '600', letterSpacing: 0.6 },
+  genPwBtn: { width: 44, height: 44, borderWidth: 1, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   verifiedBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md },
   verifiedText: { fontSize: 13, fontWeight: '600' },
   fullBtn: { height: 48, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs },

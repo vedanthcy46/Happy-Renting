@@ -379,33 +379,46 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
         <Text style={styles.sectionTitle}>{t('rentDetail.transactionHistory')}</Text>
         <AppCard variant="elevated" padding={spacing.md}>
           {transactions.length > 0 ? (
-            transactions.map((txn: PaymentTransaction, idx: number) => (
+            transactions.map((txn: PaymentTransaction, idx: number) => {
+              const isAdvance = txn.transactionType === 'advance_applied' || txn.transactionType === 'advance_deducted';
+              const isWon = txn.status === 'completed' || txn.status === 'verified';
+              const isBad = isWon && !isAdvance;
+              return (
               <View key={txn._id} style={[styles.txnItem, idx === transactions.length - 1 && { borderBottomWidth: 0 }]}>
                 <View style={styles.txnLeft}>
                   <View style={[styles.txnIcon, {
                     backgroundColor:
-                      txn.status === 'completed' || txn.status === 'verified'
+                      isBad
                         ? colors.successLight
-                        : txn.status === 'rejected' ? colors.errorLight : colors.warningLight,
+                        : txn.status === 'rejected' ? colors.errorLight : isAdvance ? colors.infoLight : colors.warningLight,
                   }]}>
                     <Ionicons
-                      name={txn.status === 'completed' || txn.status === 'verified' ? 'checkmark' : txn.status === 'rejected' ? 'close' : 'time'}
+                      name={isBad ? 'checkmark' : isAdvance ? 'swap-horizontal' : txn.status === 'rejected' ? 'close' : 'time'}
                       size={16}
-                      color={txn.status === 'completed' || txn.status === 'verified' ? colors.success : txn.status === 'rejected' ? colors.error : colors.warning}
+                      color={isBad ? colors.success : isAdvance ? colors.info : txn.status === 'rejected' ? colors.error : colors.warning}
                     />
                   </View>
                   <View>
-                    <Text style={styles.txnMethod}>{txn.paymentMethod.replace('_', ' ').toUpperCase()}</Text>
+                    <Text style={styles.txnMethod}>{isAdvance ? t('rentDetail.txnAdvance') : txn.paymentMethod.replace('_', ' ').toUpperCase()}</Text>
                     <Text style={styles.txnDate}>{formatDate(txn.paymentDate)}</Text>
                     {txn.queued && <Text style={styles.txnQueued}>{t('rentDetail.queued')}</Text>}
                   </View>
                 </View>
                 <View style={styles.txnRight}>
                   <Text style={styles.txnAmount}>{formatCurrency(txn.amount)}</Text>
-                  <StatusBadge status={txn.status} size="sm" />
+                  {isAdvance ? (
+                    <View style={[styles.statusBadge, { backgroundColor: colors.infoLight }]}>
+                      <Text style={[styles.statusBadgeText, { color: colors.info }]}>
+                        {txn.status === 'reversed' ? t('rentDetail.txnReversed') : t('rentDetail.txnAdvance')}
+                      </Text>
+                    </View>
+                  ) : (
+                    <StatusBadge status={txn.status} size="sm" />
+                  )}
                 </View>
               </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyTxn}>
               <Ionicons name="receipt-outline" size={40} color={colors.text.tertiary} />
@@ -426,7 +439,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <AppInput
                 label={t('rentDetail.amountPaid')}
                 placeholder={t('rentDetail.enterAmount')}
@@ -790,6 +803,17 @@ const makeStyles = (colors: any) => StyleSheet.create({
     fontWeight: '600',
     color: colors.text.primary,
     marginBottom: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   emptyTxn: {
     alignItems: 'center',

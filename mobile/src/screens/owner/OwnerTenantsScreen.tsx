@@ -341,7 +341,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
             {tenant.userId.name} · Room {tenant.roomId.roomNumber}
           </Text>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
           <View style={styles.formField}>
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.moveOutFieldExitDate')}</Text>
             <TouchableOpacity
@@ -482,18 +482,18 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
             {tenant.userId.name} · Room {tenant.roomId.roomNumber}
           </Text>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
           {/* Tabs */}
           <View style={[styles.editTabRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            {(['finance', 'profile'] as const).map(t => (
+            {(['finance', 'profile'] as const).map(tabKey => (
               <TouchableOpacity
-                key={t}
-                style={[styles.editTab, tab === t && { backgroundColor: colors.primary }]}
-                onPress={() => setTab(t)}
+                key={tabKey}
+                style={[styles.editTab, tab === tabKey && { backgroundColor: colors.primary }]}
+                onPress={() => setTab(tabKey)}
                 activeOpacity={0.8}
               >
-                 <Text style={[styles.editTabText, { color: tab === t ? '#FFFFFF' : colors.text.secondary }]}>
-                   {t === 'finance' ? t('owner.tenants.editTabFinance') : t('owner.tenants.editTabProfile')}
+                 <Text style={[styles.editTabText, { color: tab === tabKey ? '#FFFFFF' : colors.text.secondary }]}>
+                   {tabKey === 'finance' ? t('owner.tenants.editTabFinance') : t('owner.tenants.editTabProfile')}
                  </Text>
               </TouchableOpacity>
             ))}
@@ -644,7 +644,7 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
             {tenant.userId.name} · ₹{amount.toLocaleString('en-IN')}
           </Text>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
           <View style={styles.formField}>
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.refundFieldNote')}</Text>
             <TextInput
@@ -856,24 +856,24 @@ export const OwnerTenantsScreen: React.FC = () => {
     setMoveOutVisible(true);
   };
 
-  const triggerReverseOut = (t: OwnerTenant) => {
-    setReverseTarget(t);
-    if (/@deleted\.local$/.test(t.userId.email || '')) {
+const triggerReverseOut = (tenant: OwnerTenant) => {
+    setReverseTarget(tenant);
+    if (/@deleted\.local$/.test(tenant.userId.email || '')) {
         Alert.alert(
           t('owner.tenants.reverseDeletedTitle'),
           t('owner.tenants.reverseDeletedMsg'),
-          [{ text: t('owner.commonOwner.ok'), onPress: () => setReverseTarget(null) }]
+          [{ text: t('owner.commonTenant.ok'), onPress: () => setReverseTarget(null) }]
         );
       return;
     }
       Alert.alert(
         t('owner.tenants.reverseAlertTitle'),
-        t('owner.tenants.reverseAlertMsg', { name: t.userId.name, room: t.roomId.roomNumber }),
+        t('owner.tenants.reverseAlertMsg', { name: tenant.userId.name, room: tenant.roomId.roomNumber }),
         [
-          { text: t('owner.commonOwner.cancel'), style: 'cancel', onPress: () => setReverseTarget(null) },
+          { text: t('owner.commonTenant.cancel'), style: 'cancel', onPress: () => setReverseTarget(null) },
           {
             text: t('owner.tenants.reverseAlertRestore'),
-            onPress: () => reverseMoveOutMutation.mutate(t._id),
+            onPress: () => reverseMoveOutMutation.mutate(tenant._id),
           },
         ]
       );

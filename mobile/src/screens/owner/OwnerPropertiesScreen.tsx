@@ -63,7 +63,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <KeyboardAvoidingView
         style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
@@ -78,7 +78,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
             style={{ flexShrink: 1 }}
           >
           <View style={styles.formField}>
