@@ -16,11 +16,24 @@ const WEBSITE_URL = (process.env.CLIENT_URL || 'https://happyrenting.netlify.app
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Deleted/anonymized accounts are rewritten to a dead address (deleted+<id>@deleted.local).
+// Never deliver email to them.
+const isAnonymizedAddress = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  const normalized = email.trim().toLowerCase();
+  return normalized.startsWith('deleted+') && normalized.endsWith('@deleted.local');
+};
+
 // ── Immediate Resilient Email Sending ─────────────────────────────
 const sendEmail = async (to, subject, html, attachments = [], retryCount = 0) => {
   try {
     if (!to) {
       logger.warn(`[EMAIL SKIP] No recipient address provided for subject: ${subject}`);
+      return;
+    }
+
+    if (isAnonymizedAddress(to)) {
+      logger.warn(`[EMAIL SKIP] Skipping email to deleted/anonymized account: ${to} — subject: ${subject}`);
       return;
     }
 
@@ -75,6 +88,10 @@ const queueEmail = async (to, subject, html, type = 'alert') => {
   try {
     if (!to) {
       logger.warn(`[QUEUE SKIP] No recipient address provided for subject: ${subject}`);
+      return;
+    }
+    if (isAnonymizedAddress(to)) {
+      logger.warn(`[QUEUE SKIP] Skipping queued email to deleted/anonymized account: ${to} — subject: ${subject}`);
       return;
     }
     await NotificationQueue.create({
