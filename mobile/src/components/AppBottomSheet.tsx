@@ -7,6 +7,7 @@ import {
   Keyboard,
   Platform,
   TouchableOpacity,
+  KeyboardAvoidingView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -51,22 +52,7 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   const { width, height } = useResponsive();
   const sheetHeight = useSharedValue(0);
   const gestureStartHeight = useSharedValue(0);
-  const keyboardHeight = useSharedValue(0);
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      keyboardHeight.value = withTiming(e.endCoordinates.height, { duration: 250, easing: Easing.out(Easing.cubic) });
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      keyboardHeight.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.cubic) });
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [keyboardHeight]);
 
   const MIN_HEIGHT = height * 0.28;
   const MAX_HEIGHT = height * maxHeightFraction;
@@ -95,6 +81,11 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
     }
   }, [visible, defaultHeight, sheetHeight]);
 
+  const avoidKeyboardBehavior = Platform.select({
+    ios: 'padding',
+    android: 'height',
+  });
+
   const panGesture = Gesture.Pan()
     .onStart(() => {
       gestureStartHeight.value = sheetHeight.value;
@@ -118,7 +109,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
 
   const sheetStyle = useAnimatedStyle(() => ({
     height: sheetHeight.value,
-    transform: [{ translateY: -keyboardHeight.value }],
   }));
 
   const scrimStyle = useAnimatedStyle(() => ({
@@ -141,34 +131,40 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
           onPress={closeSheet}
         />
         <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              styles.sheet,
-              sheetStyle,
-              {
-                backgroundColor: colors.surface,
-                borderTopLeftRadius: radius.xxl + 4,
-                borderTopRightRadius: radius.xxl + 4,
-              },
-              ...(isNarrowed
-                ? [{ width: sheetWidth, alignSelf: 'center' as const, borderRadius: sheetRadius }]
-                : []),
-            ]}
+          <KeyboardAvoidingView
+            behavior={avoidKeyboardBehavior}
+            style={styles.keyboardAvoidingView}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
           >
-            <View style={styles.handleArea}>
-              <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            </View>
-            <ScrollView
-              style={styles.body}
-              contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.huge + insets.bottom + 16 }]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              bounces={false}
-              automaticallyAdjustKeyboardInsets={false}
+            <Animated.View
+              style={[
+                styles.sheet,
+                sheetStyle,
+                {
+                  backgroundColor: colors.surface,
+                  borderTopLeftRadius: radius.xxl + 4,
+                  borderTopRightRadius: radius.xxl + 4,
+                },
+                ...(isNarrowed
+                  ? [{ width: sheetWidth, alignSelf: 'center' as const, borderRadius: sheetRadius }]
+                  : []),
+              ]}
             >
-              {children}
-            </ScrollView>
-          </Animated.View>
+              <View style={styles.handleArea}>
+                <View style={[styles.handle, { backgroundColor: colors.border }]} />
+              </View>
+              <ScrollView
+                style={styles.body}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.huge + insets.bottom + 16, flexGrow: 1 }]}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                bounces={false}
+                automaticallyAdjustKeyboardInsets={true}
+              >
+                {children}
+              </ScrollView>
+            </Animated.View>
+          </KeyboardAvoidingView>
         </GestureDetector>
       </View>
     </Modal>
@@ -179,6 +175,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   scrim: {
     position: 'absolute',
