@@ -578,10 +578,12 @@ const unwindAdvanceDistribution = async (transaction, sourceRecord) => {
       await recv.save();
     }
 
-    // 2. Find every system advance_deducted row spawned from this advance
-    //    (any amount — robust against partial/tiered applications), including
-    //    legacy rows that carry no sourceTransactionId.
-    const deductedQuery = {
+    // 2. Find the system advance_deducted row(s) spawned from THIS advance.
+    //    One source payment can fund several months, and every deducted row
+    //    shares the same sourceTransactionId + source rentRecordId, so match
+    //    precisely by the receiving month referenced in the note.
+    const receivingMonth = recv ? String(recv.month || '').trim() : '';
+    const baseQuery = {
       tenantId: transaction.tenantId,
       transactionType: 'advance_deducted',
       status: 'completed',
@@ -590,22 +592,27 @@ const unwindAdvanceDistribution = async (transaction, sourceRecord) => {
         ? { sourceTransactionId: app.sourceTransactionId }
         : { sourceTransactionId: { $exists: false } }),
     };
-    let deductedRows = await PaymentTransaction.find(deductedQuery);
+    let deductedRows = [];
+    if (receivingMonth) {
+      const esc = receivingMonth.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      deductedRows = await PaymentTransaction.find({
+        ...baseQuery,
+        note: { $regex: new RegExp(`Advance transferred to month ${esc}$`), $options: 'i' },
+      });
 
-    // Legacy fallback: a deducted row whose note references receiving month
-    if (deductedRows.length === 0 && app.rentRecordId) {
-      const recv = await MonthlyRentRecord.findById(app.rentRecordId);
-      const monthStr = recv ? String(recv.month || '').trim() : '';
-      if (monthStr) {
-        const esc = monthStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Legacy fallback: a deducted row whose note references the receiving month
+      if (deductedRows.length === 0) {
         deductedRows = await PaymentTransaction.find({
-          tenantId: transaction.tenantId,
-          transactionType: 'advance_deducted',
-          status: 'completed',
-          rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
+          ...baseQuery,
           note: { $regex: new RegExp(`month ${esc}$`), $options: 'i' },
         });
       }
+    }
+    // Only fall back to sourceTransactionId matching when there is a single
+    // advance application, otherwise the pairing is ambiguous and risks
+    // restoring the same deduction more than once.
+    if (deductedRows.length === 0 && applied.length === 1) {
+      deductedRows = await PaymentTransaction.find(baseQuery);
     }
 
     // Only restore the amount for rows that are actually being reversed so the
@@ -678,10 +685,12 @@ const reapplyAdvanceDistribution = async (transaction, sourceRecord) => {
       await recv.save();
     }
 
-    // 2. Find every system advance_deducted row spawned from this advance
-    //    (any amount — robust against partial/tiered applications), including
-    //    legacy rows that carry no sourceTransactionId.
-    const deductedQuery = {
+    // 2. Find the system advance_deducted row(s) spawned from THIS advance.
+    //    One source payment can fund several months, and every deducted row
+    //    shares the same sourceTransactionId + source rentRecordId, so match
+    //    precisely by the receiving month referenced in the note.
+    const receivingMonth = recv ? String(recv.month || '').trim() : '';
+    const baseQuery = {
       tenantId: transaction.tenantId,
       transactionType: 'advance_deducted',
       status: 'reversed',
@@ -690,22 +699,27 @@ const reapplyAdvanceDistribution = async (transaction, sourceRecord) => {
         ? { sourceTransactionId: app.sourceTransactionId }
         : { sourceTransactionId: { $exists: false } }),
     };
-    let deductedRows = await PaymentTransaction.find(deductedQuery);
+    let deductedRows = [];
+    if (receivingMonth) {
+      const esc = receivingMonth.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      deductedRows = await PaymentTransaction.find({
+        ...baseQuery,
+        note: { $regex: new RegExp(`Advance transferred to month ${esc}$`), $options: 'i' },
+      });
 
-    // Legacy fallback: a deducted row whose note references receiving month
-    if (deductedRows.length === 0 && app.rentRecordId) {
-      const recv = await MonthlyRentRecord.findById(app.rentRecordId);
-      const monthStr = recv ? String(recv.month || '').trim() : '';
-      if (monthStr) {
-        const esc = monthStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Legacy fallback: a deducted row whose note references the receiving month
+      if (deductedRows.length === 0) {
         deductedRows = await PaymentTransaction.find({
-          tenantId: transaction.tenantId,
-          transactionType: 'advance_deducted',
-          status: 'reversed',
-          rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
+          ...baseQuery,
           note: { $regex: new RegExp(`month ${esc}$`), $options: 'i' },
         });
       }
+    }
+    // Only fall back to sourceTransactionId matching when there is a single
+    // advance application, otherwise the pairing is ambiguous and risks
+    // re-deducting the same amount more than once.
+    if (deductedRows.length === 0 && applied.length === 1) {
+      deductedRows = await PaymentTransaction.find(baseQuery);
     }
 
     // Only remove the amount for rows that are actually being re-applied so the
@@ -786,13 +800,6 @@ const reverseTransaction = async (transactionId, reason, caller) => {
     await unwindAdvanceDistribution(transaction, rented).catch(err =>
       logger.error(`Failed to unwind advance distribution: ${err.message}`)
     );
-  } else if (!isReversing && rented) {
-    // Undo: re-activate the auto-adjusted advance rows that were unwound on
-    // reversal so every other month the overpayment had adjusted regains its
-    // credit, then the source month's totalPaid is restored below.
-    await reapplyAdvanceDistribution(transaction, rented).catch(err =>
-      logger.error(`Failed to reapply advance distribution: ${err.message}`)
-    );
   }
 
   if (process.env.LEDGER_V3_ENABLED === 'true') {
@@ -807,7 +814,14 @@ const reverseTransaction = async (transactionId, reason, caller) => {
       if (isReversing) {
         rented.totalPaid = Math.max(0, rented.totalPaid - transaction.amount);
       } else {
+        // Undo: re-add the payment first, then re-activate the auto-adjusted
+        // advance rows that were unwound on reversal so every other month the
+        // overpayment had adjusted regains its credit. Order matters: the
+        // re-applied deductions are subtracted against a positive balance.
         rented.totalPaid += transaction.amount;
+        await reapplyAdvanceDistribution(transaction, rented).catch(err =>
+          logger.error(`Failed to reapply advance distribution: ${err.message}`)
+        );
       }
       await rented.save();
     }
