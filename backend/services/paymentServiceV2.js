@@ -578,25 +578,48 @@ const unwindAdvanceDistribution = async (transaction, sourceRecord) => {
       await recv.save();
     }
 
-    // 2. Reverse the matching advance_deducted on the source month
-    await PaymentTransaction.updateOne(
-      {
-        tenantId: transaction.tenantId,
-        transactionType: 'advance_deducted',
-        status: 'completed',
-        rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
-        amount: -app.amount,
-        ...(app.sourceTransactionId
-          ? { sourceTransactionId: app.sourceTransactionId }
-          : { sourceTransactionId: { $exists: false } }),
-      },
+    // 2. Find every system advance_deducted row spawned from this advance
+    //    (any amount — robust against partial/tiered applications), including
+    //    legacy rows that carry no sourceTransactionId.
+    const deductedQuery = {
+      tenantId: transaction.tenantId,
+      transactionType: 'advance_deducted',
+      status: 'completed',
+      rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
+      ...(app.sourceTransactionId
+        ? { sourceTransactionId: app.sourceTransactionId }
+        : { sourceTransactionId: { $exists: false } }),
+    };
+    let deductedRows = await PaymentTransaction.find(deductedQuery);
+
+    // Legacy fallback: a deducted row whose note references receiving month
+    if (deductedRows.length === 0 && app.rentRecordId) {
+      const recv = await MonthlyRentRecord.findById(app.rentRecordId);
+      const monthStr = recv ? String(recv.month || '').trim() : '';
+      if (monthStr) {
+        const esc = monthStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        deductedRows = await PaymentTransaction.find({
+          tenantId: transaction.tenantId,
+          transactionType: 'advance_deducted',
+          status: 'completed',
+          rentRecordId: sourceRecord ? sourceRecord._id : app.rentRecordId,
+          note: { $regex: new RegExp(`month ${esc}$`), $options: 'i' },
+        });
+      }
+    }
+
+    // Only restore the amount for rows that are actually being reversed so the
+    // source month's totalPaid never gets inflated twice.
+    const restoreAmount = deductedRows.reduce((sum, d) => sum + Math.abs(d.amount), 0) || Math.abs(app.amount);
+    if (sourceRecord && sourceRecord.totalPaid != null) {
+      sourceRecord.totalPaid = Math.max(0, sourceRecord.totalPaid + restoreAmount);
+    }
+
+    // 3. Reverse every matching advance_deducted row (updateMany, never one)
+    await PaymentTransaction.updateMany(
+      { _id: { $in: deductedRows.map(r => r._id) } },
       { $set: { status: 'reversed', statusReason: reason } }
     );
-
-    // 3. Return the deducted advance to the source month
-    if (sourceRecord && sourceRecord.totalPaid != null) {
-      sourceRecord.totalPaid = Math.max(0, sourceRecord.totalPaid + app.amount);
-    }
 
     // 4. Reverse the advance_applied transaction itself
     app.status = 'reversed';
@@ -632,6 +655,18 @@ const reverseTransaction = async (transactionId, reason, caller) => {
 
   if (transaction.status !== 'completed' && transaction.status !== 'reversed') {
     const err = new Error('Can only change status of completed or reversed transactions');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // System-generated advance rows are reversed automatically as part of unwinding
+  // their source payment. Reversing them in isolation corrupts totalPaid because
+  // they carry a negative amount (advance_deducted).
+  if (
+    transaction.transactionType === 'advance_applied' ||
+    transaction.transactionType === 'advance_deducted'
+  ) {
+    const err = new Error('Auto-adjusted transactions are reversed through their source payment');
     err.statusCode = 400;
     throw err;
   }
