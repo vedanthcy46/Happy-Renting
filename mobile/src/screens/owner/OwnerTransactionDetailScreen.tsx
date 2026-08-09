@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
+import { ImageLightbox } from '../../components';
 import { getPaymentDetail, reverseTransaction, addTransaction, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
 
 const formatCurrency = (n?: number) =>
@@ -161,6 +162,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
   const [reverseTarget, setReverseTarget] = useState<OwnerTransaction | null>(null);
   const [reverseReason, setReverseReason] = useState('');
   const [addPaymentVisible, setAddPaymentVisible] = useState(false);
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['ownerPaymentDetail', rentRecordId],
@@ -334,9 +336,11 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
                     {txn.note ? <Text style={[styles.txnNote, { color: colors.text.secondary }]}>{txn.note}</Text> : null}
                      {txn.recordedBy?.name ? <Text style={[styles.txnMeta, { color: colors.text.tertiary }]}>{t('owner.transactions.recordedBy', { name: txn.recordedBy.name, role: txn.createdByRole })}</Text> : null}
 
-                    {txn.proofImage?.secureUrl && (
-                      <Image source={{ uri: txn.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
-                    )}
+                     {txn.proofImage?.secureUrl && (
+                       <TouchableOpacity onPress={() => setLightboxUri(txn.proofImage!.secureUrl)} activeOpacity={0.8}>
+                         <Image source={{ uri: txn.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
+                       </TouchableOpacity>
+                     )}
 
                     {txn.status === 'verifying' && (
                       <View style={styles.txnActions}>
@@ -421,6 +425,8 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ImageLightbox uri={lightboxUri!} visible={!!lightboxUri} onClose={() => setLightboxUri(null)} />
     </View>
   );
 };

@@ -19,7 +19,7 @@ import { addRoommate, updateRoommate, deleteRoommate } from '../api/tenant';
 import { cachedRentRecords, cachedNotificationsUnread, cachedTenancy } from '../repositories';
 import { useAuthStore } from '../store/useAuthStore';
 import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard, AppBottomSheet } from '../components';
-import { typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatDate, getInitials, formatMonth } from '../utils';
 import { appEvents, OPEN_DRAWER_EVENT } from '../utils/events';
@@ -35,7 +35,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = React.useMemo(() => makeStyles(colors, r), [colors, r]);
 
   const [showRoommateModal, setShowRoommateModal] = useState(false);
   const [editingRoommate, setEditingRoommate] = useState<any>(null);
@@ -168,7 +169,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         end={{ x: 1, y: 1 }}
         style={[styles.headerGradient, { paddingTop: insets.top + spacing.lg }]}
       >
-        <View style={styles.headerContent}>
+        <View style={[styles.headerContent, r.isTablet && { width: '100%', maxWidth: r.maxWidth, alignSelf: 'center' }]}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               style={[styles.iconButton, { marginRight: spacing.sm }]}
@@ -212,7 +213,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 100 },
+          r.isTablet && { width: '100%', maxWidth: r.maxWidth, alignSelf: 'center', paddingHorizontal: r.hpad },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -264,16 +269,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           </AppCard>
         )}
 
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, r.isTablet && styles.statsRowTablet]}>
           <StatCard
             label={t('home.pendingAmount')}
             value={formatCurrency(totalPending)}
             icon="card-outline"
             color={colors.primary}
             valueColor={colors.warning}
+            style={r.isTablet ? { flex: 1 } : undefined}
           />
 
-          <View style={styles.advanceCard}>
+          <View style={[styles.advanceCard, r.isTablet && { flex: 1 }]}>
             <View style={styles.advanceCardHeader}>
               <View style={[styles.advanceIconCircle, { backgroundColor: colors.success + '15' }]}>
                 <Ionicons name="wallet-outline" size={18} color={colors.success} />

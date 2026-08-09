@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { StatusBadge } from './StatusBadge';
 import { formatCurrency, formatMonth } from '../utils';
@@ -33,7 +33,8 @@ export const RentCard: React.FC<RentCardProps> = ({
   index = 0,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.f, r.h), [colors, r.f, r.h]);
   const isPaid = status === 'paid' || status === 'overpaid';
   const progress = totalRent > 0 ? totalPaid / totalRent : 0;
 
@@ -92,28 +93,29 @@ export const RentCard: React.FC<RentCardProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, f: (n: number) => number, h: (n: number) => number) => StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    padding: h(16),
+    marginBottom: h(12),
     ...shadows.card,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: h(16),
   },
   monthBadge: {
     backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: h(12),
+    paddingVertical: h(6),
     borderRadius: radius.md,
   },
   monthText: {
     ...typography.buttonSmall,
+    fontSize: f(14),
     color: colors.primary,
     fontWeight: '700',
   },
@@ -121,7 +123,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: h(16),
   },
   amountBlock: {
     alignItems: 'center',
@@ -134,16 +136,17 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   amountLabel: {
     ...typography.caption,
+    fontSize: f(11),
     color: colors.text.secondary,
     marginBottom: 4,
   },
   amountValue: {
     ...typography.subtitle,
+    fontSize: f(16),
     color: colors.text.primary,
-    fontSize: 16,
   },
   progressContainer: {
-    marginBottom: spacing.md,
+    marginBottom: h(16),
   },
   progressTrack: {
     height: 6,
@@ -164,26 +167,27 @@ const makeStyles = (colors: any) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.success,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: h(10),
     paddingVertical: 2,
-    marginBottom: spacing.md,
+    marginBottom: h(16),
   },
   advanceText: {
-    fontSize: 10,
+    fontSize: f(10),
     fontWeight: '700',
     color: '#16A34A',
   },
   payButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
-    paddingVertical: spacing.md,
+    paddingVertical: h(12),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: h(8),
   },
   payButtonText: {
     ...typography.button,
+    fontSize: f(16),
     color: '#FFFFFF',
   },
 });

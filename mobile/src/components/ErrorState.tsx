@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { typography, spacing } from '../theme';
+import { typography, spacing, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { AppButton } from './AppButton';
 
@@ -15,11 +15,12 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   onRetry,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.f, r.h), [colors, r.f, r.h]);
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Ionicons name="alert-circle-outline" size={40} color={colors.error} />
+        <Ionicons name="alert-circle-outline" size={r.h(40)} color={colors.error} />
       </View>
       <Text style={styles.title}>Oops!</Text>
       <Text style={styles.message}>{message}</Text>
@@ -36,34 +37,36 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, f: (n: number) => number, h: (n: number) => number) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.huge,
-    paddingHorizontal: spacing.xxl,
+    paddingVertical: h(40),
+    paddingHorizontal: h(24),
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: h(80),
+    height: h(80),
+    borderRadius: h(40),
     backgroundColor: colors.errorLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: h(20),
   },
   title: {
     ...typography.h3,
+    fontSize: f(20),
     color: colors.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: h(8),
   },
   message: {
     ...typography.body,
+    fontSize: f(15),
     color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 22,
   },
   button: {
-    marginTop: spacing.xl,
+    marginTop: h(20),
   },
 });

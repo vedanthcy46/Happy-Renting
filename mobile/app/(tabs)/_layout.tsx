@@ -1,37 +1,37 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Platform, StyleSheet, View, Dimensions } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/store/useAuthStore';
-import { colors, typography } from '../../src/theme';
+import { colors, typography, useResponsive } from '../../src/theme';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useState, useEffect, useMemo } from 'react';
 import { FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
 import { WalkthroughStep } from '../../src/components/FeatureWalkthrough';
 import { useTranslation } from 'react-i18next';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const WALKTHROUGH_KEY_PREFIX = 'walkthrough_completed';
-
-const tabTargets = (() => {
-  const tabWidth = SCREEN_WIDTH / 4;
-  const top = SCREEN_HEIGHT - TAB_BAR_HEIGHT + 6;
-  const width = tabWidth - 8;
-  const height = TAB_BAR_HEIGHT - 14;
-  return [0, 1, 2, 3].map((i) => ({
-    left: tabWidth * i + 4,
-    top,
-    width,
-    height,
-  }));
-})();
 
 export default function TabLayout() {
   const { t } = useTranslation();
   const { token, isLoading, user } = useAuthStore();
   const { colors: themeColors } = useTheme();
+  const { width, height } = useResponsive();
 
   const [showWalkthrough, setShowWalkthrough] = useState(false);
+
+  const tabTargets = useMemo(() => {
+    const tabWidth = width / 4;
+    const top = height - TAB_BAR_HEIGHT + 6;
+    const w = tabWidth - 8;
+    const h = TAB_BAR_HEIGHT - 14;
+    return [0, 1, 2, 3].map((i) => ({
+      left: tabWidth * i + 4,
+      top,
+      width: w,
+      height: h,
+    }));
+  }, [width, height]);
 
   const walkthroughSteps = useMemo<WalkthroughStep[]>(
     () => [
@@ -64,7 +64,7 @@ export default function TabLayout() {
         target: tabTargets[3],
       },
     ],
-    [t]
+    [t, tabTargets]
   );
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -72,6 +72,7 @@ export const AIAssistantScreen = () => {
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const headerHeight = useRef(0);
+  const lastAiLayout = useRef<{ y: number; height: number } | null>(null);
 
   const isOwner = workspace === 'owner';
   const suggestions = isOwner
@@ -83,6 +84,19 @@ export const AIAssistantScreen = () => {
   const showFollowUps = !isLoading && lastIsAssistant;
 
   const iosOffset = Platform.OS === 'ios' ? headerHeight.current + insets.top : 0;
+
+  useEffect(() => {
+    const count = messages.length;
+    if (count > 0) {
+      const lastMsg = messages[count - 1];
+      if (lastMsg.role === 'assistant' && lastAiLayout.current) {
+        const { y } = lastAiLayout.current;
+        setTimeout(() => {
+          scrollRef.current?.scrollTo({ y: Math.max(0, y - 20), animated: true });
+        }, 300);
+      }
+    }
+  }, [messages]);
 
   const submit = (text: string) => {
     const value = text.trim();
@@ -112,7 +126,6 @@ export const AIAssistantScreen = () => {
           style={styles.flex}
           contentContainerStyle={styles.chatContent}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.length === 0 ? (
             <View style={styles.empty}>
@@ -139,9 +152,19 @@ export const AIAssistantScreen = () => {
               </View>
             </View>
           ) : (
-            messages.map((m, i) => (
-              <MessageBubble key={i} message={m.content} isUser={m.role === 'user'} />
-            ))
+            messages.map((m, i) => {
+              const isLastAi = m.role === 'assistant' && i === messages.length - 1;
+              return (
+                <View
+                  key={i}
+                  onLayout={isLastAi ? (e) => {
+                    lastAiLayout.current = { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height };
+                  } : undefined}
+                >
+                  <MessageBubble message={m.content} isUser={m.role === 'user'} />
+                </View>
+              );
+            })
           )}
 
           {isLoading && (

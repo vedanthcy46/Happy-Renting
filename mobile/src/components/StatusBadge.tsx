@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { typography, spacing, radius } from '../theme';
+import { typography, spacing, radius, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 type StatusType = 'paid' | 'pending' | 'overdue' | 'partial' | 'overpaid' | 'verifying' | 'completed' | 'rejected' | 'reversed' | 'open' | 'in-progress' | 'resolved' | 'closed' | 'failed' | 'sent' | string;
@@ -19,7 +19,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   style,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.f), [colors, r.f]);
   const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
     paid: { bg: colors.successLight, text: colors.success, label: 'Paid' },
     completed: { bg: colors.successLight, text: colors.success, label: 'Completed' },
@@ -60,7 +61,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, f: (n: number) => number) => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -81,10 +82,11 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   label: {
     ...typography.caption,
+    fontSize: f(12),
     fontWeight: '600',
   },
   labelSm: {
-    fontSize: 10,
+    fontSize: f(10),
     lineHeight: 12,
   },
 });

@@ -8,7 +8,7 @@ import {
   TextInputProps,
   Animated,
 } from 'react-native';
-import { typography, spacing, radius } from '../theme';
+import { typography, spacing, radius, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 interface AppInputProps extends TextInputProps {
@@ -29,7 +29,8 @@ export const AppInput: React.FC<AppInputProps> = ({
   ...rest
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.f, r.h), [colors, r.f, r.h]);
   const [isFocused, setIsFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
 
@@ -85,15 +86,16 @@ export const AppInput: React.FC<AppInputProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, f: (n: number) => number, h: (n: number) => number) => StyleSheet.create({
   container: {
-    marginBottom: spacing.lg,
+    marginBottom: h(16),
     width: '100%',
   },
   label: {
     ...typography.caption,
+    fontSize: f(12),
     color: colors.text.secondary,
-    marginBottom: spacing.sm,
+    marginBottom: h(8),
     fontWeight: '600',
   },
   inputWrapper: {
@@ -111,21 +113,23 @@ const makeStyles = (colors: any) => StyleSheet.create({
     borderColor: colors.error,
   },
   leftIcon: {
-    paddingLeft: spacing.lg,
+    paddingLeft: h(16),
   },
   input: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: h(16),
+    paddingVertical: h(16),
     ...typography.body,
+    fontSize: f(15),
     color: colors.text.primary,
   },
   inputWithIcon: {
-    paddingLeft: spacing.md,
+    paddingLeft: h(12),
   },
   errorText: {
     ...typography.bodySmall,
+    fontSize: f(13),
     color: colors.error,
-    marginTop: spacing.xs,
+    marginTop: h(4),
   },
 });

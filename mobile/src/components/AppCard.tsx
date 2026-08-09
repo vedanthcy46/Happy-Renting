@@ -7,7 +7,7 @@ import {
   Animated,
   StyleProp,
 } from 'react-native';
-import { spacing, radius, shadows } from '../theme';
+import { radius, shadows, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 interface AppCardProps {
@@ -24,10 +24,11 @@ export const AppCard: React.FC<AppCardProps> = ({
   onPress,
   style,
   variant = 'default',
-  padding = spacing.lg,
+  padding,
   animate = true,
 }) => {
   const { colors } = useTheme();
+  const r = useResponsive();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -55,7 +56,7 @@ export const AppCard: React.FC<AppCardProps> = ({
   const containerStyle: ViewStyle[] = [
     styles.base,
     styles[`variant_${variant}`],
-    { padding },
+    { padding: padding ?? r.h(16) },
     style as ViewStyle,
   ];
 

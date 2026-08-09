@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ViewStyle, Platform, ColorValue } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { spacing, radius } from '../theme';
+import { radius, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 interface GradientCardProps {
@@ -16,7 +16,8 @@ export const GradientCard: React.FC<GradientCardProps> = ({
   style,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.h), [colors, r.h]);
   const g = gradient || colors.gradient.card;
   return (
     <View style={[styles.shadow, style]}>
@@ -32,7 +33,7 @@ export const GradientCard: React.FC<GradientCardProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, h: (n: number) => number) => StyleSheet.create({
   shadow: {
     borderRadius: radius.xl,
     ...Platform.select({
@@ -49,7 +50,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   card: {
     borderRadius: radius.xl,
-    padding: spacing.xl,
+    padding: h(20),
     overflow: 'hidden',
   },
 });

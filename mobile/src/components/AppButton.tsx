@@ -9,7 +9,7 @@ import {
   Animated,
   View,
 } from 'react-native';
-import { typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 type AppButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -41,7 +41,19 @@ export const AppButton: React.FC<AppButtonProps> = ({
   textStyle,
 }) => {
   const { colors: themeColors } = useTheme();
+  const r = useResponsive();
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const sizeContainerStyles: Record<AppButtonSize, ViewStyle> = {
+    sm: { paddingVertical: r.h(10), paddingHorizontal: r.h(16) },
+    md: { paddingVertical: r.h(14), paddingHorizontal: r.h(20) },
+    lg: { paddingVertical: r.h(16), paddingHorizontal: r.h(24) },
+  };
+  const sizeLabelStyles: Record<AppButtonSize, TextStyle> = {
+    sm: { fontSize: r.f(14) },
+    md: { fontSize: r.f(16) },
+    lg: { fontSize: r.f(18) },
+  };
 
   const handlePressIn = useCallback(() => {
     Animated.spring(scaleAnim, {
@@ -88,7 +100,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   const containerStyle: ViewStyle[] = [
     styles.base,
     themeContainerOverrides[variant],
-    styles[`size_${size}`],
+    sizeContainerStyles[size],
     ...(fullWidth ? [styles.fullWidth] : []),
     ...(isDisabled ? [styles.disabled] : []),
     ...(style ? [style as ViewStyle] : []),
@@ -97,7 +109,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   const labelStyle: TextStyle[] = [
     styles.label,
     themeLabelOverrides[variant],
-    styles[`labelSize_${size}`],
+    sizeLabelStyles[size],
     ...(isDisabled ? [styles.labelDisabled] : []),
     ...(textStyle ? [textStyle as TextStyle] : []),
   ];
@@ -149,33 +161,11 @@ const styles = StyleSheet.create({
   iconWrapper: {
     marginRight: spacing.sm,
   },
-  // Sizes
-  size_sm: {
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.lg,
-  },
-  size_md: {
-    paddingVertical: spacing.md + 2,
-    paddingHorizontal: spacing.xl,
-  },
-  size_lg: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xxl,
-  },
   // Labels
   label: {
     ...typography.button,
   },
   labelDisabled: {
     opacity: 0.8,
-  },
-  labelSize_sm: {
-    fontSize: 14,
-  },
-  labelSize_md: {
-    fontSize: 16,
-  },
-  labelSize_lg: {
-    fontSize: 18,
   },
 });

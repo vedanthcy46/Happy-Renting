@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { typography, spacing, radius } from '../theme';
+import { typography, spacing, radius, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatRelativeTime } from '../utils';
 
@@ -23,7 +23,8 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   status,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.f, r.h), [colors, r.f, r.h]);
   const config: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
     payment: { icon: 'card', color: colors.success },
     complaint: { icon: 'chatbubble-ellipses', color: colors.warning },
@@ -55,20 +56,20 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, f: (n: number) => number, h: (n: number) => number) => StyleSheet.create({
   container: {
     flexDirection: 'row',
-    paddingVertical: spacing.md,
+    paddingVertical: h(12),
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
+    width: h(40),
+    height: h(40),
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: h(12),
   },
   content: {
     flex: 1,
@@ -81,18 +82,19 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   title: {
     ...typography.subtitle,
+    fontSize: f(14),
     color: colors.text.primary,
-    fontSize: 14,
     flex: 1,
   },
   amount: {
     ...typography.subtitle,
+    fontSize: f(14),
     color: colors.text.primary,
-    fontSize: 14,
-    marginLeft: spacing.sm,
+    marginLeft: h(8),
   },
   description: {
     ...typography.bodySmall,
+    fontSize: f(13),
     color: colors.text.secondary,
     lineHeight: 18,
     marginBottom: 4,
@@ -100,12 +102,12 @@ const makeStyles = (colors: any) => StyleSheet.create({
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: h(8),
   },
   timestamp: {
     ...typography.caption,
     color: colors.text.tertiary,
-    fontSize: 11,
+    fontSize: f(11),
   },
   statusDot: {
     width: 6,

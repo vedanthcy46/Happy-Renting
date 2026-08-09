@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  TextInput, RefreshControl, KeyboardAvoidingView, Platform, Keyboard,
+  TextInput, RefreshControl, KeyboardAvoidingView, Platform, Keyboard, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -12,14 +12,15 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { getComplaintDetail, addComplaintComment } from '../../api/complaint';
 import { updateComplaint } from '../../api/owner';
+import { ImageLightbox } from '../../components';
 import type { Complaint } from '../../types/complaint';
 
 const STATUS_CFG = (colors: any, t: any): Record<string, { bg: string; text: string; label: string }> => ({
-  pending: { bg: colors.warningLight, text: colors.warning, label: t('owner.complaintDetail.statusOpen') },
+  pending: { bg: colors.warningLight, text: colors.warning, label: t('owner.complaints.statusOpen') },
   'in-progress': { bg: colors.infoLight, text: colors.info, label: t('owner.complaintDetail.statusInProgress') },
   resolved: { bg: colors.successLight, text: colors.success, label: t('owner.complaintDetail.statusResolved') },
   rejected: { bg: colors.errorLight, text: colors.error, label: t('owner.complaintDetail.statusRejected') },
-  closed: { bg: colors.borderLight, text: colors.text.secondary, label: t('owner.complaintDetail.statusClosed') },
+  closed: { bg: colors.borderLight, text: colors.text.secondary, label: t('owner.complaints.statusClosed') },
 });
 
 const PRIORITY_CFG = (colors: any, t: any): Record<string, { bg: string; text: string; label: string }> => ({
@@ -65,6 +66,7 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [message, setMessage] = useState('');
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardOffset(e.endCoordinates.height));
@@ -183,6 +185,18 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
               ) : null}
             </View>
             <Text style={[styles.desc, { color: colors.text.primary }]}>{complaint.description}</Text>
+            {complaint.images && complaint.images.length > 0 && (
+              <View style={styles.attachmentsSection}>
+                <Text style={styles.sectionLabel}>{t('complaintDetail.attachments')}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
+                  {complaint.images.map((imgUri, index) => (
+                    <TouchableOpacity key={index} onPress={() => setLightboxUri(imgUri)} activeOpacity={0.8}>
+                      <Image source={{ uri: imgUri }} style={styles.attachmentImage} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
             {complaint.resolutionNotes ? (
               <View style={[styles.notesBox, { backgroundColor: colors.successLight }]}>
                  <Text style={[styles.notesLabel, { color: colors.success }]}>{t('owner.complaintDetail.resolutionNotes')}</Text>
@@ -264,6 +278,8 @@ export const OwnerComplaintDetailScreen: React.FC<{ id: string }> = ({ id }) => 
           </View>
         </ScrollView>
 
+        <ImageLightbox uri={lightboxUri!} visible={!!lightboxUri} onClose={() => setLightboxUri(null)} />
+
         {/* Comment composer */}
         <View style={[styles.composer, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.sm, bottom: keyboardOffset }]}>
           <TextInput
@@ -339,4 +355,6 @@ const styles = StyleSheet.create({
     fontSize: 14, maxHeight: 100,
   },
   sendBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  attachmentsSection: { marginTop: spacing.md },
+  attachmentImage: { width: 140, height: 100, borderRadius: radius.md },
 });

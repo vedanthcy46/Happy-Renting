@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { typography, spacing } from '../theme';
+import { typography, spacing, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
 interface AppHeaderProps {
@@ -30,13 +30,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   style,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.f, r.h), [colors, r.f, r.h]);
   return (
     <View style={[styles.container, style]}>
       <View style={styles.left}>
         {onBack && (
           <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
+            <Ionicons name="chevron-back" size={r.h(24)} color={colors.text.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -48,7 +49,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {rightAction}
         {rightIcon && onRightPress && (
           <TouchableOpacity onPress={onRightPress} style={styles.iconButton} activeOpacity={0.7}>
-            <Ionicons name={rightIcon} size={24} color={colors.text.primary} />
+            <Ionicons name={rightIcon} size={r.h(24)} color={colors.text.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -56,12 +57,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, f: (n: number) => number, h: (n: number) => number) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: h(16),
+    paddingVertical: h(12),
     backgroundColor: colors.surface,
   },
   left: {
@@ -81,6 +82,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
   title: {
     ...typography.h4,
+    fontSize: f(18),
     color: colors.text.primary,
   },
   subtitle: {

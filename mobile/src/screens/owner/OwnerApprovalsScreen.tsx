@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
+import { ImageLightbox } from '../../components';
 import { getPendingApprovals, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
 
 const formatCurrency = (n?: number) =>
@@ -30,6 +31,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
 
   const [rejectTarget, setRejectTarget] = useState<OwnerTransaction | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['ownerPendingApprovals'],
@@ -105,9 +107,11 @@ export const OwnerApprovalsScreen: React.FC = () => {
                 </View>
               </View>
               {txn.proofImage?.secureUrl && (
-                <View style={styles.proofWrap}>
-                  <Image source={{ uri: txn.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
-                </View>
+                <TouchableOpacity onPress={() => setLightboxUri(txn.proofImage!.secureUrl)} activeOpacity={0.8}>
+                  <View style={styles.proofWrap}>
+                    <Image source={{ uri: txn.proofImage.secureUrl }} style={styles.proofImage} resizeMode="cover" />
+                  </View>
+                </TouchableOpacity>
               )}
               <View style={styles.actions}>
                 <TouchableOpacity style={[styles.btn, { backgroundColor: colors.success }]} onPress={() => verifyMutation.mutate(txn._id)} disabled={verifyMutation.isPending} activeOpacity={0.8}>
@@ -155,6 +159,8 @@ export const OwnerApprovalsScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ImageLightbox uri={lightboxUri!} visible={!!lightboxUri} onClose={() => setLightboxUri(null)} />
     </View>
   );
 };

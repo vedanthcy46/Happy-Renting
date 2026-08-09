@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   Keyboard,
   Platform,
-  Dimensions,
   TouchableOpacity,
 } from 'react-native';
 import Animated, {
@@ -19,11 +18,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing, radius } from '../theme';
+import { spacing, radius, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const OVERLAY_COLOR = 'rgba(15, 23, 42, 0.55)';
+const MAX_SHEET_WIDTH = 620;
 
 const clamp = (value: number, min: number, max: number) => {
   'worklet';
@@ -49,6 +48,7 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
 }) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width, height } = useResponsive();
   const sheetHeight = useSharedValue(0);
   const gestureStartHeight = useSharedValue(0);
   const keyboardHeight = useSharedValue(0);
@@ -68,10 +68,18 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
     };
   }, [keyboardHeight]);
 
-  const MIN_HEIGHT = SCREEN_HEIGHT * 0.28;
-  const MAX_HEIGHT = SCREEN_HEIGHT * maxHeightFraction;
-  const snapHeights = useRef(snapPoints.map((f) => clamp(SCREEN_HEIGHT * f, MIN_HEIGHT, MAX_HEIGHT))).current;
+  const MIN_HEIGHT = height * 0.28;
+  const MAX_HEIGHT = height * maxHeightFraction;
+  const snapHeights = useMemo(
+    () => snapPoints.map((f) => clamp(height * f, MIN_HEIGHT, MAX_HEIGHT)),
+    [height, snapPoints, MIN_HEIGHT, MAX_HEIGHT]
+  );
   const defaultHeight = snapHeights[clamp(initialSnapIndex, 0, snapHeights.length - 1)];
+
+  // On tablets & landscape, keep the sheet readable: cap width + center it.
+  const isNarrowed = width >= 600;
+  const sheetWidth = isNarrowed ? Math.min(width * 0.94, MAX_SHEET_WIDTH) : undefined;
+  const sheetRadius = isNarrowed ? radius.xxl + 4 : undefined;
 
   const closeSheet = useCallback(() => {
     Keyboard.dismiss();
@@ -137,7 +145,14 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
             style={[
               styles.sheet,
               sheetStyle,
-              { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl + 4, borderTopRightRadius: radius.xxl + 4 },
+              {
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: radius.xxl + 4,
+                borderTopRightRadius: radius.xxl + 4,
+              },
+              ...(isNarrowed
+                ? [{ width: sheetWidth, alignSelf: 'center' as const, borderRadius: sheetRadius }]
+                : []),
             ]}
           >
             <View style={styles.handleArea}>

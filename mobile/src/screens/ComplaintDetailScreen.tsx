@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { addComplaintComment } from '../api/complaint';
 import { cachedComplaintDetail } from '../repositories';
-import { StatusBadge, AppCard } from '../components';
+import { StatusBadge, AppCard, ImageLightbox } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatDate, formatRelativeTime } from '../utils';
@@ -47,6 +47,7 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
   const scrollViewRef = useRef<ScrollView>(null);
   const commentsScrollRef = useRef<ScrollView>(null);
   const [message, setMessage] = useState('');
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['complaintDetail', complaintId],
@@ -227,12 +228,13 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
               <Text style={styles.sectionLabel}>{t('complaintDetail.attachments')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imagesScroll}>
                 {complaint.images.map((imgUri, index) => (
-                  <CachedImage
-                    key={index}
-                    source={{ uri: imgUri }}
-                    style={styles.attachmentImage}
-                    contentFit="cover"
-                  />
+                  <TouchableOpacity key={index} onPress={() => setLightboxUri(imgUri)} activeOpacity={0.8}>
+                    <CachedImage
+                      source={{ uri: imgUri }}
+                      style={styles.attachmentImage}
+                      contentFit="cover"
+                    />
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
@@ -309,6 +311,8 @@ export const ComplaintDetailScreen: React.FC<ComplaintDetailScreenProps> = ({ co
           </ScrollView>
         </AppCard>
       </ScrollView>
+
+      <ImageLightbox uri={lightboxUri!} visible={!!lightboxUri} onClose={() => setLightboxUri(null)} />
 
       {/* Comment Input Footer */}
       <View style={[styles.inputFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>

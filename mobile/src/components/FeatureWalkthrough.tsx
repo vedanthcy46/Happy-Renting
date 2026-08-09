@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   Platform,
   Image,
   StyleProp,
@@ -14,8 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeProvider';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { useResponsive } from '../theme';
 
 export const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
 
@@ -35,8 +33,6 @@ interface FeatureWalkthroughProps {
 }
 
 const DIM_COLOR = 'rgba(15, 23, 42, 0.82)';
-const CARD_WIDTH = Math.min(SCREEN_WIDTH - 48, 360);
-const CARD_TOP = SCREEN_HEIGHT * 0.2;
 
 type ScreenKind = 'intro' | 'feature' | 'done';
 
@@ -47,9 +43,13 @@ export const FeatureWalkthrough: React.FC<FeatureWalkthroughProps> = ({
   style,
 }) => {
   const { colors: themeColors } = useTheme();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useResponsive();
   const [stepIndex, setStepIndex] = useState(0);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(24)).current;
+
+  const CARD_WIDTH = Math.min(SCREEN_WIDTH - 48, 360);
+  const CARD_TOP = SCREEN_HEIGHT * 0.2;
 
   const introStep: WalkthroughStep = {
     id: '__intro',

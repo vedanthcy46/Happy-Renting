@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { typography, spacing } from '../theme';
+import { typography, spacing, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { AppButton } from './AppButton';
 
@@ -21,11 +21,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, r.f, r.h), [colors, r.f, r.h]);
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Ionicons name={icon} size={40} color={colors.text.tertiary} />
+        <Ionicons name={icon} size={r.h(40)} color={colors.text.tertiary} />
       </View>
       <Text style={styles.title}>{title}</Text>
       {description && <Text style={styles.description}>{description}</Text>}
@@ -42,35 +43,37 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   );
 };
 
-const makeStyles = (colors: any) => StyleSheet.create({
+const makeStyles = (colors: any, f: (n: number) => number, h: (n: number) => number) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.huge,
-    paddingHorizontal: spacing.xxl,
+    paddingVertical: h(40),
+    paddingHorizontal: h(24),
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: h(80),
+    height: h(80),
+    borderRadius: h(40),
     backgroundColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: h(20),
   },
   title: {
     ...typography.h4,
+    fontSize: f(18),
     color: colors.text.primary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: h(8),
   },
   description: {
     ...typography.body,
+    fontSize: f(15),
     color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 22,
   },
   button: {
-    marginTop: spacing.xl,
+    marginTop: h(20),
   },
 });

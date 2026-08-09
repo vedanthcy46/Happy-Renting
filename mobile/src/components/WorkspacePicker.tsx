@@ -5,7 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTheme } from '../theme/ThemeProvider';
-import { spacing, radius, shadows } from '../theme';
+import { spacing, radius, shadows, useResponsive } from '../theme';
 import type { Workspace } from '../types/auth';
 
 interface WorkspacePickerProps {
@@ -34,7 +34,10 @@ export const WorkspacePicker: React.FC<WorkspacePickerProps> = ({
   visible, onClose, required = false,
 }) => {
   const { colors } = useTheme();
+  const { width } = useResponsive();
   const { activeWorkspace, setWorkspace, user } = useAuthStore();
+  const isNarrowed = width >= 600;
+  const sheetWidth = isNarrowed ? Math.min(width * 0.94, 560) : undefined;
 
   const availableWorkspaces = WORKSPACES.filter(w => {
     if (!user) return false;
@@ -55,7 +58,7 @@ export const WorkspacePicker: React.FC<WorkspacePickerProps> = ({
         {!required && (
           <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
         )}
-        <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.surface }, ...(isNarrowed ? [{ width: sheetWidth, alignSelf: 'center' as const, borderRadius: radius.xxl }] : [])]}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
           <Text style={[styles.title, { color: colors.text.primary }]}>

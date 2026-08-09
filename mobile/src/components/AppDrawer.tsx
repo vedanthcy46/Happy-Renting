@@ -10,20 +10,19 @@ import {
   Share,
   Alert,
   Animated,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeProvider';
+import { useResponsive } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WorkspacePicker } from './WorkspacePicker';
 
-const { width } = Dimensions.get('window');
-const DRAWER_WIDTH = width * 0.82;
+const DRAWER_WIDTH_MAX = 360;
 
 interface DrawerItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -45,8 +44,11 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
   const { t } = useTranslation();
   const { colors: themeColors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useResponsive();
   const router = useRouter();
   const { user, logout, activeWorkspace, setWorkspace } = useAuthStore();
+
+  const drawerWidth = Math.min(width * 0.82, DRAWER_WIDTH_MAX);
 
   const roles = user?.roles ?? (user?.role ? [user.role] : []);
   const isOwner = roles.includes('owner');
@@ -153,6 +155,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
           styles.drawer,
           {
             backgroundColor: themeColors.surface,
+            width: drawerWidth,
             transform: [{ translateX }],
             paddingBottom: insets.bottom + 16,
           },
@@ -299,7 +302,6 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: DRAWER_WIDTH,
     zIndex: 999,
     elevation: 24,
     shadowColor: '#000',
