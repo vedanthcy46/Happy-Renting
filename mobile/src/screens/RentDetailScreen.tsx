@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment } from '../api/payment';
 import { cachedRentRecordDetail } from '../repositories';
 import { PaymentTransaction } from '../types/payment';
-import { AppCard, AppButton, AppInput, StatusBadge, GradientCard } from '../components';
+import { AppCard, AppButton, AppInput, StatusBadge, GradientCard, KeyboardSafeModal } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatMonth, formatDate, generateAndShareReceipt } from '../utils';
@@ -428,8 +428,12 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
         </AppCard>
       </ScrollView>
 
-      <Modal visible={showManualModal} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={showManualModal}
+        animationType="slide"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={() => setShowManualModal(false)}
+      >
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
@@ -518,8 +522,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
 
       {paying && (
         <View style={styles.payingOverlay}>

@@ -528,6 +528,7 @@
       "placeholderMonth": "YYYY-MM",
       "fieldExpenseDate": "खर्च की तारीख",
       "placeholderExpenseDate": "YYYY-MM-DD",
+      "selectDateTitle": "खर्च की तारीख चुनें",
       "fieldNotes": "नोट्स",
       "placeholderNotes": "वैकल्पिक टिप्पणी…",
       "recurringTitle": "मासिक आवर्ती खर्च",

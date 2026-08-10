@@ -528,6 +528,7 @@
       "placeholderMonth": "YYYY-MM",
       "fieldExpenseDate": "Expense Date",
       "placeholderExpenseDate": "YYYY-MM-DD",
+      "selectDateTitle": "Select Expense Date",
       "fieldNotes": "Notes",
       "placeholderNotes": "Optional note…",
       "recurringTitle": "Recurring monthly expense",

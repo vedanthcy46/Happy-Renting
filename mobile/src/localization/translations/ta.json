@@ -528,6 +528,7 @@
       "placeholderMonth": "YYYY-MM",
       "fieldExpenseDate": "செலவு செய்த தேதி",
       "placeholderExpenseDate": "YYYY-MM-DD",
+      "selectDateTitle": "செலவு செய்த தேதியைத் தேர்ந்தெடு",
       "fieldNotes": "குறிப்புகள்",
       "placeholderNotes": "விருப்பக் குறிப்பு…",
       "recurringTitle": "மாதாந்திர நிலையான செலவு",

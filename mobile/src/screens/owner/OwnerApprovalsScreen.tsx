@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  RefreshControl, Alert, Modal, TextInput, Image,
-  KeyboardAvoidingView, Platform,
+  RefreshControl, Alert, TextInput, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
-import { ImageLightbox } from '../../components';
+import { ImageLightbox, KeyboardSafeModal } from '../../components';
 import { getPendingApprovals, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
 
 const formatCurrency = (n?: number) =>
@@ -126,8 +125,12 @@ export const OwnerApprovalsScreen: React.FC = () => {
         </ScrollView>
       )}
 
-      <Modal visible={!!rejectTarget} animationType="fade" transparent presentationStyle="overFullScreen">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={!!rejectTarget}
+        animationType="fade"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={() => { setRejectTarget(null); setRejectReason(''); }}
+      >
           <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
             <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>{t('owner.approvals.rejectTitle')}</Text>
@@ -157,8 +160,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
             </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
 
       <ImageLightbox uri={lightboxUri!} visible={!!lightboxUri} onClose={() => setLightboxUri(null)} />
     </View>

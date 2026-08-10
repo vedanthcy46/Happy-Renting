@@ -21,6 +21,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 
 const OVERLAY_COLOR = 'rgba(15, 23, 42, 0.55)';
 const MAX_SHEET_WIDTH = 620;
@@ -50,12 +51,13 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useResponsive();
+  const keyboardHeight = useKeyboardInset();
   const sheetHeight = useSharedValue(0);
+  const keyboardLift = useSharedValue(0);
   const gestureStartHeight = useSharedValue(0);
 
-
-  const MIN_HEIGHT = height * 0.28;
-  const MAX_HEIGHT = height * maxHeightFraction;
+  const MIN_HEIGHT = Math.max(height * 0.28, 120);
+  const MAX_HEIGHT = Math.max(height * maxHeightFraction, MIN_HEIGHT);
   const snapHeights = useMemo(
     () => snapPoints.map((f) => clamp(height * f, MIN_HEIGHT, MAX_HEIGHT)),
     [height, snapPoints, MIN_HEIGHT, MAX_HEIGHT]
@@ -81,10 +83,10 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
     }
   }, [visible, defaultHeight, sheetHeight]);
 
-  const avoidKeyboardBehavior = Platform.select({
-    ios: 'padding',
-    android: 'height',
-  });
+  // Lift the sheet above the keyboard instead of shrinking it.
+  useEffect(() => {
+    keyboardLift.value = withTiming(keyboardHeight, { duration: 200, easing: Easing.out(Easing.cubic) });
+  }, [keyboardHeight, keyboardLift]);
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
@@ -108,7 +110,8 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
     });
 
   const sheetStyle = useAnimatedStyle(() => ({
-    height: sheetHeight.value,
+    height: Math.min(sheetHeight.value, Math.max(MAX_HEIGHT - keyboardLift.value, MIN_HEIGHT)),
+    transform: [{ translateY: -keyboardLift.value }],
   }));
 
   const scrimStyle = useAnimatedStyle(() => ({
@@ -132,7 +135,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
         />
         <GestureDetector gesture={panGesture}>
           <KeyboardAvoidingView
-            behavior={avoidKeyboardBehavior}
             style={styles.keyboardAvoidingView}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
           >
@@ -155,7 +157,7 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
               </View>
               <ScrollView
                 style={styles.body}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.huge + insets.bottom + 16, flexGrow: 1 }]}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.huge + insets.bottom + keyboardHeight + 16, flexGrow: 1 }]}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 bounces={false}
@@ -178,6 +180,7 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidingView: {
     flex: 1,
+    justifyContent: 'flex-end',
   },
   scrim: {
     position: 'absolute',

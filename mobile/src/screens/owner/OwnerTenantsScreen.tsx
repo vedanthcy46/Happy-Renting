@@ -10,8 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -22,6 +20,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { getOwnerTenants, moveOutTenant, reverseMoveOutTenant, updateTenant, markRefundSettled, type OwnerTenant } from '../../api/owner';
+import { KeyboardSafeModal } from '../../components';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -330,10 +329,12 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
   if (!tenant) return null;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView
-        style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <>
+      <KeyboardSafeModal
+        visible={visible}
+        animationType="fade"
+        overlayStyle={styles.sheetOverlay}
+        onRequestClose={onClose}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.moveOutTitle')}</Text>
@@ -393,7 +394,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+    </KeyboardSafeModal>
 
       <CalendarModal
         visible={calendarVisible}
@@ -402,7 +403,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
         onClose={() => setCalendarVisible(false)}
         title={t('owner.tenants.moveOutFieldExitDate')}
       />
-    </Modal>
+    </>
   );
 };
 
@@ -470,12 +471,13 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
     });
   };
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView
-        style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+return (
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="slide"
+      overlayStyle={styles.sheetOverlay}
+      onRequestClose={onClose}
+    >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.editTitle')}</Text>
           <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
@@ -594,16 +596,15 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
                activeOpacity={0.8}
                disabled={saving}
              >
-               {saving ? (
+{saving ? (
                  <ActivityIndicator color="#FFFFFF" size="small" />
                ) : (
                  <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.editTitle')}</Text>
                )}
-             </TouchableOpacity>
+              </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </KeyboardSafeModal>
   );
 };
 
@@ -633,11 +634,12 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
   const amount = Number(tenant.advanceRefundAmount) > 0 ? Number(tenant.advanceRefundAmount) : Number(tenant.advancePaid);
 
   return (
-    <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView
-        style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="fade"
+      overlayStyle={styles.sheetOverlay}
+      onRequestClose={onClose}
+    >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.refundTitle')}</Text>
           <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
@@ -674,16 +676,15 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
                activeOpacity={0.8}
                disabled={saving}
              >
-               {saving ? (
+{saving ? (
                  <ActivityIndicator color="#FFFFFF" size="small" />
                ) : (
                  <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.refundConfirm')}</Text>
                )}
-             </TouchableOpacity>
+              </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </KeyboardSafeModal>
   );
 };
 

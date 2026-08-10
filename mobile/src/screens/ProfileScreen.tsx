@@ -26,7 +26,7 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { updateProfile, changePassword as apiChangePassword, getProfile, requestEmailChange, verifyEmailChange, resendEmailChangeOtp } from '../api/user';
 import { login } from '../api/auth';
-import { AppCard, AppButton, AppInput } from '../components';
+import { AppCard, AppButton, AppInput, KeyboardSafeModal } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { getInitials } from '../utils';
@@ -426,8 +426,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
         <Text style={styles.versionText}>Happy Renting v{APP_VERSION} · Made with ❤️ in India</Text>
       </ScrollView>
 
-      <Modal visible={showPassModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={showPassModal}
+        animationType="fade"
+        overlayStyle={styles.passOverlay}
+        onRequestClose={() => setShowPassModal(false)}
+      >
           <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
               <Text style={styles.passTitle}>{t('profile.changePassword')}</Text>
@@ -478,11 +482,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+        </KeyboardSafeModal>
 
-      <Modal visible={showBiometricModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={showBiometricModal}
+        animationType="fade"
+        overlayStyle={styles.passOverlay}
+        onRequestClose={() => setShowBiometricModal(false)}
+      >
           <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
               <Text style={styles.passTitle}>{t('settings.confirmBiometrics')}</Text>
@@ -517,11 +524,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+        </KeyboardSafeModal>
 
-      <Modal visible={emailVisible} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.passOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={emailVisible}
+        animationType="fade"
+        overlayStyle={styles.passOverlay}
+        onRequestClose={() => setEmailVisible(false)}
+      >
           <ScrollView contentContainerStyle={[styles.passModal, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.passHeader}>
               <Text style={styles.passTitle}>{t('profile.emailChangeTitle')}</Text>
@@ -623,8 +633,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onNaviga
               </>
             )}
           </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+        </KeyboardSafeModal>
     </View>
   );
 };

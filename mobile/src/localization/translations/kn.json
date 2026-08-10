@@ -528,6 +528,7 @@
       "placeholderMonth": "YYYY-MM",
       "fieldExpenseDate": "ಖರ್ಚು ಮಾಡಿದ ದಿನಾಂಕ",
       "placeholderExpenseDate": "YYYY-MM-DD",
+      "selectDateTitle": "ಖರ್ಚಿನ ದಿನಾಂಕ ಆಯ್ಕೆಮಾಡಿ",
       "fieldNotes": "ಟಿಪ್ಪಣಿಗಳು",
       "placeholderNotes": "ವಿವರಣೆ…",
       "recurringTitle": "ಪ್ರತಿ ತಿಂಗಳ ಖರ್ಚು",

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
-  Alert, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Alert, TextInput, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { getRooms, getProperties, createRoom, updateRoom, deleteRoom, type Room } from '../../api/owner';
+import { KeyboardSafeModal } from '../../components';
 
 const formatCurrency = (n?: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -66,8 +67,12 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="slide"
+      overlayStyle={styles.modalOverlay}
+      onRequestClose={onClose}
+    >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -124,8 +129,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </KeyboardSafeModal>
   );
 };
 

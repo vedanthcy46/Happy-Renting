@@ -11,8 +11,6 @@ import {
   Modal,
   TextInput,
   Switch,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,6 +38,7 @@ import {
   type OwnerExpense,
   type Property,
 } from '../../api/owner';
+import { KeyboardSafeModal } from '../../components';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -84,6 +83,13 @@ const formatDate = (iso?: string) => {
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const DAYS = ['S','M','T','W','T','F','S'];
+
+const toISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const monthKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
@@ -106,6 +112,115 @@ const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
         {translated}
       </Text>
     </View>
+  );
+};
+
+// ─── Calendar modal ─────────────────────────────────────────────────────────
+
+interface CalendarModalProps {
+  visible: boolean;
+  value: string;
+  onSelect: (iso: string) => void;
+  onClose: () => void;
+  t: (key: string) => string;
+}
+
+const CalendarModal: React.FC<CalendarModalProps> = ({ visible, value, onSelect, onClose, t }) => {
+  const { colors } = useTheme();
+  const initial = value ? new Date(`${value}T00:00:00`) : new Date();
+  const [viewYear, setViewYear] = useState(initial.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initial.getMonth());
+  const [selYear, setSelYear] = useState(initial.getFullYear());
+  const [selMonth, setSelMonth] = useState(initial.getMonth());
+  const [selDay, setSelDay] = useState(initial.getDate());
+
+  React.useEffect(() => {
+    if (!visible) return;
+    const base = value ? new Date(`${value}T00:00:00`) : new Date();
+    setViewYear(base.getFullYear());
+    setViewMonth(base.getMonth());
+    setSelYear(base.getFullYear());
+    setSelMonth(base.getMonth());
+    setSelDay(base.getDate());
+  }, [visible, value]);
+
+  const today = new Date();
+  const todayISOStr = toISO(today);
+
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1);
+  };
+
+  const pick = (day: number) => {
+    onSelect(toISO(new Date(viewYear, viewMonth, day)));
+    onClose();
+  };
+
+  const isSel = (day: number) => viewYear === selYear && viewMonth === selMonth && day === selDay;
+  const isToday = (day: number) => toISO(new Date(viewYear, viewMonth, day)) === todayISOStr;
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
+      <TouchableOpacity style={styles.calendarOverlay} onPress={onClose} activeOpacity={1}>
+        <View style={[styles.calendarSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.calendarTitle, { color: colors.text.primary }]}>{t('owner.expenses.selectDateTitle')}</Text>
+
+          <View style={styles.calendarNav}>
+            <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+            <Text style={[styles.calendarMonthLabel, { color: colors.text.primary }]}>
+              {MONTH_NAMES[viewMonth]} {viewYear}
+            </Text>
+            <TouchableOpacity onPress={nextMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.calendarWeekRow}>
+            {DAYS.map((d, i) => (
+              <Text key={i} style={[styles.calendarWeekDay, { color: colors.text.tertiary }]}>{d}</Text>
+            ))}
+          </View>
+
+          <View style={styles.calendarGrid}>
+            {Array.from({ length: firstDow }).map((_, i) => (
+              <View key={`pad-${i}`} style={styles.calendarCell} />
+            ))}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              return (
+                <TouchableOpacity
+                  key={day}
+                  style={[
+                    styles.calendarCell,
+                    isSel(day) && { backgroundColor: colors.primary },
+                    isToday(day) && !isSel(day) && { borderWidth: 1, borderColor: colors.primary },
+                  ]}
+                  onPress={() => pick(day)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.calendarDay,
+                      { color: isSel(day) ? '#FFFFFF' : colors.text.primary },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Modal>
   );
 };
 
@@ -146,6 +261,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
   const [notes, setNotes] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [calendarVisible, setCalendarVisible] = useState(false);
 
   React.useEffect(() => {
     if (!visible) return;
@@ -183,11 +299,12 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView
-        style={styles.sheetOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="slide"
+      overlayStyle={styles.sheetOverlay}
+      onRequestClose={onClose}
+    >
         <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
           <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
@@ -280,14 +397,16 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
               </View>
               <View style={[styles.formField, { flex: 1 }]}>
                 <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.expenses.fieldExpenseDate')}</Text>
-                <TextInput
-                  style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
-                  value={expenseDate}
-                  onChangeText={setExpenseDate}
-                  placeholder={t('owner.expenses.placeholderExpenseDate')}
-                  placeholderTextColor={colors.text.tertiary}
-                  autoCapitalize="none"
-                />
+                <TouchableOpacity
+                  style={[styles.input, styles.pickerField, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={() => setCalendarVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: expenseDate ? colors.text.primary : colors.text.tertiary, fontSize: 15 }}>
+                    {expenseDate ? formatDate(expenseDate) : t('owner.expenses.placeholderExpenseDate')}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={18} color={colors.text.tertiary} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -379,8 +498,15 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             </View>
           </TouchableOpacity>
         </Modal>
-      </KeyboardAvoidingView>
-    </Modal>
+
+        <CalendarModal
+          visible={calendarVisible}
+          value={expenseDate}
+          onSelect={setExpenseDate}
+          onClose={() => setCalendarVisible(false)}
+          t={t}
+        />
+    </KeyboardSafeModal>
   );
 };
 
@@ -1165,6 +1291,18 @@ const styles = StyleSheet.create({
   },
   pickerItemName: { fontSize: 15, fontWeight: '600', flex: 1 },
   pickerItemSub: { fontSize: 12, flex: 1 },
+
+  // Calendar
+  calendarOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', padding: spacing.xl },
+  calendarSheet: { width: '100%', maxWidth: 360, borderRadius: radius.xxl, padding: spacing.xl, borderWidth: 1 },
+  calendarTitle: { fontSize: 18, fontWeight: '700', marginBottom: spacing.lg },
+  calendarNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  calendarMonthLabel: { fontSize: 16, fontWeight: '700' },
+  calendarWeekRow: { flexDirection: 'row' },
+  calendarWeekDay: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', paddingVertical: spacing.sm },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  calendarDay: { fontSize: 14, fontWeight: '600' },
 
   // States
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },

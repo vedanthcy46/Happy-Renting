@@ -528,6 +528,7 @@
       "placeholderMonth": "YYYY-MM",
       "fieldExpenseDate": "ఖర్చు చేసిన తేదీ",
       "placeholderExpenseDate": "YYYY-MM-DD",
+      "selectDateTitle": "ఖర్చు తేదీని ఎంచుకోండి",
       "fieldNotes": "నోట్స్",
       "placeholderNotes": "వివరాలు…",
       "recurringTitle": "ప్రతి నెల ఖర్చు",

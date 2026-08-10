@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  TextInput, Alert, Modal, KeyboardAvoidingView, Platform, Image,
+  TextInput, Alert, Platform, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,7 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
-import { ImageLightbox } from '../../components';
+import { ImageLightbox, KeyboardSafeModal } from '../../components';
 import { getPaymentDetail, reverseTransaction, addTransaction, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
 
 const formatCurrency = (n?: number) =>
@@ -80,8 +80,12 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
   const valid = !isNaN(amountNum) && amountNum > 0 && paymentDate.trim();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="slide"
+      overlayStyle={styles.modalOverlay}
+      onRequestClose={onClose}
+    >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>{t('owner.transactions.addPaymentTitle')}</Text>
@@ -147,8 +151,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </KeyboardSafeModal>
   );
 };
 
@@ -390,8 +393,12 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       />
 
       {/* Reverse modal */}
-      <Modal visible={!!reverseTarget} animationType="fade" transparent presentationStyle="overFullScreen">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={!!reverseTarget}
+        animationType="fade"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={() => { setReverseTarget(null); setReverseReason(''); }}
+      >
           <View style={[styles.reverseSheet, { backgroundColor: colors.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
             <Text style={[styles.reverseTitle, { color: colors.text.primary }]}>{t('owner.transactions.reverseTitle')}</Text>
@@ -423,8 +430,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
             </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
 
       <ImageLightbox uri={lightboxUri!} visible={!!lightboxUri} onClose={() => setLightboxUri(null)} />
     </View>

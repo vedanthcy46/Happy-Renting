@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/useAuthStore';
 import { login as apiLogin, forgotPassword } from '../api/auth';
-import { AppInput, AppButton } from '../components';
+import { AppInput, AppButton, KeyboardSafeModal } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import {
@@ -409,8 +409,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={showForgotModal} animationType="fade" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={showForgotModal}
+        animationType="fade"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={() => setShowForgotModal(false)}
+      >
           <View style={styles.forgotModal}>
             {forgotSuccess ? (
               <View style={styles.forgotSuccessContent}>
@@ -468,8 +472,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               </View>
             )}
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
     </View>
   );
 };

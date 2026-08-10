@@ -7,11 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  Modal,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
+import { KeyboardSafeModal } from '../../components';
 import { useRouter } from 'expo-router';
 import {
   getProperties,
@@ -60,11 +58,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const isValid = name.trim().length >= 2 && address.trim().length >= 5;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView
-        style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="slide"
+      overlayStyle={styles.modalOverlay}
+      onRequestClose={onClose}
+    >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -141,8 +140,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
              </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </KeyboardSafeModal>
   );
 };
 

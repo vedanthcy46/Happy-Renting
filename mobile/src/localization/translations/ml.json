@@ -528,6 +528,7 @@
       "placeholderMonth": "YYYY-MM",
       "fieldExpenseDate": "ചെലവായ തീയതി",
       "placeholderExpenseDate": "YYYY-MM-DD",
+      "selectDateTitle": "ചെലവായ തീയതി തിരഞ്ഞെടുക്കുക",
       "fieldNotes": "കുറിപ്പുകൾ",
       "placeholderNotes": "ഓപ്ഷണൽ കുറിപ്പ്…",
       "recurringTitle": "പ്രതിമാസ സ്ഥിര ചെലവ്",

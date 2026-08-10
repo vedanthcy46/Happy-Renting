@@ -14,6 +14,8 @@ export { ActivityCard } from './ActivityCard';
 export { OfflineBanner } from './OfflineBanner';
 export { AppDrawer } from './AppDrawer';
 export { AppBottomSheet } from './AppBottomSheet';
+export { KeyboardSafeModal } from './KeyboardSafeModal';
+export { KeyboardSafeBottomSheet } from './KeyboardSafeBottomSheet';
 export { SuccessAnimation } from './SuccessAnimation';
 export { FeatureWalkthrough, TAB_BAR_HEIGHT } from './FeatureWalkthrough';
 export { WorkspacePicker } from './WorkspacePicker';

@@ -8,11 +8,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Modal,
   ActivityIndicator,
   Linking,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,7 +24,7 @@ import {
   saveBiometricCredentials,
 } from '../hooks/useBiometric';
 import { useAuthStore } from '../store/useAuthStore';
-import { AppCard, AppButton, AppInput } from '../components';
+import { AppCard, AppButton, AppInput, KeyboardSafeModal } from '../components';
 import { LanguageSelector } from '../localization';
 import { setPreferredLanguage } from '../api/user';
 import { useRouter } from 'expo-router';
@@ -512,8 +509,12 @@ export const SettingsScreen: React.FC = () => {
       </ScrollView>
 
       {/* Biometric Password Input Modal */}
-      <Modal visible={showBiometricModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardSafeModal
+        visible={showBiometricModal}
+        animationType="fade"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={handleCancelBiometric}
+      >
           <View style={[styles.modalCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>{t('settings.confirmBiometrics')}</Text>
@@ -553,12 +554,15 @@ export const SettingsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
 
       {/* Account Deletion Request Modal */}
-      <Modal visible={showDeletionModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardSafeModal
+        visible={showDeletionModal}
+        animationType="fade"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={() => setShowDeletionModal(false)}
+      >
           <View style={[styles.modalCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>{t('settings.deleteAccount')}</Text>
@@ -599,8 +603,7 @@ export const SettingsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
     </View>
   );
 };

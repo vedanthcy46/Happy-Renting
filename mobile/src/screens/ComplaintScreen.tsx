@@ -23,7 +23,7 @@ import { useRouter } from 'expo-router';
 import { createComplaint, createComplaintFormData } from '../api/complaint';
 import { cachedComplaints } from '../repositories';
 import { Complaint } from '../types/complaint';
-import { AppCard, AppButton, AppInput, StatusBadge, EmptyState } from '../components';
+import { AppCard, AppButton, AppInput, StatusBadge, EmptyState, KeyboardSafeModal } from '../components';
 import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatRelativeTime } from '../utils';
@@ -163,8 +163,12 @@ export const ComplaintScreen: React.FC = () => {
         }
       />
 
-      <Modal visible={showAddModal} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={showAddModal}
+        animationType="slide"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={() => setShowAddModal(false)}
+      >
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeaderRow}>
@@ -247,8 +251,7 @@ export const ComplaintScreen: React.FC = () => {
               </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
     </View>
   );
 };

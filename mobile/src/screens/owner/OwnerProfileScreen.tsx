@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  Alert, Image, TextInput, Modal, KeyboardAvoidingView, Platform,
+  Alert, Image, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { getProfile, updateProfile, requestEmailChange, verifyEmailChange, resendEmailChangeOtp } from '../../api/user';
 import { uploadQrCode } from '../../api/owner';
 import { getInitials } from '../../utils';
+import { KeyboardSafeModal } from '../../components';
 
 const Field = ({ label, value, onChange, keyboardType }: { label: string; value: string; onChange: (t: string) => void; keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' }) => {
   const { colors } = useTheme();
@@ -376,8 +377,12 @@ export const OwnerProfileScreen: React.FC = () => {
         )}
       </ScrollView>
 
-      <Modal visible={emailVisible} animationType="slide" transparent presentationStyle="overFullScreen">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardSafeModal
+        visible={emailVisible}
+        animationType="slide"
+        overlayStyle={styles.modalOverlay}
+        onRequestClose={() => setEmailVisible(false)}
+      >
           <View style={[styles.emailSheet, { backgroundColor: colors.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.lg }}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>{t('owner.profile.emailChangeTitle')}</Text>
@@ -430,8 +435,7 @@ export const OwnerProfileScreen: React.FC = () => {
               )}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </KeyboardSafeModal>
     </View>
   );
 };

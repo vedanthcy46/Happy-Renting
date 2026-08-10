@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Alert, Modal, TextInput,
-  KeyboardAvoidingView, Platform,
+  RefreshControl, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import {
   getOwnerRentRecords, verifyTransaction, rejectTransaction,
   getPaymentSummary, type OwnerRentRecord,
 } from '../../api/owner';
+import { KeyboardSafeModal } from '../../components';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -69,8 +69,12 @@ const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, 
   React.useEffect(() => { if (visible) setReason(''); }, [visible]);
 
   return (
-    <Modal visible={visible} animationType="fade" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="fade"
+      overlayStyle={styles.modalOverlay}
+      onRequestClose={onClose}
+    >
         <View style={[styles.rejectSheet, { backgroundColor: colors.surface }]}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
           <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>{t('owner.payments.rejectModalTitle')}</Text>
@@ -103,8 +107,7 @@ const RejectModal: React.FC<RejectModalProps> = ({ visible, onClose, onConfirm, 
           </View>
           </ScrollView>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </KeyboardSafeModal>
   );
 };
 
