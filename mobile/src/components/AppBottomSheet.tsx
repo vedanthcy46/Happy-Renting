@@ -7,7 +7,6 @@ import {
   Keyboard,
   Platform,
   TouchableOpacity,
-  KeyboardAvoidingView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -53,7 +52,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   const { width, height } = useResponsive();
   const keyboardHeight = useKeyboardInset();
   const sheetHeight = useSharedValue(0);
-  const keyboardLift = useSharedValue(0);
   const gestureStartHeight = useSharedValue(0);
 
   const MIN_HEIGHT = Math.max(height * 0.28, 120);
@@ -83,11 +81,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
     }
   }, [visible, defaultHeight, sheetHeight]);
 
-  // Lift the sheet above the keyboard instead of shrinking it.
-  useEffect(() => {
-    keyboardLift.value = withTiming(keyboardHeight, { duration: 200, easing: Easing.out(Easing.cubic) });
-  }, [keyboardHeight, keyboardLift]);
-
   const panGesture = Gesture.Pan()
     .onStart(() => {
       gestureStartHeight.value = sheetHeight.value;
@@ -110,8 +103,7 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
     });
 
   const sheetStyle = useAnimatedStyle(() => ({
-    height: Math.min(sheetHeight.value, Math.max(MAX_HEIGHT - keyboardLift.value, MIN_HEIGHT)),
-    transform: [{ translateY: -keyboardLift.value }],
+    height: sheetHeight.value,
   }));
 
   const scrimStyle = useAnimatedStyle(() => ({
@@ -134,10 +126,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
           onPress={closeSheet}
         />
         <GestureDetector gesture={panGesture}>
-          <KeyboardAvoidingView
-            style={styles.keyboardAvoidingView}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
-          >
             <Animated.View
               style={[
                 styles.sheet,
@@ -166,7 +154,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
                 {children}
               </ScrollView>
             </Animated.View>
-          </KeyboardAvoidingView>
         </GestureDetector>
       </View>
     </Modal>
@@ -175,10 +162,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  keyboardAvoidingView: {
     flex: 1,
     justifyContent: 'flex-end',
   },

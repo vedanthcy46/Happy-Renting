@@ -11,7 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
-import { ImageLightbox, KeyboardSafeModal } from '../../components';
+import { ImageLightbox, KeyboardSafeModal, CalendarPicker } from '../../components';
 import { getPaymentDetail, reverseTransaction, addTransaction, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
 
 const formatCurrency = (n?: number) =>
@@ -115,7 +115,10 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
             </View>
 
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldDate')}</Text>
-            <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={paymentDate} onChangeText={setPaymentDate}                  placeholder={t('owner.transactions.placeholderDate')} placeholderTextColor={colors.text.tertiary} />
+            <View style={[styles.dateCell, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+              <CalendarPicker value={paymentDate} onChange={setPaymentDate} maxDate={new Date().toISOString().split('T')[0]} />
+            </View>
 
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldNotes')}</Text>
             <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={note} onChangeText={setNote}                  placeholder={t('owner.transactions.placeholderNotes')} placeholderTextColor={colors.text.tertiary} maxLength={200} />
@@ -486,6 +489,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '700' },
   fieldLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: spacing.sm, marginTop: spacing.xs },
   input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, fontSize: 15, marginBottom: spacing.md },
+  dateCell: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md },
   methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
   methodChip: { borderWidth: 1, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: 12 },
   methodText: { fontSize: 13, fontWeight: '600' },

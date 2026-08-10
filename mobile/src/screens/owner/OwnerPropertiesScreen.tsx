@@ -150,13 +150,14 @@ interface PropertyCardProps {
   property: Property;
   rooms: Room[];
   onEdit: () => void;
-  onDelete: () => void;
+  onToggleActive: () => void;
   onManageRooms: () => void;
   t: (key: string) => string;
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, onDelete, onManageRooms, t }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, onToggleActive, onManageRooms, t }) => {
   const { colors } = useTheme();
+  const inactive = property.isActive === false;
   const propertyRooms = rooms.filter(r =>
     typeof r.propertyId === 'string'
       ? r.propertyId === property._id
@@ -168,26 +169,51 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, on
   const occupancyPct = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
 
   return (
-    <View style={[styles.propertyCard, { backgroundColor: colors.surface }, shadows.sm]}>
+    <View
+      style={[
+        styles.propertyCard,
+        { backgroundColor: colors.surface },
+        shadows.sm,
+        inactive && { opacity: 0.72, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border },
+      ]}
+    >
       {/* Card header */}
-      <TouchableOpacity style={styles.cardHeader} onPress={onManageRooms} activeOpacity={0.7}>
-        <View style={[styles.cardIconWrap, { backgroundColor: colors.primaryLight }]}>
-          <Ionicons name="business" size={20} color={colors.primary} />
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={inactive ? undefined : onManageRooms}
+        activeOpacity={0.7}
+        disabled={inactive}
+      >
+        <View style={[styles.cardIconWrap, { backgroundColor: inactive ? colors.borderLight : colors.primaryLight }]}>
+          <Ionicons name={inactive ? 'lock-closed' : 'business'} size={20} color={inactive ? colors.text.tertiary : colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.cardName, { color: colors.text.primary }]} numberOfLines={1}>
-            {property.name}
-          </Text>
+          <View style={styles.cardNameRow}>
+            <Text style={[styles.cardName, { color: colors.text.primary }]} numberOfLines={1}>
+              {property.name}
+            </Text>
+            {inactive && (
+              <View style={[styles.inactiveBadge, { backgroundColor: colors.errorLight }]}>
+                <Text style={[styles.inactiveBadgeText, { color: colors.error }]}>{t('owner.properties.inactive')}</Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.cardAddress, { color: colors.text.secondary }]} numberOfLines={2}>
             {property.address}{property.city ? `, ${property.city}` : ''}
           </Text>
         </View>
         <View style={styles.cardActions}>
-          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Ionicons name="create-outline" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
+          {!inactive && (
+            <TouchableOpacity onPress={onEdit} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Ionicons name="create-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={onToggleActive} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            {inactive ? (
+              <Ionicons name="refresh" size={20} color={colors.success} />
+            ) : (
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+            )}
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -220,7 +246,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, on
         </>
       )}
 
-      {totalRooms === 0 && (
+      {totalRooms === 0 && !inactive && (
         <View style={[styles.noRoomsBanner, { backgroundColor: colors.borderLight }]}>
           <Ionicons name="information-circle-outline" size={14} color={colors.text.tertiary} />
           <Text style={[styles.noRoomsText, { color: colors.text.tertiary }]}>
@@ -289,7 +315,14 @@ export const OwnerPropertiesScreen: React.FC = () => {
     mutationFn: deleteProperty,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ownerProperties'] }),
     onError: (err: any) =>
-      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.properties.errRemove')),
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.properties.errRemove')),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (id: string) => updateProperty(id, { isActive: true }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ownerProperties'] }),
+    onError: (err: any) =>
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.properties.errReactivate')),
   });
 
   const handleSave = (payload: { name: string; address: string; city: string }) => {
@@ -300,19 +333,23 @@ export const OwnerPropertiesScreen: React.FC = () => {
     }
   };
 
-  const handleDelete = (property: Property) => {
-    Alert.alert(
-      t('owner.properties.removeTitle'),
-      t('owner.properties.removeMsg', { name: property.name }),
-      [
-        { text: t('owner.properties.cancel'), style: 'cancel' },
-        {
-          text: t('owner.commonOwner.remove'),
-          style: 'destructive',
-          onPress: () => deleteMutation.mutate(property._id),
-        },
-      ]
-    );
+  const handleToggleActive = (property: Property) => {
+    if (property.isActive !== false) {
+      Alert.alert(
+        t('owner.properties.deactivateTitle'),
+        t('owner.properties.deactivateMsg', { name: property.name }),
+        [
+          { text: t('owner.properties.cancel'), style: 'cancel' },
+          {
+            text: t('owner.properties.deactivate'),
+            style: 'destructive',
+            onPress: () => deleteMutation.mutate(property._id),
+          },
+        ]
+      );
+    } else {
+      activateMutation.mutate(property._id);
+    }
   };
 
   const openAdd = () => {
@@ -389,7 +426,7 @@ export const OwnerPropertiesScreen: React.FC = () => {
               property={p}
               rooms={rooms}
               onEdit={() => openEdit(p)}
-              onDelete={() => handleDelete(p)}
+              onToggleActive={() => handleToggleActive(p)}
               onManageRooms={() => router.push({ pathname: '/owner/rooms/[propertyId]', params: { propertyId: p._id } } as any)}
               t={t}
             />
@@ -435,7 +472,14 @@ const styles = StyleSheet.create({
   propertyCard: { borderRadius: radius.xl, padding: spacing.lg },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   cardIconWrap: { width: 42, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  cardName: { fontSize: 15, fontWeight: '700' },
+  cardNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  cardName: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  inactiveBadge: {
+    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.full,
+  },
+  inactiveBadgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   cardAddress: { fontSize: 12, marginTop: 2, lineHeight: 17 },
   cardActions: { flexDirection: 'row', gap: spacing.md, marginTop: 2 },
   cardDivider: { height: 1, marginVertical: spacing.md },

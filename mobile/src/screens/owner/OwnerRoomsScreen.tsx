@@ -228,7 +228,8 @@ export const OwnerRoomsScreen: React.FC<{ propertyId: string }> = ({ propertyId 
   const deleteMutation = useMutation({
     mutationFn: deleteRoom,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ownerRooms'] }),
-    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.rooms.errRemove')),
+    onError: (err: any) =>
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.rooms.errRemove')),
   });
 
   const handleSave = (payload: any) => {
@@ -237,6 +238,10 @@ export const OwnerRoomsScreen: React.FC<{ propertyId: string }> = ({ propertyId 
   };
 
   const handleDelete = (room: Room) => {
+    if ((room.currentOccupancy ?? 0) > 0) {
+      Alert.alert(t('owner.rooms.occupiedTitle'), t('owner.rooms.occupiedMsg', { count: room.currentOccupancy ?? 0 }));
+      return;
+    }
     Alert.alert(
       t('owner.rooms.removeTitle'),
       t('owner.rooms.removeMsg', { number: room.roomNumber }),
