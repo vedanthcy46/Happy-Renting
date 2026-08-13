@@ -107,7 +107,7 @@ router.delete('/:id', authenticate, async (req, res, next) => {
 // Send a test push to the current user's device (dev/testing helper)
 router.post('/test-push', authenticate, async (req, res, next) => {
   try {
-    const notification = await notificationService.sendPushNotification({
+    const { notification, tickets } = await notificationService.sendExpoPushMessages({
       userId: req.user._id,
       title: 'Test Notification',
       body: 'This is a test push. If you can see this, push notifications are working!',
@@ -124,6 +124,12 @@ router.post('/test-push', authenticate, async (req, res, next) => {
       notificationId: notification._id,
       pushTokenCount: tokens.length,
       validPushTokenCount: validTokens.length,
+      tickets: tickets.map(t => ({
+        status: t.status,
+        message: t.message || null,
+        error: t.details ? t.details.error || null : null,
+        ticketId: t.id || null,
+      })),
     });
   } catch (err) {
     next(err);

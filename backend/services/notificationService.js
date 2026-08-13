@@ -12,7 +12,7 @@ let expo = new Expo({
 });
 
 /**
- * Save a notification to the database and optionally send an Expo push notification
+ * Save a notification to the database and optionally send an Expo push notification.
  * @param {Object} params
  * @param {string} params.userId - The ID of the user to notify
  * @param {string} params.title - Notification title
@@ -23,8 +23,19 @@ let expo = new Expo({
  * @param {string} [params.i18nBodyKey] - Translation dictionary key for body
  * @param {Object} [params.i18nVars] - Variables for i18n interpolation
  * @param {Object} [params.lang] - Explicit language override (else read from user)
+ * @returns {Promise<Notification>}
  */
-const sendPushNotification = async ({ userId, title, body, message, type = 'general', data = {}, i18nKey, i18nBodyKey, i18nVars = {}, lang }) => {
+const sendPushNotification = async (params) => {
+  const { notification } = await sendExpoPushMessages(params);
+  return notification;
+};
+
+/**
+ * Build + send Expo push messages for a user and return the raw ticket responses.
+ * Returns `{ notification, tickets }` so callers (e.g. the test-push endpoint)
+ * can surface exactly what Expo said about each device.
+ */
+const sendExpoPushMessages = async ({ userId, title, body, message, type = 'general', data = {}, i18nKey, i18nBodyKey, i18nVars = {}, lang }) => {
   try {
     // Resolve the user's preferred language so the notification is localized.
     let language = lang;
@@ -58,7 +69,7 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
     const user = await User.findById(userId).select('expoPushTokens');
     if (!user || !user.expoPushTokens || user.expoPushTokens.length === 0) {
       logger.info(`[Notifications] Saved to DB but no push tokens for user ${userId}`);
-      return notification;
+      return { notification, tickets: [] };
     }
 
     // 3. Filter valid tokens
@@ -67,7 +78,8 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
       .map(t => t.token);
 
     if (validTokens.length === 0) {
-      return notification;
+      logger.info(`[Notifications] Saved to DB but no valid push tokens for user ${userId}`);
+      return { notification, tickets: [] };
     }
 
     // 4. Construct messages
@@ -97,7 +109,20 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
       }
     }
 
-    // 6. Clean up unregistered tokens based on tickets
+    // 6. Log every ticket so delivery problems are visible in the server logs.
+    tickets.forEach((ticket, i) => {
+      const tokenPreview = validTokens[i] ? validTokens[i].slice(0, 24) : 'unknown';
+      if (ticket.status === 'ok') {
+        logger.info(`[Notifications] Expo push accepted for ${tokenPreview}... (ticket ${ticket.id})`);
+      } else {
+        logger.error(
+          `[Notifications] Expo push REJECTED for ${tokenPreview}...: ` +
+          `${ticket.message || ''} ${ticket.details ? JSON.stringify(ticket.details) : ''}`
+        );
+      }
+    });
+
+    // 7. Clean up unregistered tokens based on tickets
     const tokensToRemove = [];
     for (let i = 0; i < tickets.length; i++) {
       const ticket = tickets[i];
@@ -116,7 +141,7 @@ const sendPushNotification = async ({ userId, title, body, message, type = 'gene
 
     logger.info(`[Notifications] Sent ${tickets.length} push notifications to user ${userId}`);
 
-    return notification;
+    return { notification, tickets };
   } catch (err) {
     logger.error(`[Notifications] Failed to send push notification: ${err.message}`);
     throw err;
@@ -152,5 +177,6 @@ const broadcastToTenants = async ({ ownerId, title, body, type = 'broadcast', da
 
 module.exports = {
   sendPushNotification,
+  sendExpoPushMessages,
   broadcastToTenants
 };
