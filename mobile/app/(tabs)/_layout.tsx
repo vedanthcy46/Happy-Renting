@@ -1,12 +1,13 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { colors, typography, useResponsive } from '../../src/theme';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useState, useEffect, useMemo } from 'react';
-import { FeatureWalkthrough, TAB_BAR_HEIGHT } from '../../src/components';
+import { FeatureWalkthrough, getTabBarHeight } from '../../src/components';
 import { WalkthroughStep } from '../../src/components/FeatureWalkthrough';
 import { useTranslation } from 'react-i18next';
 
@@ -17,21 +18,24 @@ export default function TabLayout() {
   const { token, isLoading, user } = useAuthStore();
   const { colors: themeColors } = useTheme();
   const { width, height } = useResponsive();
+  const insets = useSafeAreaInsets();
 
   const [showWalkthrough, setShowWalkthrough] = useState(false);
 
+  const tabBarHeight = getTabBarHeight(insets.bottom);
+
   const tabTargets = useMemo(() => {
     const tabWidth = width / 4;
-    const top = height - TAB_BAR_HEIGHT + 6;
+    const top = height - tabBarHeight + 6;
     const w = tabWidth - 8;
-    const h = TAB_BAR_HEIGHT - 14;
+    const h = tabBarHeight - 14;
     return [0, 1, 2, 3].map((i) => ({
       left: tabWidth * i + 4,
       top,
       width: w,
       height: h,
     }));
-  }, [width, height]);
+  }, [width, height, tabBarHeight]);
 
   const walkthroughSteps = useMemo<WalkthroughStep[]>(
     () => [
@@ -101,9 +105,9 @@ export default function TabLayout() {
             backgroundColor: themeColors.surface,
             borderTopWidth: 0,
             elevation: 0,
-            height: Platform.OS === 'ios' ? 88 : 64,
+            height: tabBarHeight,
             paddingTop: 8,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+            paddingBottom: Math.max(insets.bottom, 8),
             ...Platform.select({
               ios: {
                 shadowColor: '#0F172A',

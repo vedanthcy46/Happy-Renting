@@ -3,14 +3,14 @@
     "name": "Happy Renting",
     "slug": "happy-renting-tenant",
     "sdkVersion": "56.0.0",
-    "version": "2.4.3",
+    "version": "2.4.4",
     "orientation": "default",
     "icon": "./assets/images/main-app-icon.png",
     "scheme": "happyrenting",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.happyrenting.app",
+      "bundleIdentifier": "co.in.happyrenting.tenant",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -21,7 +21,7 @@
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 24,
-      "versionCode": 18,
+      "versionCode": 19,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

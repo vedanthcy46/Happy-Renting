@@ -17,7 +17,7 @@ export { AppBottomSheet } from './AppBottomSheet';
 export { KeyboardSafeModal } from './KeyboardSafeModal';
 export { KeyboardSafeBottomSheet } from './KeyboardSafeBottomSheet';
 export { SuccessAnimation } from './SuccessAnimation';
-export { FeatureWalkthrough, TAB_BAR_HEIGHT } from './FeatureWalkthrough';
+export { FeatureWalkthrough, TAB_BAR_BASE_HEIGHT, getTabBarHeight } from './FeatureWalkthrough';
 export { WorkspacePicker } from './WorkspacePicker';
 export { WorkspaceSwitcher } from './WorkspaceSwitcher';
 export { AiLauncher } from './AiLauncher';

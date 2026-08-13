@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
-import { AppHeader } from '../components/AppHeader';
-import { AppButton } from '../components/AppButton';
+import { 
+  View, 
+  StyleSheet, 
+  ScrollView, 
+  SafeAreaView, 
+  Dimensions, 
+} from 'react-native';
+import { AppHeader, AppButton } from '../components';
+import { useTheme } from '../theme/ThemeProvider';
 
 const NAVIGATION_ITEMS = [
   { id: 'home', title: 'Home' },
@@ -13,20 +19,29 @@ const NAVIGATION_ITEMS = [
 ];
 
 export const AppNavigator: React.FC = () => {
-  const [activeItem, setActiveItem] = useState<typeof NAVIGATION_ITEMS[0]>(NAVIGATION_ITEMS[0]);
+  const [activeItem, setActiveItem] = useState(NAVIGATION_ITEMS[0]);
+  const { colors } = useTheme();
+  const screenHeight = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
+
+  const navbarHeight = 60;
+  const buttonGroupPadding = screenWidth > 400 ? 24 : 16;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Navbar */}
+      <View style={styles.navbarReserver} />
       <AppHeader title="Rent House" />
-
-      {/* Navigation Button Group - placed BELOW navbar to avoid overlap */}
-      <ScrollView style={styles.navGroup}>
+      <ScrollView 
+        style={styles.navGroup}
+        contentContainerStyle={styles.navContent}
+        showsVerticalScrollIndicator={false}
+      >
         {NAVIGATION_ITEMS.map((item) => (
           <AppButton
             key={item.id}
             title={item.title}
             onPress={() => setActiveItem(item)}
+            style={{ padding: buttonGroupPadding }}
           />
         ))}
       </ScrollView>
@@ -39,10 +54,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  navbarReserver: {
+    height: navbarHeight,
+  },
   navGroup: {
-    flexDirection: 'row',
+    flex: 1,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+  },
+  navContent: {
+    paddingVertical: 12,
+    gap: 12,
+    minHeight: 300,
   },
 });

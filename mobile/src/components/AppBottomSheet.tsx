@@ -3,7 +3,6 @@ import {
   Modal,
   View,
   StyleSheet,
-  ScrollView,
   Keyboard,
   Platform,
   TouchableOpacity,
@@ -53,6 +52,35 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   const keyboardHeight = useKeyboardInset();
   const sheetHeight = useSharedValue(0);
   const gestureStartHeight = useSharedValue(0);
+  const keyboardPad = useSharedValue(0);
+
+  useEffect(() => {
+    keyboardPad.value = withTiming(keyboardHeight ?? 0, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [keyboardHeight, keyboardPad]);
+
+  const bottomInset = insets.bottom;
+
+  // Lift the sheet above the keyboard (YouTube-style) while keeping it on-screen.
+  const sheetStyle = useAnimatedStyle(() => {
+    const lift = Math.min(keyboardPad.value, Math.max(height - sheetHeight.value - 20, 0));
+    return {
+      height: sheetHeight.value,
+      transform: [{ translateY: -lift }],
+    };
+  });
+
+  // Scroll padding covers only the part of the sheet still behind the keyboard
+  // (when the sheet is too tall to fully clear it).
+  const scrollContentStyle = useAnimatedStyle(() => {
+    const lift = Math.min(keyboardPad.value, Math.max(height - sheetHeight.value - 20, 0));
+    const behind = Math.max(keyboardPad.value - lift, 0);
+    return {
+      paddingBottom: spacing.huge + bottomInset + behind + 16,
+    };
+  });
 
   const MIN_HEIGHT = Math.max(height * 0.28, 120);
   const MAX_HEIGHT = Math.max(height * maxHeightFraction, MIN_HEIGHT);
@@ -102,10 +130,6 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
       sheetHeight.value = withSpring(nearest, { damping: 20, stiffness: 220 });
     });
 
-  const sheetStyle = useAnimatedStyle(() => ({
-    height: sheetHeight.value,
-  }));
-
   const scrimStyle = useAnimatedStyle(() => ({
     opacity: sheetHeight.value / defaultHeight,
   }));
@@ -143,16 +167,15 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
               <View style={styles.handleArea}>
                 <View style={[styles.handle, { backgroundColor: colors.border }]} />
               </View>
-              <ScrollView
+              <Animated.ScrollView
                 style={styles.body}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.huge + insets.bottom + keyboardHeight + 16, flexGrow: 1 }]}
+                contentContainerStyle={[styles.scrollContent, scrollContentStyle, { flexGrow: 1 }]}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 bounces={false}
-                automaticallyAdjustKeyboardInsets={true}
               >
                 {children}
-              </ScrollView>
+              </Animated.ScrollView>
             </Animated.View>
         </GestureDetector>
       </View>

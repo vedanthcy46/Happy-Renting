@@ -15,7 +15,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeProvider';
 import { useResponsive } from '../theme';
 
-export const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
+export const TAB_BAR_BASE_HEIGHT = 56;
+
+/** Total tab bar height: content height + bottom safe-area/gesture inset (YouTube-style). */
+export const getTabBarHeight = (bottomInset: number) => TAB_BAR_BASE_HEIGHT + Math.max(bottomInset, 8);
 
 export interface WalkthroughStep {
   id: string;

@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTheme } from '../theme/ThemeProvider';
 import { spacing } from '../theme';
+import { getTabBarHeight } from './FeatureWalkthrough';
 
 /**
  * Floating "AI Assistant" launcher. Only shown when authenticated and while the
@@ -16,6 +18,7 @@ export const AiLauncher = () => {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (!user || !token) return null;
   if (pathname === '/ai') return null;
@@ -23,7 +26,7 @@ export const AiLauncher = () => {
 
   return (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor: colors.primary }]}
+      style={[styles.button, { backgroundColor: colors.primary, bottom: getTabBarHeight(insets.bottom) + spacing.md }]}
       onPress={() => router.push('/ai')}
       activeOpacity={0.85}
     >
@@ -39,7 +42,6 @@ const styles = StyleSheet.create({
     // Positioned bottom-RIGHT. The tenant complaints screen keeps its "Add"
     // button in the header (top), so there is no overlap on that screen.
     right: spacing.lg,
-    bottom: 96,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,

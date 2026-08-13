@@ -1,17 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   View,
-  ScrollView,
   Text,
   TouchableOpacity,
-  Platform,
   StyleSheet,
   StyleProp,
   ViewStyle,
   DimensionValue,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { spacing, radius } from '../theme';
@@ -34,11 +33,11 @@ export interface KeyboardSafeBottomSheetProps {
  * the software keyboard is open — the form scrolls into view instead of the
  * sheet moving.
  *
- * - Android: relies on `automaticallyAdjustKeyboardInsets` so the focused
- *   field scrolls above the keyboard (works inside RN `Modal`, unlike
- *   `adjustResize`/`KeyboardAvoidingView`).
- * - iOS: pads the scroll content by the keyboard height via `useKeyboardInset`
- *   so the focused field can be scrolled above the keyboard.
+ * The scroll content bottom padding animates to the soft keyboard height via
+ * `useKeyboardInset` (JS `Keyboard` events), so the focused field scrolls above
+ * the keyboard and the sheet settles back smoothly when it dismisses. Works
+ * identically on iOS and Android inside RN `Modal` windows (which ignore
+ * `adjustResize` / `KeyboardAvoidingView`).
  */
 export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = ({
   visible,
@@ -52,6 +51,18 @@ export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = (
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardInset();
+  const keyboardPad = useSharedValue(0);
+
+  useEffect(() => {
+    keyboardPad.value = withTiming(keyboardHeight, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [keyboardHeight, keyboardPad]);
+
+  const scrollContentStyle = useAnimatedStyle(() => ({
+    paddingBottom: insets.bottom + keyboardPad.value + spacing.xxxl,
+  }));
 
   return (
     <Modal
@@ -77,19 +88,15 @@ export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = (
               </TouchableOpacity>
             </View>
           ) : null}
-          <ScrollView
+          <Animated.ScrollView
             style={styles.body}
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: insets.bottom + keyboardHeight + spacing.xxxl },
-            ]}
+            contentContainerStyle={[styles.scrollContent, scrollContentStyle]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={Platform.OS === 'android'}
             bounces={false}
           >
             {children}
-          </ScrollView>
+          </Animated.ScrollView>
         </View>
       </View>
     </Modal>
