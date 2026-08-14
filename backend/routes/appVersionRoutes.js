@@ -18,6 +18,7 @@ router.get('/', (req, res) => {
     latestVersionCode: mobile.latestVersionCode,
     playStoreUrl: mobile.playStoreUrl,
     releaseNotes: mobile.releaseNotes || '',
+    remindIntervalDays: mobile.remindIntervalDays ?? 3,
     timestamp: new Date().toISOString(),
   });
 });

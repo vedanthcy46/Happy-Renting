@@ -10,8 +10,7 @@ import { getAppVersionInfo } from '../api/appVersion';
 import { APP_VERSION, APP_BUILD_NUMBER, PLAY_STORE_URL } from '../utils/rateApp';
 
 const DISMISSED_KEY = 'app_update_dismissed';
-const REMIND_DAYS = 3;
-const REMIND_MS = REMIND_DAYS * 24 * 60 * 60 * 1000;
+const REMIND_DAYS_DEFAULT = 3;
 
 interface Dismissal {
   version: string;
@@ -68,8 +67,10 @@ export const UpdateCard: React.FC = () => {
   if (isLoading || isError || !updateAvailable) return null;
 
   const versionKey = String(latestCode ?? latestVersion ?? '');
+  const remindDays = data?.remindIntervalDays && data.remindIntervalDays > 0 ? data.remindIntervalDays : REMIND_DAYS_DEFAULT;
+  const remindMs = remindDays * 24 * 60 * 60 * 1000;
   const isDismissed =
-    dismissed !== null && dismissed.version === versionKey && Date.now() - dismissed.dismissedAt < REMIND_MS;
+    dismissed !== null && dismissed.version === versionKey && Date.now() - dismissed.dismissedAt < remindMs;
   if (isDismissed) return null;
 
   const onUpdate = () => {

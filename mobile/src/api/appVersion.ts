@@ -7,6 +7,7 @@ export interface AppVersionInfo {
   latestVersionCode: number;
   playStoreUrl: string;
   releaseNotes?: string;
+  remindIntervalDays?: number;
   timestamp?: string;
 }
 
