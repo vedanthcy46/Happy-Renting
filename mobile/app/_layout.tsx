@@ -117,28 +117,21 @@ function AppContent() {
     initializeLanguage().then(() => setLanguageReady(true));
   }, []);
 
-  // After session is restored from SecureStore, redirect to the correct workspace.
-  // Skip redirect if the workspace picker is showing — user will pick themselves.
-  useEffect(() => {
-    if (isAuthLoading) return;
-    if (!user || !token) return;
-    if (needsWorkspacePicker) return;
-    if (activeWorkspace === 'owner') {
-      router.replace('/(owner-tabs)' as any);
-    }
-    // Tenant workspace lands on (tabs) which is the Expo Router default — no redirect needed.
-  }, [isAuthLoading, user, token, activeWorkspace, needsWorkspacePicker, router]);
-
   useEffect(() => {
     if (user && token) {
       startSyncEngine();
     }
   }, [user, token]);
 
-  // Check onboarding flag and redirect if needed
+  // Check onboarding flag and redirect if needed.
+  // Workspace landing is handled declaratively by the (tabs) / (owner-tabs)
+  // layout guards, so no imperative redirect lives here anymore.
   useEffect(() => {
     const checkOnboarding = async () => {
       if (isAuthLoading) return;
+
+      // Already authenticated — never send a logged-in user back to onboarding.
+      if (user && token) return;
 
       try {
         const completed = await SecureStore.getItemAsync(ONBOARDING_KEY);
@@ -151,7 +144,7 @@ function AppContent() {
       }
     };
     checkOnboarding();
-  }, [isAuthLoading, router]);
+  }, [isAuthLoading, user, token, router]);
 
   useEffect(() => {
     if (!isAuthLoading && onboardingChecked && (fontsLoaded || fontError)) {
@@ -335,6 +328,7 @@ function AppContent() {
           onClose={() => {
             const { activeWorkspace: ws } = useAuthStore.getState();
             if (ws === 'owner') router.replace('/(owner-tabs)' as any);
+            else router.replace('/(tabs)' as any);
           }}
         />
       )}

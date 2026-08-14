@@ -21,6 +21,8 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WorkspacePicker } from './WorkspacePicker';
+import { useQuery } from '@tanstack/react-query';
+import { cachedOwnerPendingApprovals, cachedOwnerComplaints, cachedNotificationsUnread } from '../repositories';
 
 const DRAWER_WIDTH_MAX = 360;
 
@@ -31,6 +33,8 @@ interface DrawerItem {
   onPress?: () => void;
   color?: string;
   dividerAfter?: boolean;
+  /** Optional count badge shown on the right (hidden when 0/undefined). */
+  badge?: number;
 }
 
 interface DrawerProps {
@@ -54,6 +58,34 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
   const isOwner = roles.includes('owner');
   const isMultiRole = roles.includes('owner') && roles.includes('tenant');
   const [showWorkspacePicker, setShowWorkspacePicker] = useState(false);
+
+  const isOwnerWorkspace = activeWorkspace === 'owner';
+
+  // Pending count badges for the owner menu — only fetched while the drawer is open.
+  const { data: approvalsData } = useQuery({
+    queryKey: ['ownerPendingApprovals'],
+    queryFn: cachedOwnerPendingApprovals,
+    enabled: isOpen && isOwnerWorkspace,
+    staleTime: 30 * 1000,
+  });
+  const { data: complaintsData } = useQuery({
+    queryKey: ['ownerComplaints'],
+    queryFn: cachedOwnerComplaints,
+    enabled: isOpen && isOwnerWorkspace,
+    staleTime: 30 * 1000,
+  });
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications', 'unread'],
+    queryFn: cachedNotificationsUnread,
+    enabled: isOpen && isOwnerWorkspace,
+    refetchInterval: 30 * 1000,
+  });
+
+  const pendingApprovalsCount = approvalsData?.transactions?.length ?? 0;
+  const openComplaintsCount = (complaintsData?.complaints ?? []).filter(
+    (c: { status?: string }) => c.status === 'pending' || c.status === 'in-progress'
+  ).length;
+  const unreadCount = notifData?.unreadCount ?? 0;
 
   const navigate = (route: string) => {
     onClose();
@@ -89,11 +121,11 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     { icon: 'people', label: t('tabs.tenants'), route: '/(owner-tabs)/tenants', dividerAfter: true },
     { icon: 'person-add', label: t('drawer.addTenant'), route: '/owner/add-tenant' },
     { icon: 'wallet', label: t('tabs.payments'), route: '/(owner-tabs)/payments' },
-    { icon: 'checkmark-done-circle', label: t('drawer.pendingApprovals'), route: '/owner/approvals' },
-    { icon: 'construct', label: t('drawer.complaints'), route: '/owner/complaints' },
+    { icon: 'checkmark-done-circle', label: t('drawer.pendingApprovals'), route: '/owner/approvals', badge: pendingApprovalsCount },
+    { icon: 'construct', label: t('drawer.complaints'), route: '/owner/complaints', badge: openComplaintsCount },
     { icon: 'trending-up', label: t('drawer.expenses'), route: '/owner/expenses' },
     { icon: 'bar-chart', label: t('drawer.reports'), route: '/owner/reports', dividerAfter: true },
-    { icon: 'notifications', label: t('drawer.notifications'), route: '/notifications', dividerAfter: true },
+    { icon: 'notifications', label: t('drawer.notifications'), route: '/notifications', badge: unreadCount, dividerAfter: true },
   ];
 
   // ── Shared items for all roles ─────────────────────────────────────────
@@ -234,6 +266,11 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
                 <Text style={[styles.drawerItemLabel, { color: themeColors.text.primary }]}>
                   {item.label}
                 </Text>
+                {typeof item.badge === 'number' && item.badge > 0 && (
+                  <View style={[styles.drawerBadge, { backgroundColor: themeColors.error }]}>
+                    <Text style={styles.drawerBadgeText}>{item.badge > 99 ? '99+' : item.badge}</Text>
+                  </View>
+                )}
                 <Ionicons name="chevron-forward" size={16} color={themeColors.text.tertiary} />
               </TouchableOpacity>
               {item.dividerAfter && (
@@ -387,6 +424,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
+  },
+  drawerBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   divider: {
     height: 1,

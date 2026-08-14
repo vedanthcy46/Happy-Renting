@@ -15,7 +15,7 @@ const WALKTHROUGH_KEY_PREFIX = 'owner_walkthrough_completed';
 
 export default function OwnerTabLayout() {
   const { t } = useTranslation();
-  const { token, isLoading, user } = useAuthStore();
+  const { token, isLoading, user, activeWorkspace, needsWorkspacePicker } = useAuthStore();
   const { colors: themeColors } = useTheme();
   const { width, height } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -106,6 +106,8 @@ export default function OwnerTabLayout() {
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const canUseOwnerWorkspace = userRoles.includes('owner') || userRoles.includes('superadmin');
   if (!canUseOwnerWorkspace) return <Redirect href="/(tabs)" />;
+  // Workspace picker takes priority — don't redirect while it's showing.
+  if (!needsWorkspacePicker && activeWorkspace !== 'owner') return <Redirect href="/(tabs)" />;
 
   return (
     <View style={{ flex: 1 }}>

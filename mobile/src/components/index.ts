@@ -23,3 +23,4 @@ export { WorkspaceSwitcher } from './WorkspaceSwitcher';
 export { AiLauncher } from './AiLauncher';
 export { ImageLightbox } from './ImageLightbox';
 export { CalendarPicker } from './CalendarPicker';
+export { UpdateCard } from './UpdateCard';

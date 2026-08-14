@@ -28,6 +28,14 @@
     "settings": "Settings",
     "language": "Language"
   },
+  "update": {
+    "available": "Update Available",
+    "message": "A new version of Happy Renting is available.",
+    "messageWithVersion": "A new version ({{version}}) of Happy Renting is available.",
+    "whatsNew": "What's new:",
+    "update": "Update",
+    "later": "Later"
+  },
   "login": {
     "title": "Welcome Back",
     "subtitle": "Sign in to continue to your dashboard",

@@ -15,7 +15,7 @@ const WALKTHROUGH_KEY_PREFIX = 'walkthrough_completed';
 
 export default function TabLayout() {
   const { t } = useTranslation();
-  const { token, isLoading, user } = useAuthStore();
+  const { token, isLoading, user, activeWorkspace, needsWorkspacePicker } = useAuthStore();
   const { colors: themeColors } = useTheme();
   const { width, height } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -95,6 +95,9 @@ export default function TabLayout() {
 
   if (isLoading) return null;
   if (!token) return <Redirect href="/login" />;
+  // Owner workspace users must never land on the tenant portal.
+  // Workspace picker takes priority — don't redirect while it's showing.
+  if (!needsWorkspacePicker && activeWorkspace === 'owner') return <Redirect href="/(owner-tabs)" />;
 
   return (
     <View style={{ flex: 1 }}>

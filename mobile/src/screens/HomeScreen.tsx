@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { addRoommate, updateRoommate, deleteRoommate } from '../api/tenant';
 import { cachedRentRecords, cachedNotificationsUnread, cachedTenancy } from '../repositories';
 import { useAuthStore } from '../store/useAuthStore';
-import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard, AppBottomSheet } from '../components';
+import { AppCard, AppButton, AppInput, StatusBadge, StatCard, GradientCard, EmptyState, ErrorState, CardSkeleton, ActivityCard, AppBottomSheet, UpdateCard } from '../components';
 import { typography, spacing, radius, shadows, useResponsive } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatDate, getInitials, formatMonth } from '../utils';
@@ -227,6 +227,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           />
         }
       >
+        <View style={styles.updateCardWrap}>
+          <UpdateCard />
+        </View>
         {latestRecord ? (
           <GradientCard gradient={['#4B6BED', '#3D56C9'] as const} style={styles.billCard}>
             <View style={styles.billCardContent}>
@@ -640,6 +643,9 @@ const makeStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   billCard: {
+    marginBottom: spacing.lg,
+  },
+  updateCardWrap: {
     marginBottom: spacing.lg,
   },
   billCardContent: {

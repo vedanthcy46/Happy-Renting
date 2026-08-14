@@ -63,13 +63,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const roles = normalizeRoles(user);
       const userWithRoles = { ...user, roles };
-      const workspace = deriveWorkspace(roles);
-      const showPicker = isMultiRole(roles);
+      const current = useAuthStore.getState();
+      // Only derive the workspace on a fresh login. Profile refreshes call
+      // setAuth too (e.g. after fetching/updating the profile) and must NOT
+      // clobber the workspace the user already picked (esp. multi-role users).
+      const isFreshLogin = !current.user || !current.token;
+      const workspace = isFreshLogin ? deriveWorkspace(roles) : current.activeWorkspace;
+      const showPicker = isFreshLogin ? isMultiRole(roles) : current.needsWorkspacePicker;
       await SecureStore.setItemAsync('userToken', token);
       await SecureStore.setItemAsync('userData', JSON.stringify(userWithRoles));
       await SecureStore.setItemAsync('activeWorkspace', workspace);
       set({ user: userWithRoles, token, activeWorkspace: workspace, isLoading: false, needsWorkspacePicker: showPicker });
-      if (__DEV__) console.log('[Auth] State updated after login — workspace:', workspace, 'multiRole:', showPicker);
+      if (__DEV__) console.log('[Auth] State updated — workspace:', workspace, 'multiRole:', showPicker, 'freshLogin:', isFreshLogin);
     } catch (error) {
       console.error('[Auth] Failed to save session', error);
     }
