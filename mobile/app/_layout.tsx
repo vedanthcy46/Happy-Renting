@@ -131,17 +131,16 @@ function AppContent() {
       if (isAuthLoading) return;
 
       // Already authenticated — never send a logged-in user back to onboarding.
-      if (user && token) return;
-
-      try {
-        const completed = await SecureStore.getItemAsync(ONBOARDING_KEY);
-        if (!completed) {
-          router.replace('/onboarding');
+      if (!user || !token) {
+        try {
+          const completed = await SecureStore.getItemAsync(ONBOARDING_KEY);
+          if (!completed) {
+            router.replace('/onboarding');
+          }
+        } catch {
         }
-      } catch {
-      } finally {
-        setOnboardingChecked(true);
       }
+      setOnboardingChecked(true);
     };
     checkOnboarding();
   }, [isAuthLoading, user, token, router]);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import * as SecureStore from 'expo-secure-store';
@@ -10,6 +10,13 @@ import { getAppVersionInfo } from '../api/appVersion';
 import { APP_VERSION, APP_BUILD_NUMBER, PLAY_STORE_URL } from '../utils/rateApp';
 
 const DISMISSED_KEY = 'app_update_dismissed';
+const REMIND_DAYS = 3;
+const REMIND_MS = REMIND_DAYS * 24 * 60 * 60 * 1000;
+
+interface Dismissal {
+  version: string;
+  dismissedAt: number;
+}
 
 function isUpdateAvailable(latestVersionCode?: number, latestVersion?: string): boolean {
   const currentBuild = Number(APP_BUILD_NUMBER) || 0;
@@ -31,7 +38,7 @@ function isUpdateAvailable(latestVersionCode?: number, latestVersion?: string): 
 export const UpdateCard: React.FC = () => {
   const { t } = useTranslation();
   const { colors: themeColors } = useTheme();
-  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<Dismissal | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['appVersion'],
@@ -42,7 +49,15 @@ export const UpdateCard: React.FC = () => {
 
   useEffect(() => {
     SecureStore.getItemAsync(DISMISSED_KEY)
-      .then((val) => setDismissedFor(val))
+      .then((val) => {
+        if (val) {
+          try {
+            setDismissed(JSON.parse(val) as Dismissal);
+          } catch {
+            setDismissed(null);
+          }
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -51,17 +66,21 @@ export const UpdateCard: React.FC = () => {
   const updateAvailable = !!data?.success && isUpdateAvailable(latestCode, latestVersion);
 
   if (isLoading || isError || !updateAvailable) return null;
-  if (dismissedFor !== null && dismissedFor === String(latestCode ?? latestVersion)) return null;
+
+  const versionKey = String(latestCode ?? latestVersion ?? '');
+  const isDismissed =
+    dismissed !== null && dismissed.version === versionKey && Date.now() - dismissed.dismissedAt < REMIND_MS;
+  if (isDismissed) return null;
 
   const onUpdate = () => {
     Linking.openURL(data?.playStoreUrl || PLAY_STORE_URL).catch(() => {});
   };
 
   const onLater = () => {
-    const key = String(latestCode ?? latestVersion ?? '');
-    if (key) {
-      SecureStore.setItemAsync(DISMISSED_KEY, key).catch(() => {});
-      setDismissedFor(key);
+    if (versionKey) {
+      const dismissal: Dismissal = { version: versionKey, dismissedAt: Date.now() };
+      SecureStore.setItemAsync(DISMISSED_KEY, JSON.stringify(dismissal)).catch(() => {});
+      setDismissed(dismissal);
     }
   };
 
