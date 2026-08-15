@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose');
 const bcrypt   = require('bcrypt');
+const subscriptionSchema = require('./Subscription');
 
 const SALT_ROUNDS = 12;
 
@@ -45,6 +46,11 @@ const userSchema = new mongoose.Schema(
       type : mongoose.Schema.Types.ObjectId,
       ref  : 'User',
       default: null,
+    },
+    // ── Subscription / Plan ───────────────────────────────────────────────
+    subscription: {
+      type: subscriptionSchema,
+      default: () => ({}),
     },
     isActive: {
       type   : Boolean,

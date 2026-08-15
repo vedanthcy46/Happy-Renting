@@ -74,6 +74,9 @@ const verifyWebhookSignature = (rawBody, timestamp, signature) => {
  *          Stores pendingCashfreeOrderId on the rent record for tracking.
  * @access  Private (Tenant only)
  */
+// Shared helper exposed for other controllers (e.g. subscriptions).
+exports.getCashfreeInstance = getCashfreeInstance;
+
 exports.createCashfreeOrder = async (req, res, next) => {
   try {
     const { rentRecordId } = req.params;
@@ -265,6 +268,34 @@ exports.getCashfreePaymentStatus = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
+ * Activate a premium subscription after a verified Cashfree payment.
+ * Shared by the webhook and the status poll.
+ */
+async function handleSubscriptionWebhook(subscriptionOrder, { cfOrderId, cfPaymentId, event }) {
+  if (subscriptionOrder.status === 'paid') {
+    logger.info(`[SUBSCRIPTION] Duplicate paid webhook ignored — orderId=${cfOrderId}`);
+    return;
+  }
+
+  const subscriptionService = require('../services/subscriptionService');
+  const sub = await subscriptionService.activateSubscription(
+    subscriptionOrder.ownerId,
+    subscriptionOrder.plan
+  );
+
+  subscriptionOrder.status = 'paid';
+  subscriptionOrder.paidAt = new Date();
+  subscriptionOrder.cashfreePaymentId = cfPaymentId;
+  subscriptionOrder.activatedUntil = sub.expiresAt || null;
+  subscriptionOrder.activationError = '';
+  await subscriptionOrder.save();
+
+  logger.info(
+    `[SUBSCRIPTION] Activated via webhook — orderId=${cfOrderId} owner=${subscriptionOrder.ownerId} plan=${subscriptionOrder.plan}`
+  );
+}
+
+/**
  * @desc    Receives Cashfree server-to-server payment confirmation.
  *          This is the ONLY place where PaymentTransactions are created
  *          for gateway payments. Never from the frontend.
@@ -344,6 +375,22 @@ exports.handleCashfreeWebhook = async (req, res) => {
       logger.info(
         `[CASHFREE] Duplicate Webhook Ignored — orderId=${cfOrderId} existingTxn=${alreadyProcessed._id}`
       );
+      return;
+    }
+
+    // ── Check for a Subscription order (premium purchase) ─────────────────
+    const SubscriptionOrder = require('../models/SubscriptionOrder');
+    const subscriptionOrder = await SubscriptionOrder.findOne({
+      cashfreeOrderId: cfOrderId,
+    });
+
+    if (subscriptionOrder) {
+      await handleSubscriptionWebhook(subscriptionOrder, {
+        cfOrderId,
+        cfPaymentId,
+        event,
+        paidAmount: Number(paymentData.order_amount || subscriptionOrder.amount),
+      });
       return;
     }
 

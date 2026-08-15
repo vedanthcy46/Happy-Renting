@@ -56,6 +56,8 @@ const getPlatformSettings = async (session = null) => {
         {
           subscriptionEnabled: false,
           monthlySubscription: 299,
+          annualSubscription: 2990,
+          lifetimeSubscription: 4999,
           commissionEnabled: false,
           commissionPercentage: 2,
           gatewayFeeDeductionEnabled: false

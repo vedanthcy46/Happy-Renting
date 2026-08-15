@@ -19,6 +19,8 @@ const AdminWalletPage = () => {
   // Platforms settings editor state
   const [subscriptionEnabled, setSubscriptionEnabled] = useState(false);
   const [monthlySubscription, setMonthlySubscription] = useState(0);
+  const [annualSubscription, setAnnualSubscription] = useState(0);
+  const [lifetimeSubscription, setLifetimeSubscription] = useState(0);
   const [commissionEnabled, setCommissionEnabled] = useState(false);
   const [commissionPercentage, setCommissionPercentage] = useState(0);
   const [gatewayFeeDeductionEnabled, setGatewayFeeDeductionEnabled] = useState(false);
@@ -63,6 +65,8 @@ const AdminWalletPage = () => {
       if (s) {
         setSubscriptionEnabled(s.subscriptionEnabled);
         setMonthlySubscription(s.monthlySubscription);
+        setAnnualSubscription(s.annualSubscription);
+        setLifetimeSubscription(s.lifetimeSubscription);
         setCommissionEnabled(s.commissionEnabled);
         setCommissionPercentage(s.commissionPercentage);
         setGatewayFeeDeductionEnabled(s.gatewayFeeDeductionEnabled);
@@ -86,6 +90,8 @@ const AdminWalletPage = () => {
       await api.patch('/v2/admin/settings', {
         subscriptionEnabled,
         monthlySubscription: Number(monthlySubscription),
+        annualSubscription: Number(annualSubscription),
+        lifetimeSubscription: Number(lifetimeSubscription),
         commissionEnabled,
         commissionPercentage: Number(commissionPercentage),
         gatewayFeeDeductionEnabled
@@ -512,8 +518,8 @@ const AdminWalletPage = () => {
             <div className="p-4 rounded-xl border border-surface-border bg-surface-hover/10 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="form-label mb-0 text-white font-bold">Monthly Landlord Subscription Fee</label>
-                  <p className="text-xs text-slate-500 mt-1">Charge recurring monthly fees to active landlords.</p>
+                  <label className="form-label mb-0 text-white font-bold">Premium Subscription Plans</label>
+                  <p className="text-xs text-slate-500 mt-1">Enable paid plans and set a price for each billing period. Prices are charged once via Cashfree (no auto-renew).</p>
                 </div>
                 <input
                   type="checkbox"
@@ -524,16 +530,45 @@ const AdminWalletPage = () => {
               </div>
 
               {subscriptionEnabled && (
-                <div className="pt-2 animate-fade-in">
-                  <label className="form-label text-xs">Monthly Subscription Amount (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={monthlySubscription}
-                    onChange={(e) => setMonthlySubscription(e.target.value)}
-                    className="form-input font-mono max-w-[200px]"
-                    required
-                  />
+                <div className="pt-2 animate-fade-in space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="form-label text-xs">Monthly Price (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={monthlySubscription}
+                        onChange={(e) => setMonthlySubscription(e.target.value)}
+                        className="form-input font-mono max-w-[200px]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label text-xs">Annual Price (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={annualSubscription}
+                        onChange={(e) => setAnnualSubscription(e.target.value)}
+                        className="form-input font-mono max-w-[200px]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label text-xs">Lifetime Price (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={lifetimeSubscription}
+                        onChange={(e) => setLifetimeSubscription(e.target.value)}
+                        className="form-input font-mono max-w-[200px]"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Set a price to 0 to hide that billing option from the app. A plan is only visible when its price is &gt; 0.
+                  </p>
                 </div>
               )}
             </div>

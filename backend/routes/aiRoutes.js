@@ -1,7 +1,7 @@
 'use strict';
 
 const router = require('express').Router();
-const { sendMessage } = require('../controllers/aiController');
+const { sendMessage, getEntitlement } = require('../controllers/aiController');
 const { authenticate } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
@@ -17,5 +17,6 @@ const aiLimiter = rateLimit({
 router.use(authenticate);
 
 router.post('/message', aiLimiter, sendMessage);
+router.get('/entitlement', getEntitlement);
 
 module.exports = router;

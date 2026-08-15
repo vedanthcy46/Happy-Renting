@@ -269,6 +269,24 @@ export const OwnerProfileScreen: React.FC = () => {
           <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xxl }} />
         ) : (
           <>
+            {/* Premium / Upgrade */}
+            <TouchableOpacity
+              style={[styles.section, { backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: spacing.md }, shadows.sm]}
+              onPress={() => router.push('/subscription' as any)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.premiumIconBox, { backgroundColor: colors.primaryLight }]}>
+                <Ionicons name="diamond-outline" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('subscription.title')}</Text>
+                <Text style={[styles.sectionSub, { color: colors.text.secondary, marginTop: 2 }]}>
+                  {t('subscription.subtitle')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+
             {/* Basic Information */}
             <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
               <View style={styles.sectionHeader}>
@@ -461,6 +479,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   sectionSub: { fontSize: 12, color: '#64748B', marginTop: -spacing.sm },
+  premiumIconBox: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   qrImage: { width: 160, height: 160, alignSelf: 'center' },
   qrPlaceholder: { width: 160, height: 160, borderRadius: radius.lg, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   qrPlaceholderText: { fontSize: 12 },

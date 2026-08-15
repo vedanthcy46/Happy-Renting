@@ -50,6 +50,7 @@ const systemRoutes    = require('./routes/systemRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const aiRoutes          = require('./routes/aiRoutes');
 const appVersionRoutes  = require('./routes/appVersionRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const { startCronJobs } = require('./jobs/cronJobs');
 const ledgerQueueService = require('./services/ledgerQueueService');
 const { initKeepAlive } = require('./services/keepAliveService');
@@ -230,6 +231,7 @@ app.use('/api/v2/payments',   paymentRoutesV2); // New ledger-based system
 app.use('/api/v2/wallet',     walletRoutes);
 app.use('/api/v2/expenses',   expenseRoutes);
 app.use('/api/v2/admin',      walletAdminRoutes);
+app.use('/api/v2/subscriptions', subscriptionRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/owner-requests', ownerRequestRoutes);

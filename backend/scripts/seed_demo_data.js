@@ -46,6 +46,8 @@ const seedDemoData = async () => {
     const settings = await PlatformSettings.create({
       subscriptionEnabled: true,
       monthlySubscription: 299,
+      annualSubscription: 2990,
+      lifetimeSubscription: 4999,
       commissionEnabled: true,
       commissionPercentage: 2,
       gatewayFeeDeductionEnabled: true

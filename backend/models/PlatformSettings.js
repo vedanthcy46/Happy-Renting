@@ -13,6 +13,16 @@ const platformSettingsSchema = new mongoose.Schema(
       default: 299,
       min: [0, 'Subscription fee cannot be negative']
     },
+    annualSubscription: {
+      type: Number,
+      default: 2990,
+      min: [0, 'Subscription fee cannot be negative']
+    },
+    lifetimeSubscription: {
+      type: Number,
+      default: 4999,
+      min: [0, 'Subscription fee cannot be negative']
+    },
     commissionEnabled: {
       type: Boolean,
       default: false
