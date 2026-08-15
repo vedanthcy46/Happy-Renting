@@ -26,6 +26,7 @@ export interface OwnerReportData {
 const CATEGORY_LABEL: Record<string, string> = {
   maintenance: 'Maintenance', electricity: 'Electricity', water: 'Water',
   society: 'Society', repairs: 'Repairs', cleaning: 'Cleaning', internet: 'Internet', misc: 'Misc',
+  subscription: 'Subscription',
 };
 
 const formatINR = (n: number) => '₹' + (n ?? 0).toLocaleString('en-IN');

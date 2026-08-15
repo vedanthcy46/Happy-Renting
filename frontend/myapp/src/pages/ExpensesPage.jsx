@@ -13,6 +13,7 @@ const CATEGORIES = {
   cleaning: 'Cleaning',
   internet: 'Internet',
   misc: 'Miscellaneous',
+  subscription: 'Happy Renting Premium',
 };
 
 const categoryColor = (cat) => {
@@ -25,6 +26,7 @@ const categoryColor = (cat) => {
     cleaning: 'text-teal-400 bg-teal-500/10',
     internet: 'text-indigo-400 bg-indigo-500/10',
     misc: 'text-slate-400 bg-slate-500/10',
+    subscription: 'text-brand-400 bg-brand-500/10',
   };
   return colors[cat] || colors.misc;
 };

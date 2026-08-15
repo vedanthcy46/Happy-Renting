@@ -327,7 +327,7 @@ const AdminWalletPage = () => {
           <p className={`text-2xl font-extrabold mt-2 ${revenue?.netRevenue >= 0 ? 'text-success' : 'text-danger'}`}>
             ₹{revenue?.netRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-          <span className="text-[10px] text-slate-500 block mt-1">Commissions + Subs - Gateway charges</span>
+          <span className="text-[10px] text-slate-500 block mt-1">Commissions + Subs (incl. premium purchases) - Gateway charges</span>
         </div>
       </div>
 

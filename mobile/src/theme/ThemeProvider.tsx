@@ -39,7 +39,7 @@ const darkColors = {
     accent: ['#818CF8', '#6D8BFF'],
     secondary: ['#22C55E', '#16A34A'],
     card: ['#6D8BFF', '#4B6BED'],
-    premium: ['#1E293B', '#0F172A'],
+    premium: ['#8B5CF6', '#6D8BFF'],
     soft: ['#2A3350', '#1E293B'],
   },
 };

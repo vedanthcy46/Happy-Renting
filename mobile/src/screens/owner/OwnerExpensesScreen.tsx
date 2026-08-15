@@ -51,6 +51,7 @@ const CATEGORIES = [
   'cleaning',
   'internet',
   'misc',
+  'subscription',
 ] as const;
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -62,6 +63,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   cleaning: 'Cleaning',
   internet: 'Internet',
   misc: 'Misc',
+  subscription: 'Subscription',
 };
 
 const formatCurrency = (n: number) =>

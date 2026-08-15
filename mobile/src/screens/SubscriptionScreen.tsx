@@ -188,7 +188,10 @@ export const SubscriptionScreen: React.FC = () => {
         key={plan.key}
         style={[
           styles.planCard,
-          { backgroundColor: colors.surface, borderColor: highlighted ? colors.primary : colors.border },
+          {
+            backgroundColor: highlighted ? colors.primaryLight : colors.surface,
+            borderColor: highlighted ? colors.primary : colors.border,
+          },
           highlighted && { borderWidth: 2 },
           shadows.sm,
         ]}
@@ -200,8 +203,8 @@ export const SubscriptionScreen: React.FC = () => {
         )}
 
         <View style={styles.planHeader}>
-          <View style={[styles.planIconBox, { backgroundColor: highlighted ? colors.primaryLight : colors.borderLight }]}>
-            <Ionicons name={icon} size={22} color={highlighted ? colors.primary : colors.text.secondary} />
+          <View style={[styles.planIconBox, { backgroundColor: highlighted ? colors.primary : colors.borderLight }]}>
+            <Ionicons name={icon} size={22} color={highlighted ? '#FFFFFF' : colors.text.secondary} />
           </View>
           <Text style={[styles.planName, { color: colors.text.primary }]}>
             {t(`subscription.${plan.key === 'MONTHLY' ? 'monthly' : plan.key === 'ANNUAL' ? 'annual' : 'lifetime'}`)}
@@ -231,7 +234,7 @@ export const SubscriptionScreen: React.FC = () => {
         ))}
 
         <TouchableOpacity
-          style={[styles.buyBtn, { backgroundColor: isCurrentActive ? colors.border : (highlighted ? colors.primary : colors.text.primary) }]}
+          style={[styles.buyBtn, { backgroundColor: isCurrentActive ? colors.border : colors.primary }]}
           onPress={() => handleBuy(plan)}
           disabled={buyingPlan !== null || isCurrentActive}
           activeOpacity={0.8}

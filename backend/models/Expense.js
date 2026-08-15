@@ -11,6 +11,7 @@ const EXPENSE_CATEGORIES = [
   'cleaning',
   'internet',
   'misc',
+  'subscription',
 ];
 
 const expenseSchema = new mongoose.Schema(
@@ -23,12 +24,29 @@ const expenseSchema = new mongoose.Schema(
     propertyId: {
       type     : mongoose.Schema.Types.ObjectId,
       ref      : 'Property',
-      required : [true, 'Property reference is required'],
+      // Optional: subscription-plan expenses (source: 'subscription') are
+      // platform-level and are not tied to any single property.
+      default  : null,
     },
     category: {
       type    : String,
       enum    : EXPENSE_CATEGORIES,
       required: [true, 'Category is required'],
+    },
+    // 'manual' = user-entered; 'subscription' = auto-created from a paid plan
+    // purchase so it shows up in the month's expenses as Happy Renting Premium.
+    source: {
+      type   : String,
+      enum   : ['manual', 'subscription'],
+      default: 'manual',
+    },
+    // Links an auto-created expense to its SubscriptionOrder (idempotency:
+    // only one expense per order, even if the activation is retried).
+    subscriptionOrderId: {
+      type    : mongoose.Schema.Types.ObjectId,
+      ref     : 'SubscriptionOrder',
+      default : null,
+      index   : true,
     },
     title: {
       type     : String,

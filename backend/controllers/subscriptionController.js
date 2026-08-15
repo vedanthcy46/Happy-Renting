@@ -205,6 +205,12 @@ exports.getOrderStatus = async (req, res, next) => {
       // Activate idempotently (webhook may have already done it)
       if (order.status !== 'paid') {
         const sub = await subscriptionService.activateSubscription(req.user._id, order.plan);
+        await subscriptionService.recordSubscriptionExpense({
+          ownerId: req.user._id,
+          plan: order.plan,
+          amount: order.amount,
+          orderId: order._id,
+        });
         order.status = 'paid';
         order.paidAt = new Date();
         order.activatedUntil = sub.expiresAt || null;
@@ -321,14 +327,20 @@ exports.adminReverseOrder = async (req, res, next) => {
     }
 
     const reason = String(req.body.reason || '').trim() || 'Reversed by administrator';
-    const sub = await subscriptionService.reverseSubscription(order.ownerId);
+    await subscriptionService.reverseSubscription(order.ownerId);
 
     order.status = 'reversed';
     order.reversedAt = new Date();
     order.reversedBy = req.user._id;
     order.reversalReason = reason;
-    order.activatedUntil = sub.expiresAt || null;
+    // Keep the original activatedUntil so undo-reversal can restore the exact
+    // plan expiry. reverseSubscription resets the user's expiresAt to null, so
+    // re-reading it here would erase the value needed to restore the plan.
     await order.save();
+
+    // The premium purchase was undone — drop its auto-created expense so it
+    // no longer counts against the owner's monthly expenses.
+    await subscriptionService.removeSubscriptionExpense(order._id);
 
     logger.info(
       `[SUBSCRIPTION] Order reversed — orderId=${order.cashfreeOrderId || order._id} owner=${order.ownerId} reason="${reason}"`
@@ -368,7 +380,9 @@ exports.adminUndoReverseOrder = async (req, res, next) => {
     const sub = await subscriptionService.undoSubscriptionReversal(
       order.ownerId,
       order.plan,
-      order.activatedUntil
+      order.activatedUntil || (order.plan === 'MONTHLY' || order.plan === 'ANNUAL'
+        ? subscriptionService.computeActivatedUntil(order.plan)
+        : null)
     );
 
     order.status = 'paid';
@@ -377,6 +391,15 @@ exports.adminUndoReverseOrder = async (req, res, next) => {
     order.reversalReason = '';
     order.activatedUntil = sub.expiresAt || null;
     await order.save();
+
+    // Re-create the auto expense removed on reversal, so the restored purchase
+    // counts again in the owner's monthly expenses.
+    await subscriptionService.recordSubscriptionExpense({
+      ownerId: order.ownerId,
+      plan: order.plan,
+      amount: order.amount,
+      orderId: order._id,
+    });
 
     logger.info(
       `[SUBSCRIPTION] Reversal undone — orderId=${order.cashfreeOrderId || order._id} owner=${order.ownerId} plan=${order.plan}`

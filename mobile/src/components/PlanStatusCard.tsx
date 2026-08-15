@@ -58,13 +58,16 @@ export const PlanStatusCard: React.FC<PlanStatusCardProps> = ({ workspace }) => 
 
   if (isPremium) {
     return (
-      <LinearGradient colors={colors.gradient.premium as any} style={styles.card}>
-        <View style={styles.iconWrap}>
+      <LinearGradient
+        colors={colors.gradient.premium as any}
+        style={[styles.card, styles.premiumCard, styles.shadow]}
+      >
+        <View style={[styles.iconWrap, styles.premiumIconWrap]}>
           <Ionicons name="diamond-outline" size={20} color="#FFFFFF" />
         </View>
         <View style={styles.content}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{t('subscription.premium')}</Text>
+            <Text style={[styles.title, styles.premiumTitle]}>{t('subscription.premium')}</Text>
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{t('subscription.currentPlan')}</Text>
             </View>
@@ -85,7 +88,7 @@ export const PlanStatusCard: React.FC<PlanStatusCardProps> = ({ workspace }) => 
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={workspace === 'owner' ? 0.8 : 1}
-      style={[styles.card, { backgroundColor: colors.surface }, styles.shadow]}
+      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, styles.shadow]}
     >
       <View style={[styles.iconWrap, { backgroundColor: colors.borderLight }]}>
         <Ionicons name="shield-checkmark-outline" size={20} color={colors.text.secondary} />
@@ -112,6 +115,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     gap: 12,
+    borderWidth: 1,
   },
   shadow: {
     shadowColor: '#000',
@@ -120,12 +124,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
+  premiumCard: {
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
   iconWrap: {
     width: 40,
     height: 40,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  premiumIconWrap: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   content: {
     flex: 1,
@@ -138,6 +148,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  premiumTitle: {
+    color: '#FFFFFF',
   },
   badge: {
     backgroundColor: 'rgba(255,255,255,0.25)',

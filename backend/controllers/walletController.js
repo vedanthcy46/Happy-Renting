@@ -5,6 +5,7 @@ const OwnerWallet = require('../models/OwnerWallet');
 const WalletTransaction = require('../models/WalletTransaction');
 const WithdrawalRequest = require('../models/WithdrawalRequest');
 const PlatformSettings = require('../models/PlatformSettings');
+const SubscriptionOrder = require('../models/SubscriptionOrder');
 const User = require('../models/User');
 const logger = require('../config/logger');
 
@@ -402,16 +403,35 @@ exports.adminGetPlatformRevenue = async (req, res, next) => {
 
     const totalCommissions = txAgg[0]?.totalCommissions || 0;
 
-    // 3. Platform configuration settings
+    // 3. Premium subscription purchases (Cashfree, via SubscriptionOrder).
+    //    Only fully paid, non-reversed orders count as collected revenue.
+    const subAgg = await SubscriptionOrder.aggregate([
+      {
+        $match: { status: 'paid' }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSubscriptionCollections: { $sum: '$amount' }
+        }
+      }
+    ]);
+
+    const totalSubscriptionCollections = subAgg[0]?.totalSubscriptionCollections || 0;
+
+    // 4. Platform configuration settings
     const settings = await walletService.getPlatformSettings();
+
+    const totalSubscriptions = Math.round((totalSubscriptionFees + totalSubscriptionCollections) * 100) / 100;
 
     return res.status(200).json({
       success: true,
       revenue: {
         totalGatewayCharges,
         totalCommissions,
-        totalSubscriptionFees,
-        netRevenue: Math.round((totalCommissions + totalSubscriptionFees - totalGatewayCharges) * 100) / 100
+        totalSubscriptionFees: totalSubscriptions,
+        totalSubscriptionCollections,
+        netRevenue: Math.round((totalCommissions + totalSubscriptions - totalGatewayCharges) * 100) / 100
       },
       settings
     });

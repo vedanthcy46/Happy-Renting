@@ -289,6 +289,13 @@ async function handleSubscriptionWebhook(subscriptionOrder, { cfOrderId, cfPayme
     subscriptionOrder.plan
   );
 
+  await subscriptionService.recordSubscriptionExpense({
+    ownerId: subscriptionOrder.ownerId,
+    plan: subscriptionOrder.plan,
+    amount: subscriptionOrder.amount,
+    orderId: subscriptionOrder._id,
+  });
+
   subscriptionOrder.status = 'paid';
   subscriptionOrder.paidAt = new Date();
   subscriptionOrder.cashfreePaymentId = cfPaymentId;

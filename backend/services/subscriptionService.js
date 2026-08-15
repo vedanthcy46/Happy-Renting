@@ -119,6 +119,61 @@ async function activateSubscription(ownerId, plan) {
 }
 
 /**
+ * Auto-create an expense entry for a paid premium plan purchase so it shows up
+ * in the owner's expenses for the current month as "Happy Renting Premium".
+ * Idempotent — one expense per SubscriptionOrder, even if activation is
+ * retried (webhook + status poll can both fire for the same order).
+ *
+ * @param {object} opts
+ * @param {string} opts.ownerId   User ObjectId
+ * @param {'MONTHLY'|'ANNUAL'|'LIFETIME'} opts.plan
+ * @param {number} opts.amount    Amount paid for the plan
+ * @param {string} opts.orderId   SubscriptionOrder ObjectId
+ */
+async function recordSubscriptionExpense({ ownerId, plan, amount, orderId }) {
+  const Expense = require('../models/Expense');
+  if (!orderId) return null;
+
+  const existing = await Expense.findOne({ subscriptionOrderId: orderId }).lean();
+  if (existing) return existing;
+
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const planLabel = plan === 'MONTHLY' ? 'Monthly' : plan === 'ANNUAL' ? 'Annual' : 'Lifetime';
+
+  try {
+    const expense = await Expense.create({
+      ownerId,
+      propertyId: null,
+      category: 'subscription',
+      title: 'Happy Renting Premium',
+      amount: Number(amount),
+      month,
+      isRecurring: false,
+      notes: `Premium subscription - ${planLabel} plan`,
+      expenseDate: now,
+      source: 'subscription',
+      subscriptionOrderId: orderId,
+    });
+    logger.info(`[SUBSCRIPTION] Recorded premium expense for owner=${ownerId} plan=${plan} amount=${amount}`);
+    return expense;
+  } catch (e) {
+    logger.error(`[SUBSCRIPTION] Failed to record premium expense: ${e.message}`);
+    return null;
+  }
+}
+
+/**
+ * Remove the auto-created expense for a subscription order (used when an admin
+ * reverses a paid subscription, so the expense no longer counts).
+ */
+async function removeSubscriptionExpense(orderId) {
+  if (!orderId) return;
+  const Expense = require('../models/Expense');
+  await Expense.deleteMany({ subscriptionOrderId: orderId });
+}
+
+/**
  * Reverse an owner's premium subscription (admin action).
  * Downgrades the owner back to FREE and bumps entitlementVersion so clients
  * immediately re-fetch their entitlements. Does NOT touch the SubscriptionOrder
@@ -188,4 +243,6 @@ module.exports = {
   activateSubscription,
   reverseSubscription,
   undoSubscriptionReversal,
+  recordSubscriptionExpense,
+  removeSubscriptionExpense,
 };

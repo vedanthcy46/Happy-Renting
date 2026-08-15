@@ -34,7 +34,7 @@ export const colors = {
     accent: ['#6366F1', '#4B6BED'] as const,
     secondary: ['#22C55E', '#16A34A'] as const,
     card: ['#4B6BED', '#3D56C9'] as const,
-    premium: ['#0F172A', '#1E293B'] as const,
+    premium: ['#6D28D9', '#4B6BED'] as const,
     soft: ['#EEF0FE', '#E7EBFD'] as const,
   },
 } as const;
