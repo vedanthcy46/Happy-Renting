@@ -63,7 +63,11 @@ const generateOwnerDigests = async () => {
   logger.info(`[OWNER DIGEST] Starting generation for ${dateStr}`);
 
   while (true) {
-    const owners = await User.find({ role: 'owner', isActive: true })
+    const owners = await User.find({ 
+      role: 'owner', 
+      isActive: true,
+      'subscription.plan': { $in: ['MONTHLY', 'ANNUAL', 'LIFETIME'] }
+    })
       .skip(skip)
       .limit(batchSize)
       .lean();

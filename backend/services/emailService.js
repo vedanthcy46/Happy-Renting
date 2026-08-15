@@ -204,7 +204,7 @@ const sendPaymentProofNotification = async (owner, tenant, payment, property, ro
       <p>Hello <strong>${owner.name}</strong>,</p>
       <p>Tenant <strong>${tenant.name}</strong> has uploaded a payment proof for <strong>${displayMonth}</strong>.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</p>
+      <p><strong>Amount:</strong> ₹${(payment.amount || 0).toLocaleString()}</p>
       <p><strong>Method:</strong> ${displayMethod}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
@@ -230,7 +230,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
       <p>Your rent payment for <strong>${displayMonth}</strong> has been ${displayStatus}.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <p><strong>Status:</strong> ${displayStatus.toUpperCase()}</p>
-      <p><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</p>
+      <p><strong>Amount:</strong> ₹${(payment.amount || 0).toLocaleString()}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <p><strong>Owner:</strong> ${owner.name}</p>
@@ -253,7 +253,7 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
         <h2 style="color: ${isPaid ? '#16a34a' : '#dc2626'};">${isPaid ? 'Payment Confirmed' : 'Payment Issue'}</h2>
         <p>Hello <strong>${owner.name}</strong>,</p>
         <p>The rent payment from <strong>${tenantUser.name}</strong> for <strong>${displayMonth}</strong> has been ${displayStatus}.</p>
-        <p><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</p>
+        <p><strong>Amount:</strong> ₹${(payment.amount || 0).toLocaleString()}</p>
         <p><strong>Room:</strong> ${room.roomNumber}</p>
         ${failureReason ? `<p style="color: #dc2626;"><strong>Reason:</strong> ${failureReason}</p>` : ''}
         ${getFooter()}
@@ -265,14 +265,14 @@ const sendPaymentStatusNotification = async (tenantUser, payment, property, room
 
 // ── 4. Rent Due Reminder (To Tenant) ─────────────────────────────────────────
 const sendRentDueReminder = async (tenantUser, payment, property, room, owner) => {
-  const subject = `Reminder: Rent Due Tomorrow - ${payment.month}`;
+  const subject = `Reminder: Rent Due Tomorrow - ${payment.month || 'Current Month'}`;
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
       <h2 style="color: #d97706;">Rent Due Tomorrow</h2>
       <p>Hello <strong>${tenantUser.name}</strong>,</p>
       <p>Friendly reminder that your rent for <strong>${payment.month}</strong> is due tomorrow.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Amount Due:</strong> ₹${(payment.remainingAmount || payment.totalRent).toLocaleString()}</p>
+      <p><strong>Amount Due:</strong> ₹${(payment.remainingAmount ?? payment.totalRent ?? 0).toLocaleString()}</p>
       <p><strong>Due Date:</strong> ${formatDateOnly(payment.dueDate)}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
@@ -293,7 +293,7 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
       <p>Hello <strong>${tenantUser.name}</strong>,</p>
       <p>Your rent for <strong>${payment.month}</strong> is now <strong>OVERDUE</strong>.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Amount:</strong> ₹${(payment.remainingAmount || payment.totalRent).toLocaleString()}</p>
+      <p><strong>Amount:</strong> ₹${(payment.remainingAmount ?? payment.totalRent ?? 0).toLocaleString()}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
@@ -591,7 +591,7 @@ const sendVerificationEmail = async (user, token) => {
 const sendPaymentTransactionNotification = async (tenantUser, transaction, rentRecord, property, room, owner) => {
   const subject = `Payment Recorded for ${rentRecord.month} - Happy Renting`;
   const balanceText = rentRecord.remainingAmount > 0
-    ? `<p><strong>Remaining Balance:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>`
+    ? `<p><strong>Remaining Balance:</strong> ₹${(rentRecord.remainingAmount || 0).toLocaleString()}</p>`
     : `<p style="color: #16a34a;"><strong>✓ Rent Fully Paid for ${rentRecord.month}</strong></p>`;
 
   const html = `
@@ -600,14 +600,14 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
       <p>Hello <strong>${tenantUser.name}</strong>,</p>
       <p>We have recorded your payment for <strong>${rentRecord.month}</strong>.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Amount Paid:</strong> ₹${transaction.amount.toLocaleString()}</p>
+      <p><strong>Amount Paid:</strong> ₹${(transaction.amount || 0).toLocaleString()}</p>
       <p><strong>Payment Method:</strong> ${transaction.paymentMethod.toUpperCase()}</p>
       <p><strong>Transaction Date:</strong> ${formatDateOnly(transaction.paymentDate)}</p>
       ${transaction.note ? `<p><strong>Note:</strong> ${transaction.note}</p>` : ''}
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <div style="padding: 15px; background: #f0f9ff; border-left: 4px solid #2563eb; border-radius: 4px;">
-        <p><strong>Total Rent:</strong> ₹${rentRecord.totalRent.toLocaleString()}</p>
-        <p><strong>Total Paid:</strong> ₹${rentRecord.totalPaid.toLocaleString()}</p>
+        <p><strong>Total Rent:</strong> ₹${(rentRecord.totalRent || 0).toLocaleString()}</p>
+        <p><strong>Total Paid:</strong> ₹${(rentRecord.totalPaid || 0).toLocaleString()}</p>
         ${balanceText}
       </div>
       <hr style="border: 0; border-top: 1px solid #eee;" />
@@ -626,10 +626,10 @@ const sendPaymentTransactionNotification = async (tenantUser, transaction, rentR
       <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
         <h2 style="color: #2563eb;">Payment Received</h2>
         <p>Hello <strong>${owner.name}</strong>,</p>
-        <p>Tenant <strong>${tenantUser.name}</strong> in Room <strong>${room.roomNumber}</strong> has made a payment of <strong>₹${transaction.amount.toLocaleString()}</strong>.</p>
+        <p>Tenant <strong>${tenantUser.name}</strong> in Room <strong>${room.roomNumber}</strong> has made a payment of <strong>₹${(transaction.amount || 0).toLocaleString()}</strong>.</p>
         <p><strong>Method:</strong> ${transaction.paymentMethod.toUpperCase()}</p>
         <p><strong>Date:</strong> ${formatDateOnly(transaction.paymentDate)}</p>
-        <p><strong>Remaining Balance:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>
+        <p><strong>Remaining Balance:</strong> ₹${(rentRecord.remainingAmount || 0).toLocaleString()}</p>
         ${getFooter()}
       </div>
     `;
@@ -756,7 +756,7 @@ const sendBillGeneratedEmail = async ({ user, role, rentRecord, property, room, 
         ? `A rent bill for your tenant <strong>${tenantUser?.name || 'Tenant'}</strong> in Room ${room.roomNumber} for <strong>${rentRecord.month}</strong> has been generated successfully.` 
         : `Your rent bill for <strong>${rentRecord.month}</strong> has been generated.`}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      <p><strong>Total Rent:</strong> ₹${rentRecord.totalRent.toLocaleString()}</p>
+      <p><strong>Total Rent:</strong> ₹${(rentRecord.totalRent || 0).toLocaleString()}</p>
       <p><strong>Due Date:</strong> ${formatDateOnly(rentRecord.dueDate)}</p>
       <p><strong>Property:</strong> ${property.name}</p>
       <p><strong>Room:</strong> ${room.roomNumber}</p>
@@ -770,7 +770,7 @@ const sendBillGeneratedEmail = async ({ user, role, rentRecord, property, room, 
   const notifTitle = isOwner ? 'Tenant Bill Generated' : 'Bill Generated';
   const notifMsg = isOwner 
     ? `Bill for Room ${room.roomNumber} (${rentRecord.month}) generated.` 
-    : `Your bill for ${rentRecord.month} is generated. Total: ₹${rentRecord.totalRent.toLocaleString()}`;
+    : `Your bill for ${rentRecord.month} is generated. Total: ₹${(rentRecord.totalRent || 0).toLocaleString()}`;
 
   await Notification.create({ userId: user._id, title: notifTitle, message: notifMsg, type: 'billing' }).catch(() => null);
 };
@@ -814,13 +814,13 @@ const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #ef4444;">
       <h2 style="color: #ef4444;">Payment Reversed</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
-      <p>A previous payment of <strong>₹${transaction.amount.toLocaleString()}</strong> for ${rentRecord.month} has been reversed by the administrator.</p>
-      <p>Your remaining balance is now: <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong>.</p>
+      <p>A previous payment of <strong>₹${(transaction.amount || 0).toLocaleString()}</strong> for ${rentRecord.month} has been reversed by the administrator.</p>
+      <p>Your remaining balance is now: <strong>₹${(rentRecord.remainingAmount || 0).toLocaleString()}</strong>.</p>
       ${getFooter()}
     </div>
   `;
   await queueEmail(user.email, subject, html, 'alert');
-  await Notification.create({ userId: user._id, title: 'Payment Reversed', message: `A payment of ₹${transaction.amount.toLocaleString()} was reversed.`, type: 'alert' }).catch(() => null);
+      await Notification.create({ userId: user._id, title: 'Payment Reversed', message: `A payment of ₹${(transaction.amount || 0).toLocaleString()} was reversed.`, type: 'alert' }).catch(() => null);
 
   if (owner && owner.notificationPreferences?.paymentReceivedEmails !== false) {
     const ownerSubject = `Payment Reversed: ${user.name} - ${rentRecord.month}`;
@@ -828,8 +828,8 @@ const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner
       <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #ef4444;">
         <h2 style="color: #ef4444;">Tenant Payment Reversed</h2>
         <p>Hello <strong>${owner.name}</strong>,</p>
-        <p>A previous payment of <strong>₹${transaction.amount.toLocaleString()}</strong> from <strong>${user.name}</strong> for ${rentRecord.month} has been reversed by the administrator.</p>
-        <p>Tenant remaining balance is now: <strong>₹${rentRecord.remainingAmount.toLocaleString()}</strong>.</p>
+        <p>A previous payment of <strong>₹${(transaction.amount || 0).toLocaleString()}</strong> from <strong>${user.name}</strong> for ${rentRecord.month} has been reversed by the administrator.</p>
+        <p>Tenant remaining balance is now: <strong>₹${(rentRecord.remainingAmount || 0).toLocaleString()}</strong>.</p>
         ${getFooter()}
       </div>
     `;
@@ -892,9 +892,9 @@ const sendFinalSettlementEmail = async ({ user, role, rentRecord, property, room
         ? `The final move-out settlement for your tenant <strong>${tenantUser?.name || 'Tenant'}</strong> in Room ${room.roomNumber} has been generated.` 
         : `Your final move-out settlement for Room ${room.roomNumber} has been generated.`}</p>
       <p style="padding: 10px; background: #f8fafc; border-left: 4px solid #2563eb;"><strong>${statusText}</strong></p>
-      <p><strong>Prorated Rent:</strong> ₹${rentRecord.totalRent.toLocaleString()}</p>
-      <p><strong>Advance Balance (Refundable):</strong> ₹${rentRecord.advanceBalance.toLocaleString()}</p>
-      <p><strong>Net Balance:</strong> ₹${rentRecord.remainingAmount.toLocaleString()}</p>
+      <p><strong>Prorated Rent:</strong> ₹${(rentRecord.totalRent || 0).toLocaleString()}</p>
+      <p><strong>Advance Balance (Refundable):</strong> ₹${(rentRecord.advanceBalance || 0).toLocaleString()}</p>
+      <p><strong>Net Balance:</strong> ₹${(rentRecord.remainingAmount || 0).toLocaleString()}</p>
       ${!isOwner ? getButton('View Settlement') : getButton('View Details')}
       ${getFooter()}
     </div>
@@ -903,8 +903,8 @@ const sendFinalSettlementEmail = async ({ user, role, rentRecord, property, room
   
   const notifTitle = isOwner ? 'Tenant Final Settlement' : 'Final Settlement';
   const notifMsg = isOwner 
-    ? `Final settlement for Room ${room.roomNumber} generated. Balance: ₹${rentRecord.remainingAmount.toLocaleString()}` 
-    : `Your final settlement is generated. Balance: ₹${rentRecord.remainingAmount.toLocaleString()}`;
+    ? `Final settlement for Room ${room.roomNumber} generated. Balance: ₹${(rentRecord.remainingAmount || 0).toLocaleString()}` 
+    : `Your final settlement is generated. Balance: ₹${(rentRecord.remainingAmount || 0).toLocaleString()}`;
 
   await Notification.create({ userId: user._id, title: notifTitle, message: notifMsg, type: 'billing' }).catch(() => null);
 };
@@ -947,7 +947,7 @@ const sendDailyDigestEmail = async (owner, summary) => {
       <ul style="line-height: 1.8; font-size: 16px;">
         <li><strong>Overdue Tenants:</strong> <span style="color: #dc2626; font-weight: bold;">${summary.overdueTenants}</span></li>
         <li><strong>Pending Payments:</strong> <span style="color: #f59e0b; font-weight: bold;">${summary.pendingPayments}</span></li>
-        <li><strong>Collections Today:</strong> <span style="color: #16a34a; font-weight: bold;">₹${collectionsTodayValue.toLocaleString()}</span></li>
+        <li><strong>Collections Today:</strong> <span style="color: #16a34a; font-weight: bold;">₹${(collectionsTodayValue || 0).toLocaleString()}</span></li>
         <li><strong>Active Move-out Requests:</strong> <strong>${summary.moveOutRequests}</strong></li>
       </ul>
       <hr style="border: 0; border-top: 1px solid #eee;" />
