@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
+import { normalizePlanKey, isPremiumPlan, getPlanBadgeLabel } from '../utils/planUtils';
 
 const UsersPage = () => {
   const toast = useToast();
@@ -183,7 +184,6 @@ const UsersPage = () => {
   };
 
   const filteredUsers = useMemo(() => {
-    const isPremium = (plan) => ['MONTHLY', 'ANNUAL', 'LIFETIME'].includes(plan);
     return users.filter(u => {
       const matchSearch = !searchTerm ||
         u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -191,19 +191,18 @@ const UsersPage = () => {
       const matchStatus = !statusFilter ||
         (statusFilter === 'active' && u.isActive) ||
         (statusFilter === 'inactive' && !u.isActive);
-      const planStatus = u.planStatus || 'FREE';
+      const planStatus = normalizePlanKey(u.planStatus || 'FREE');
       const matchPlan = !planFilter ||
-        (planFilter === 'premium' && isPremium(planStatus)) ||
-        (planFilter === 'free' && !isPremium(planStatus));
+        (planFilter === 'premium' && isPremiumPlan(planStatus)) ||
+        (planFilter === 'free' && !isPremiumPlan(planStatus));
       return matchSearch && matchStatus && matchPlan;
     });
   }, [users, searchTerm, statusFilter, planFilter]);
 
   const planBadge = (planStatus) => {
-    const isPremium = ['MONTHLY', 'ANNUAL', 'LIFETIME'].includes(planStatus);
-    if (isPremium) {
-      const label = planStatus === 'LIFETIME' ? 'Premium · Lifetime' : planStatus === 'MONTHLY' ? 'Premium · Monthly' : 'Premium · Annual';
-      return <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-brand-500/20 text-brand-400">💎 {label}</span>;
+    const normalizedPlan = normalizePlanKey(planStatus);
+    if (isPremiumPlan(normalizedPlan)) {
+      return <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-brand-500/20 text-brand-400">💎 {getPlanBadgeLabel(normalizedPlan)}</span>;
     }
     return <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-slate-500/20 text-slate-400">Free</span>;
   };
