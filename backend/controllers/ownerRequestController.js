@@ -215,32 +215,48 @@ const sendRequestOTP = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Valid email is required.' });
     }
 
+    const normalizedEmail = email.toLowerCase();
+
     // Check if a User account already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
     }
 
     // Check if already approved
-    const existingApproved = await OwnerRequest.findOne({ email: email.toLowerCase(), status: 'approved' });
+    const existingApproved = await OwnerRequest.findOne({ email: normalizedEmail, status: 'approved' });
     if (existingApproved) {
       return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
     }
 
     const OTP = require('../models/OTP');
+    const activeOtp = await OTP.findOne({
+      email: normalizedEmail,
+      type: 'otp',
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    if (activeOtp) {
+      logger.warn(`[OwnerRequest OTP] Suppressed duplicate OTP send for ${normalizedEmail}`);
+      return res.status(429).json({
+        success: false,
+        message: 'A verification code was already sent to this email. Please use it or wait before requesting another one.'
+      });
+    }
+
     // Delete any previous OTP for this email
-    await OTP.deleteMany({ email: email.toLowerCase(), type: 'otp' });
+    await OTP.deleteMany({ email: normalizedEmail, type: 'otp' });
 
     // Generate a 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    await OTP.create({ email: email.toLowerCase(), type: 'otp', value: otpCode, expiresAt });
+    await OTP.create({ email: normalizedEmail, type: 'otp', value: otpCode, expiresAt });
 
     // Send OTP email
-    await emailService.sendRequestOTPEmail(email, otpCode);
+    await emailService.sendRequestOTPEmail(normalizedEmail, otpCode);
 
-    logger.info(`[OwnerRequest OTP] Sent OTP to ${email}`);
+    logger.info(`[OwnerRequest OTP] Sent OTP to ${normalizedEmail}`);
     res.status(200).json({ success: true, message: 'OTP sent to your email.' });
   } catch (err) {
     next(err);

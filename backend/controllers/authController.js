@@ -402,21 +402,37 @@ const sendOtp = async (req, res, next) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email is required.' });
 
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
+
+    const activeOtp = await OTP.findOne({
+      email: normalizedEmail,
+      type: 'otp',
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    if (activeOtp) {
+      logger.warn(`[OTP] Suppressed duplicate email verification send for ${normalizedEmail}`);
+      return res.status(429).json({
+        success: false,
+        message: 'A verification code was already sent to this email. Please use it or wait before requesting another one.'
+      });
+    }
 
     const otp = crypto.randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     
     // Upsert the OTP in the database
     await OTP.findOneAndUpdate(
-      { email, type: 'otp' },
+      { email: normalizedEmail, type: 'otp' },
       { value: otp, expiresAt },
       { upsert: true, new: true }
     );
 
     await emailService.sendEmail(
-      email,
+      normalizedEmail,
       'Your Email Verification OTP',
       `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
@@ -432,7 +448,7 @@ const sendOtp = async (req, res, next) => {
       `
     );
 
-    logger.info(`[OTP] Sent verification code to ${email}`);
+    logger.info(`[OTP] Sent verification code to ${normalizedEmail}`);
     res.status(200).json({ success: true, message: 'OTP sent to email.' });
   } catch (err) {
     next(err);
