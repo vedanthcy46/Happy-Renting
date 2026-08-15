@@ -58,7 +58,10 @@ router.patch('/:rentRecordId', authorize('superadmin', 'owner'), updateRentRecor
 router.post(
   '/:rentRecordId/transactions',
   authorize('superadmin', 'owner', 'tenant'),
-  upload.single('image'),
+  upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'proofImage', maxCount: 1 },
+  ]),
   transactionValidation,
   validate,
   addPaymentTransaction

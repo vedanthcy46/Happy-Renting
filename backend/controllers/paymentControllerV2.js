@@ -248,10 +248,11 @@ const addPaymentTransaction = async (req, res, next) => {
     }
 
     let proofImage = null;
-    if (req.file) {
+    const file = req.file || (req.files?.image?.[0]) || (req.files?.proofImage?.[0]);
+    if (file) {
       proofImage = {
-        secureUrl: req.file.path,
-        publicId: req.file.filename,
+        secureUrl: file.path,
+        publicId: file.filename,
       };
     }
 
