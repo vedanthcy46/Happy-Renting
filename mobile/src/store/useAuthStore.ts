@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { getMe } from '../api/auth';
+import { removePushToken } from '../api/notifications';
+import { usePushStore } from './usePushStore';
 import { clearBiometricCredentials } from '../hooks/useBiometric';
 import { queryClient } from '../queryClient';
 import { sqlitePersister } from '../persist/sqlitePersister';
@@ -94,6 +96,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   dismissWorkspacePicker: () => set({ needsWorkspacePicker: false }),
 
   logout: async () => {
+    // Best-effort: unregister the device push token so the logged-out user
+    // stops receiving notifications. Uses the pre-logout auth token explicitly
+    // since the client interceptor reads the store token.
+    const pushToken = usePushStore.getState().token;
+    const authToken = useAuthStore.getState().token;
+    if (pushToken && authToken) {
+      Promise.race([
+        removePushToken(pushToken, authToken),
+        new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+      ]).catch(() => { });
+    }
+
     try {
       stopSyncEngine();
       queryClient.clear();

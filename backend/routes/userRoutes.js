@@ -4,7 +4,7 @@ const router = require('express').Router();
 const {
   getUsers, getUser, getProfile, updateProfile, createUser, updateUser, deleteUser,
   getAdminStats, getOwnerPropertyMapping, uploadQRCode, getActivityLogs, changePassword,
-  resetUserPassword, createUserValidation, savePushToken, setPreferredLanguage,
+  resetUserPassword, createUserValidation, savePushToken, removePushToken, setPreferredLanguage,
   resendVerificationEmail, getUserImpact, forcePasswordReset,
   requestEmailChange, verifyEmailChange, resendEmailChangeOtp,
 } = require('../controllers/userController');
@@ -22,6 +22,7 @@ router.get ('/profile', getProfile);
 router.patch('/profile', updateProfile);
 router.patch('/profile/password', changePassword);
 router.patch('/profile/push-token', savePushToken); // Mobile app — Expo push tokens
+router.delete('/profile/push-token', removePushToken); // Mobile app — logout unregister
 router.patch('/profile/language', setPreferredLanguage); // Mobile/Web — sync preferredLanguage
 router.post('/profile/change-email/request', requestEmailChange); // Mobile — send OTP to new email
 router.post('/profile/change-email/verify',   verifyEmailChange); // Mobile — verify OTP & apply change

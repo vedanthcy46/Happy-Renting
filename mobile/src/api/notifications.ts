@@ -80,6 +80,13 @@ export const updatePushToken = async (token: string, deviceName: string, platfor
   await api.patch('/users/profile/push-token', { token, deviceName, platform });
 };
 
+export const removePushToken = async (token: string, authToken?: string): Promise<void> => {
+  await api.delete('/users/profile/push-token', {
+    data: { token },
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+  });
+};
+
 export const sendTestPush = async (): Promise<{ pushTokenCount: number; validPushTokenCount: number }> => {
   const { data } = await api.post('/v2/notifications/test-push');
   return data;

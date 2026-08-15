@@ -584,6 +584,14 @@ const savePushToken = async (req, res, next) => {
       lastSeenAt: new Date(),
     });
 
+    // A device token belongs to the account that most recently logged in on it.
+    // If this token is registered on another user (e.g. previous account on the
+    // same device), pull it from them so they stop receiving notifications.
+    await User.updateMany(
+      { _id: { $ne: user._id }, 'expoPushTokens.token': token },
+      { $pull: { expoPushTokens: { token } } }
+    );
+
     // Cap at 10 tokens per user (oldest removed first)
     if (user.expoPushTokens.length > 10) {
       user.expoPushTokens = user.expoPushTokens.slice(-10);
@@ -592,6 +600,34 @@ const savePushToken = async (req, res, next) => {
     await user.save();
     logger.info(`[PushToken] Saved push token for user ${user._id} (${platform})`);
     res.status(200).json({ success: true, message: 'Push token saved.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── DELETE /api/users/profile/push-token (Mobile App — logout unregister) ──
+const removePushToken = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+
+    if (!token || typeof token !== 'string' || token.length < 5) {
+      return res.status(400).json({ success: false, message: 'Valid token is required.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    user.expoPushTokens = (user.expoPushTokens || []).filter((t) => t.token !== token);
+
+    // Also remove the token from any other user holding it (defensive cleanup).
+    await User.updateMany(
+      { _id: { $ne: user._id }, 'expoPushTokens.token': token },
+      { $pull: { expoPushTokens: { token } } }
+    );
+
+    await user.save();
+    logger.info(`[PushToken] Removed push token for user ${user._id}`);
+    res.status(200).json({ success: true, message: 'Push token removed.' });
   } catch (err) {
     next(err);
   }
@@ -674,6 +710,7 @@ module.exports = {
   resetUserPassword,
   createUserValidation,
   savePushToken,
+  removePushToken,
   resendVerificationEmail,
   getUserImpact,
   forcePasswordReset,
