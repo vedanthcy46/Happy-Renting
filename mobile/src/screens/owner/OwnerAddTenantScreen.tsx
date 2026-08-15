@@ -299,7 +299,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
       Alert.alert(t('owner.addTenant.alertDone'), t('owner.addTenant.alertDoneMsg'));
       router.back();
     },
-    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.addTenant.alertErr')),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.addTenant.alertErr')),
   });
 
   const roomOptions = rooms

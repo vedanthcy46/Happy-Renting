@@ -298,7 +298,7 @@ async function getCreationGuard(user, kind) {
     plan: resolved.plan,
     message: ok
       ? undefined
-      : `You've reached the Free plan limit of ${entry.limit} ${kind.replace(/([A-Z])/g, ' $1').toLowerCase()}. Upgrade to Premium from the Happy Renting app to add more.`,
+      : `You've reached the Free plan limit of ${entry.limit} ${kind.replace(/([A-Z])/g, ' $1').toLowerCase()}. Upgrade to Premium to add more.`,
   };
 }
 

@@ -297,7 +297,7 @@ export const OwnerPropertiesScreen: React.FC = () => {
       setModalVisible(false);
     },
     onError: (err: any) =>
-      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.properties.errCreate')),
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.properties.errCreate')),
   });
 
   const updateMutation = useMutation({
@@ -308,7 +308,7 @@ export const OwnerPropertiesScreen: React.FC = () => {
       setEditingProperty(null);
     },
     onError: (err: any) =>
-      Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.properties.errUpdate')),
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.properties.errUpdate')),
   });
 
   const deleteMutation = useMutation({

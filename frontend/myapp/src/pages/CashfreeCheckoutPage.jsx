@@ -36,6 +36,12 @@ const CashfreeCheckoutPage = () => {
     }
   };
 
+  const goHome = () => {
+    // Fallback for desktop/web browsers or when the app isn't installed:
+    // leave the checkout page and return to the web app home.
+    window.location.href = '/';
+  };
+
   useEffect(() => {
     if (!sessionId) {
       setErrorMsg('Missing payment session. Please go back and try again.');
@@ -109,6 +115,9 @@ const CashfreeCheckoutPage = () => {
               Return to App
             </button>
           )}
+          <button style={{ ...styles.btn, ...styles.btnSecondary, marginTop: '10px' }} onClick={goHome}>
+            Go to Home Screen
+          </button>
         </div>
       </div>
     );
@@ -126,13 +135,23 @@ const CashfreeCheckoutPage = () => {
             Tap the button below to return to the app and confirm your payment status.
           </p>
           {appRedirect ? (
-            <button style={styles.btn} onClick={returnToApp}>
-              Return to App
-            </button>
+            <>
+              <button style={styles.btn} onClick={returnToApp}>
+                Return to App
+              </button>
+              <button style={{ ...styles.btn, ...styles.btnSecondary, marginTop: '10px' }} onClick={goHome}>
+                Go to Home Screen
+              </button>
+            </>
           ) : (
-            <p style={{ ...styles.message, color: '#9ca3af', marginTop: '8px' }}>
-              You can now close this window.
-            </p>
+            <>
+              <p style={{ ...styles.message, color: '#9ca3af', marginTop: '8px' }}>
+                You can now close this window.
+              </p>
+              <button style={styles.btn} onClick={goHome}>
+                Go to Home Screen
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -217,6 +236,10 @@ const styles = {
     fontWeight: '600',
     cursor: 'pointer',
     width: '100%',
+  },
+  btnSecondary: {
+    background: '#e5e7eb',
+    color: '#111827',
   },
 };
 

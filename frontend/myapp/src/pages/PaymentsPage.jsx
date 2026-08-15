@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,30 @@ import Modal from '../components/common/Modal';
 
 const PaymentsPage = () => {
   const toast = useToast();
+  const navigate = useNavigate();
   const { isTenant, isOwner } = useAuth();
+
+  // Handle Mobile App Redirect Bounce — show a fallback instead of silently
+  // navigating to a deep link that only works inside the mobile app.
+  const [appReturn, setAppReturn] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const appRedirect = params.get('app_redirect');
+    const orderId = params.get('order_id');
+
+    if (appRedirect && orderId) {
+      setAppReturn({ appRedirect, orderId });
+
+      // Best-effort auto bounce back to the app. If the deep link isn't handled
+      // (desktop browser, app not installed), the page stays and the user can
+      // use the fallback buttons below.
+      const t = setTimeout(() => {
+        window.location.href = `${appRedirect}?order_id=${orderId}`;
+      }, 350);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const [rentRecords, setRentRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,19 +80,6 @@ const PaymentsPage = () => {
   }, [isOwner]);
 
   useEffect(() => { fetchPendingApprovals(); }, [fetchPendingApprovals]);
-
-  // Handle Mobile App Redirect Bounce
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const appRedirect = params.get('app_redirect');
-    const orderId = params.get('order_id');
-    
-    // If the URL contains an app_redirect (deep link), bounce immediately
-    if (appRedirect && orderId) {
-      console.log('Redirecting to mobile app:', appRedirect);
-      window.location.href = `${appRedirect}?order_id=${orderId}`;
-    }
-  }, []);
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -235,6 +246,42 @@ const PaymentsPage = () => {
     const colors = { paid: 'bg-green-500', partial: 'bg-blue-500', pending: 'bg-gray-500', overdue: 'bg-red-500' };
     return colors[status] || 'bg-gray-500';
   };
+
+  // Handle Mobile App Redirect — render a fallback instead of silently bouncing
+  // to a deep link that only works inside the mobile app. The auto-bounce timer
+  // from the effect above handles the happy path; these buttons are the escape
+  // hatch when the deep link can't be handled (desktop / app not installed).
+  if (appReturn) {
+    const { appRedirect, orderId } = appReturn;
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <div className="card max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 mx-auto rounded-full bg-green-500/15 flex items-center justify-center text-3xl mb-4">
+            ✅
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Payment Complete</h1>
+          <p className="text-slate-400 text-sm mb-6">
+            Your payment was successful. Open the app to see your updated plan, or
+            continue on the web dashboard.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              className="btn-primary w-full"
+              onClick={() => { window.location.href = `${appRedirect}?order_id=${orderId}`; }}
+            >
+              Open App
+            </button>
+            <button
+              className="btn-secondary w-full"
+              onClick={() => navigate('/dashboard')}
+            >
+              Go to Home Screen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

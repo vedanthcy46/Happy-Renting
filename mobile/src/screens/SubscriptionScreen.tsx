@@ -173,6 +173,16 @@ export const SubscriptionScreen: React.FC = () => {
 
   const renderPlanCard = (plan: SubscriptionPlan, highlighted: boolean) => {
     const icon = PERIOD_ICONS[plan.key] || 'calendar-outline';
+
+    // The currently-purchased plan's button is blocked until its expiry date
+    // passes (after which it becomes available again to renew). LIFETIME never
+    // expires, so it stays blocked forever once purchased.
+    const isOwnedPlan = currentPlan === plan.key;
+    const isCurrentActive =
+      isOwnedPlan &&
+      (plan.key === 'LIFETIME' ||
+        (!!currentExpiresAt && new Date(currentExpiresAt).getTime() > Date.now()));
+
     return (
       <View
         key={plan.key}
@@ -221,15 +231,17 @@ export const SubscriptionScreen: React.FC = () => {
         ))}
 
         <TouchableOpacity
-          style={[styles.buyBtn, { backgroundColor: highlighted ? colors.primary : colors.text.primary }]}
+          style={[styles.buyBtn, { backgroundColor: isCurrentActive ? colors.border : (highlighted ? colors.primary : colors.text.primary) }]}
           onPress={() => handleBuy(plan)}
-          disabled={buyingPlan !== null}
+          disabled={buyingPlan !== null || isCurrentActive}
           activeOpacity={0.8}
         >
           {buyingPlan === plan.key ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.buyBtnText}>{t('subscription.buy')}</Text>
+            <Text style={[styles.buyBtnText, isCurrentActive && { color: colors.text.secondary }]}>
+              {isCurrentActive ? t('subscription.active') : t('subscription.buy')}
+            </Text>
           )}
         </TouchableOpacity>
       </View>

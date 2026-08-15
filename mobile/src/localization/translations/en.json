@@ -77,7 +77,8 @@
     "cancel": "Cancel",
     "notFound": "Subscription order not found",
     "enabled": "Enabled",
-    "alreadyPremium": "You already have Premium access"
+    "alreadyPremium": "You already have Premium access",
+    "active": "Active"
   },
   "login": {
     "title": "Welcome Back",

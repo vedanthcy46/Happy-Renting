@@ -34,8 +34,9 @@ const authenticate = async (req, res, next) => {
     }
 
     // Check database to ensure user still exists and hasn't been deactivated
-    // since the token was issued.
-    const user = await User.findById(decoded.id).select('isActive ownerId role roles').lean();
+    // since the token was issued. Include subscription so entitlement-based
+    // checks (plan resolution, resource limits) see the live plan.
+    const user = await User.findById(decoded.id).select('isActive ownerId role roles subscription').lean();
     
     if (!user) {
       return res.status(401).json({
@@ -59,6 +60,7 @@ const authenticate = async (req, res, next) => {
       roles: user.roles?.length > 0 ? user.roles : [user.role],
       ownerId: user.ownerId,
       isActive: user.isActive,
+      subscription: user.subscription,
     };
 
     next();

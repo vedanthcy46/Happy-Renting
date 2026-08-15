@@ -212,7 +212,7 @@ export const OwnerRoomsScreen: React.FC<{ propertyId: string }> = ({ propertyId 
       qc.invalidateQueries({ queryKey: ['ownerRooms'] });
       setModalVisible(false);
     },
-    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.rooms.errCreate')),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.rooms.errCreate')),
   });
 
   const updateMutation = useMutation({
@@ -222,7 +222,7 @@ export const OwnerRoomsScreen: React.FC<{ propertyId: string }> = ({ propertyId 
       setModalVisible(false);
       setEditingRoom(null);
     },
-    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.rooms.errUpdate')),
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.rooms.errUpdate')),
   });
 
   const deleteMutation = useMutation({

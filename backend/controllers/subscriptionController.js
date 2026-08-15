@@ -239,11 +239,15 @@ exports.getMySubscription = async (req, res, next) => {
   try {
     const user = await require('../models/User').findById(req.user._id).select('subscription').lean();
     const sub = user?.subscription || {};
+    const entitlementService = require('../services/entitlementService');
+    // Expiry-aware plan key — MONTHLY/ANNUAL return FREE once expiresAt passes,
+    // so the app UI matches the server-side enforcement.
+    const plan = entitlementService.planKeyForOwner({ subscription: sub }) || 'FREE';
     return res.status(200).json({
       success: true,
       subscription: {
-        plan: sub.plan || 'FREE',
-        status: sub.status || 'active',
+        plan,
+        status: plan === 'FREE' && (sub.plan && sub.plan !== 'FREE') ? 'expired' : sub.status || 'active',
         billingPeriod: sub.billingPeriod || null,
         purchasedAt: sub.purchasedAt || null,
         expiresAt: sub.expiresAt || null,
