@@ -190,10 +190,6 @@ const UsersPage = () => {
     const subStatus = String(subscription.status || 'active').toLowerCase();
     const expiresAt = subscription.expiresAt ? new Date(subscription.expiresAt) : null;
 
-    if (user?.role === 'tenant' && !user?.planStatus) {
-      return 'FREE';
-    }
-
     if (!['active', 'paid', 'pending'].includes(subStatus) && user?.role !== 'tenant') {
       return 'FREE';
     }
