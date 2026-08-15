@@ -35,14 +35,26 @@ const logger = require('../config/logger');
  */
 function planKeyForOwner(user) {
   if (!user || !user.subscription || !user.subscription.plan) return 'FREE';
-  const key = String(user.subscription.plan).toUpperCase();
-  if (key !== 'FREE' && key !== 'LIFETIME' && key !== 'MONTHLY' && key !== 'ANNUAL') return 'FREE';
-  if (key === 'LIFETIME') return 'LIFETIME';
+
+  const rawPlan = String(user.subscription.plan).trim();
+  const key = rawPlan.toUpperCase();
+
+  const normalizedKey = (() => {
+    if (!rawPlan) return 'FREE';
+    if (key === 'FREE' || key === 'BASIC' || key === 'STANDARD') return 'FREE';
+    if (key.includes('LIFETIME') || key.includes('LIFE') || key === 'PREMIUM') return 'LIFETIME';
+    if (key.includes('MONTH')) return 'MONTHLY';
+    if (key.includes('ANNUAL') || key.includes('YEAR')) return 'ANNUAL';
+    return 'FREE';
+  })();
+
+  if (normalizedKey === 'FREE') return 'FREE';
   if (user.subscription.status !== 'active') return 'FREE';
 
   // MONTHLY / ANNUAL: still active only if not yet expired.
   const expiresAt = user.subscription.expiresAt;
-  if (expiresAt && new Date(expiresAt).getTime() > Date.now()) return key;
+  if (normalizedKey === 'LIFETIME') return 'LIFETIME';
+  if (expiresAt && new Date(expiresAt).getTime() > Date.now()) return normalizedKey;
   return 'FREE';
 }
 
