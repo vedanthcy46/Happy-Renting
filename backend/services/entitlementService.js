@@ -49,12 +49,15 @@ function planKeyForOwner(user) {
   })();
 
   if (normalizedKey === 'FREE') return 'FREE';
-  if (user.subscription.status !== 'active') return 'FREE';
+
+  const status = String(user.subscription.status || 'active').toLowerCase();
+  if (!['active', 'paid', 'pending'].includes(status)) return 'FREE';
 
   // MONTHLY / ANNUAL: still active only if not yet expired.
   const expiresAt = user.subscription.expiresAt;
   if (normalizedKey === 'LIFETIME') return 'LIFETIME';
   if (expiresAt && new Date(expiresAt).getTime() > Date.now()) return normalizedKey;
+  if (!expiresAt && status === 'active') return normalizedKey;
   return 'FREE';
 }
 

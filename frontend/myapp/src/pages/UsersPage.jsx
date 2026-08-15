@@ -183,6 +183,28 @@ const UsersPage = () => {
     return map[role] || role;
   };
 
+  const getEffectivePlanStatus = (user) => {
+    const planFromUser = user?.planStatus || user?.subscription?.plan || 'FREE';
+    const candidatePlan = normalizePlanKey(planFromUser);
+    const subscription = user?.subscription || {};
+    const subStatus = String(subscription.status || 'active').toLowerCase();
+    const expiresAt = subscription.expiresAt ? new Date(subscription.expiresAt) : null;
+
+    if (user?.role === 'tenant' && !user?.planStatus) {
+      return 'FREE';
+    }
+
+    if (!['active', 'paid', 'pending'].includes(subStatus) && user?.role !== 'tenant') {
+      return 'FREE';
+    }
+
+    if (['MONTHLY', 'ANNUAL'].includes(candidatePlan) && expiresAt && expiresAt.getTime() <= Date.now()) {
+      return 'FREE';
+    }
+
+    return candidatePlan;
+  };
+
   const filteredUsers = useMemo(() => {
     return users.filter(u => {
       const matchSearch = !searchTerm ||
@@ -191,7 +213,7 @@ const UsersPage = () => {
       const matchStatus = !statusFilter ||
         (statusFilter === 'active' && u.isActive) ||
         (statusFilter === 'inactive' && !u.isActive);
-      const planStatus = normalizePlanKey(u.planStatus || 'FREE');
+      const planStatus = getEffectivePlanStatus(u);
       const matchPlan = !planFilter ||
         (planFilter === 'premium' && isPremiumPlan(planStatus)) ||
         (planFilter === 'free' && !isPremiumPlan(planStatus));
@@ -199,8 +221,8 @@ const UsersPage = () => {
     });
   }, [users, searchTerm, statusFilter, planFilter]);
 
-  const planBadge = (planStatus) => {
-    const normalizedPlan = normalizePlanKey(planStatus);
+  const planBadge = (user) => {
+    const normalizedPlan = normalizePlanKey(getEffectivePlanStatus(user));
     if (isPremiumPlan(normalizedPlan)) {
       return <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-brand-500/20 text-brand-400">💎 {getPlanBadgeLabel(normalizedPlan)}</span>;
     }
@@ -299,7 +321,7 @@ const UsersPage = () => {
                     </span>
                   </td>
                   <td>
-                    {u.role !== 'superadmin' ? planBadge(u.planStatus) : <span className="text-[10px] text-slate-600">—</span>}
+                    {u.role !== 'superadmin' ? planBadge(u) : <span className="text-[10px] text-slate-600">—</span>}
                   </td>
                   <td>
                     {u.role !== 'superadmin' ? (
