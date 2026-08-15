@@ -6,11 +6,14 @@ import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Modal from '../components/common/Modal';
 import DashboardFilters from '../components/common/DashboardFilters';
+import PlanLimitBanner from '../components/common/PlanLimitBanner';
+import useOwnerEntitlement from '../hooks/useOwnerEntitlement';
 
 const PropertiesPage = () => {
   const toast = useToast();
   const navigate = useNavigate();
   const { isSuperAdmin, isOwner } = useAuth();
+  const { loading: entLoading, limits, hitPropertyLimit } = useOwnerEntitlement();
 
   const [properties, setProperties] = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -116,7 +119,12 @@ const PropertiesPage = () => {
           </p>
         </div>
         {(isOwner || isSuperAdmin) && (
-          <button onClick={openAddModal} className="btn-primary w-fit">
+          <button
+            onClick={openAddModal}
+            disabled={isOwner && !entLoading && hitPropertyLimit}
+            className="btn-primary w-fit disabled:opacity-40 disabled:cursor-not-allowed"
+            title={isOwner && hitPropertyLimit ? 'Free plan limit reached — upgrade from the app' : undefined}
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -124,6 +132,13 @@ const PropertiesPage = () => {
           </button>
         )}
       </div>
+
+      <PlanLimitBanner
+        show={hitPropertyLimit}
+        used={limits.properties?.used}
+        limit={limits.properties?.limit}
+        resource="properties"
+      />
 
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
         {/* Filters (Admin Only) */}

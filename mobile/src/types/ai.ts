@@ -19,3 +19,23 @@ export interface AiChatResponse {
   model: string;
   message?: string;
 }
+
+export interface AiEntitlement {
+  plan: string;
+  workspace: Workspace;
+  ownerId: string | null;
+  isTenant: boolean;
+  controlledByOwner: boolean;
+  tenantId: string | null;
+  propertyId: string | null;
+  limit: number | null;
+  used: number | null;
+  remaining: number | null;
+  isUnlimited: boolean;
+  month: string;
+}
+
+export interface AiEntitlementResponse {
+  success: boolean;
+  entitlement: AiEntitlement;
+}

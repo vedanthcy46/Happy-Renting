@@ -99,12 +99,11 @@ async function activateSubscription(ownerId, plan) {
     'subscription.purchasedAt': new Date(),
     'subscription.expiresAt': activatedUntil,
     'subscription.lifetime': plan === 'LIFETIME',
-    $inc: { 'subscription.entitlementVersion': 1 },
   };
 
   const user = await User.findByIdAndUpdate(
     ownerId,
-    { $set: update },
+    { $set: update, $inc: { 'subscription.entitlementVersion': 1 } },
     { new: true, runValidators: true }
   ).select('subscription');
 
@@ -119,10 +118,74 @@ async function activateSubscription(ownerId, plan) {
   return user.subscription;
 }
 
+/**
+ * Reverse an owner's premium subscription (admin action).
+ * Downgrades the owner back to FREE and bumps entitlementVersion so clients
+ * immediately re-fetch their entitlements. Does NOT touch the SubscriptionOrder
+ * record — the controller manages that.
+ */
+async function reverseSubscription(ownerId) {
+  const User = require('../models/User');
+  const user = await User.findByIdAndUpdate(
+    ownerId,
+    {
+      $set: {
+        'subscription.plan': 'FREE',
+        'subscription.billingPeriod': null,
+        'subscription.status': 'active',
+        'subscription.purchasedAt': null,
+        'subscription.expiresAt': null,
+        'subscription.lifetime': false,
+      },
+      $inc: { 'subscription.entitlementVersion': 1 },
+    },
+    { new: true, runValidators: true }
+  ).select('subscription');
+
+  if (!user) throw new Error('User not found while reversing subscription');
+
+  logger.info(`[SUBSCRIPTION] Reversed premium for owner=${ownerId}`);
+  return user.subscription;
+}
+
+/**
+ * Undo a reversal (admin action) — restore the owner to their paid plan with
+ * the originally computed expiry. Idempotent; throws if the plan is invalid.
+ */
+async function undoSubscriptionReversal(ownerId, plan, activatedUntil) {
+  if (!PLAN_KEYS.includes(plan)) {
+    throw new Error(`Unsupported subscription plan: ${plan}`);
+  }
+  const User = require('../models/User');
+  const user = await User.findByIdAndUpdate(
+    ownerId,
+    {
+      $set: {
+        'subscription.plan': plan,
+        'subscription.billingPeriod':
+          plan === 'MONTHLY' ? 'monthly' : plan === 'ANNUAL' ? 'annual' : 'lifetime',
+        'subscription.status': 'active',
+        'subscription.purchasedAt': new Date(),
+        'subscription.expiresAt': activatedUntil || null,
+        'subscription.lifetime': plan === 'LIFETIME',
+      },
+      $inc: { 'subscription.entitlementVersion': 1 },
+    },
+    { new: true, runValidators: true }
+  ).select('subscription');
+
+  if (!user) throw new Error('User not found while undoing subscription reversal');
+
+  logger.info(`[SUBSCRIPTION] Undid reversal for owner=${ownerId} plan=${plan}`);
+  return user.subscription;
+}
+
 module.exports = {
   PLAN_KEYS,
   getPurchasePrices,
   getPriceForPlan,
   computeActivatedUntil,
   activateSubscription,
+  reverseSubscription,
+  undoSubscriptionReversal,
 };

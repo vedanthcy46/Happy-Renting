@@ -16,6 +16,13 @@ const AdminWalletPage = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('requests');
 
+  // Subscription orders state
+  const [subscriptionOrders, setSubscriptionOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('');
+  const [reverseModal, setReverseModal] = useState({ open: false, order: null, reason: '' });
+  const [reversing, setReversing] = useState(false);
+
   // Platforms settings editor state
   const [subscriptionEnabled, setSubscriptionEnabled] = useState(false);
   const [monthlySubscription, setMonthlySubscription] = useState(0);
@@ -81,6 +88,59 @@ const AdminWalletPage = () => {
   useEffect(() => {
     fetchAdminData();
   }, [fetchAdminData]);
+
+  // Fetch subscription orders
+  const fetchSubscriptionOrders = useCallback(async () => {
+    try {
+      setOrdersLoading(true);
+      const params = orderStatusFilter ? `?status=${orderStatusFilter}` : '';
+      const res = await api.get(`/v2/subscriptions/admin/orders${params}`);
+      setSubscriptionOrders(res.data.orders || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to load subscription orders');
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [toast, orderStatusFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'subscriptions') fetchSubscriptionOrders();
+  }, [activeTab, fetchSubscriptionOrders]);
+
+  // Handle subscription reverse
+  const handleReverseOpen = (order) => {
+    setReverseModal({ open: true, order, reason: '' });
+  };
+
+  const handleReverseSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setReversing(true);
+      await api.post(`/v2/subscriptions/admin/orders/${reverseModal.order._id}/reverse`, {
+        reason: reverseModal.reason
+      });
+      toast.success('Subscription reversed. Owner downgraded to Free.');
+      setReverseModal({ open: false, order: null, reason: '' });
+      fetchSubscriptionOrders();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Reversal failed');
+    } finally {
+      setReversing(false);
+    }
+  };
+
+  // Handle subscription undo reversal
+  const handleUndoReverse = async (order) => {
+    if (!window.confirm(`Restore this subscription for ${order.ownerId?.name || 'owner'}? The owner will be put back on their paid plan.`)) return;
+    try {
+      await api.post(`/v2/subscriptions/admin/orders/${order._id}/undo-reversal`);
+      toast.success('Subscription restored.');
+      fetchSubscriptionOrders();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to restore subscription');
+    }
+  };
+
 
   // Handle settings update
   const handleSaveSettings = async (e) => {
@@ -296,6 +356,14 @@ const AdminWalletPage = () => {
           }`}
         >
           ⚙️ Monetization Settings
+        </button>
+        <button
+          onClick={() => setActiveTab('subscriptions')}
+          className={`pb-4 text-sm font-semibold border-b-2 transition-all ${
+            activeTab === 'subscriptions' ? 'border-brand-500 text-white font-bold' : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          💎 Subscription Orders
         </button>
       </div>
 
@@ -587,6 +655,110 @@ const AdminWalletPage = () => {
         </div>
       )}
 
+      {/* TAB CONTENT: SUBSCRIPTION ORDERS */}
+      {activeTab === 'subscriptions' && (
+        <div className="card bg-surface-card border border-surface-border">
+          <div className="px-6 py-5 border-b border-surface-border flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-white">Premium Subscription Orders</h2>
+              <p className="text-xs text-slate-400 mt-1">Review purchases, reverse a subscription to downgrade the owner to Free, or undo a reversal.</p>
+            </div>
+            <select
+              value={orderStatusFilter}
+              onChange={(e) => setOrderStatusFilter(e.target.value)}
+              className="form-select w-40 text-xs py-2"
+            >
+              <option value="">All Status</option>
+              <option value="paid">Paid</option>
+              <option value="reversed">Reversed</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
+              <option value="voided">Voided</option>
+            </select>
+          </div>
+          <div className="table-wrapper rounded-none border-none overflow-x-auto">
+            {ordersLoading ? (
+              <div className="flex justify-center py-12"><LoadingSpinner size="md" /></div>
+            ) : subscriptionOrders.length === 0 ? (
+              <p className="text-center text-slate-500 py-12 italic">No subscription orders found.</p>
+            ) : (
+              <table className="data-table min-w-[900px]">
+                <thead>
+                  <tr>
+                    <th>Purchased At</th>
+                    <th>Owner</th>
+                    <th>Plan</th>
+                    <th>Amount</th>
+                    <th>Valid Until</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subscriptionOrders.map((o) => (
+                    <tr key={o._id} className="hover:bg-surface-hover/30">
+                      <td className="text-slate-400 text-xs font-mono">
+                        {new Date(o.createdAt).toLocaleString()}
+                      </td>
+                      <td>
+                        <p className="font-semibold text-white">{o.ownerId?.name || 'Unknown Owner'}</p>
+                        <p className="text-xs text-slate-500">{o.ownerId?.email}</p>
+                      </td>
+                      <td>
+                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded bg-brand-500/20 text-brand-400 uppercase">
+                          💎 {o.plan}
+                        </span>
+                      </td>
+                      <td className="font-mono font-bold text-white">₹{o.amount.toLocaleString()}</td>
+                      <td className="text-xs text-slate-300 font-mono">
+                        {o.activatedUntil ? new Date(o.activatedUntil).toLocaleDateString() : '—'}
+                        {o.plan === 'LIFETIME' ? ' (Lifetime)' : ''}
+                      </td>
+                      <td>
+                        <StatusBadge status={o.status} />
+                        {o.status === 'reversed' && o.reversalReason && (
+                          <div className="mt-1.5 text-[9px] text-red-400 max-w-[180px] truncate" title={o.reversalReason}>
+                            Reason: {o.reversalReason}
+                          </div>
+                        )}
+                        {o.status === 'reversed' && o.reversedAt && (
+                          <div className="mt-0.5 text-[9px] text-slate-500 font-mono">
+                            Reversed {new Date(o.reversedAt).toLocaleString()}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap gap-2">
+                          {o.status === 'paid' && (
+                            <button
+                              onClick={() => handleReverseOpen(o)}
+                              className="btn-danger btn-sm font-semibold px-3 py-1"
+                            >
+                              ↩ Reverse
+                            </button>
+                          )}
+                          {o.status === 'reversed' && (
+                            <button
+                              onClick={() => handleUndoReverse(o)}
+                              className="btn-success btn-sm font-semibold px-3 py-1"
+                            >
+                              ↪ Undo Reversal
+                            </button>
+                          )}
+                          {['pending', 'failed', 'voided'].includes(o.status) && (
+                            <span className="text-xs text-slate-500 font-medium italic">—</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Manual Settlement Details Completion Modal */}
       <Modal
         isOpen={showCompleteModal}
@@ -824,6 +996,47 @@ const AdminWalletPage = () => {
             </button>
           </div>
         </div>
+      </Modal>
+      {/* Reverse Subscription Modal */}
+      <Modal
+        isOpen={reverseModal.open}
+        onClose={() => setReverseModal({ open: false, order: null, reason: '' })}
+        title="Reverse Subscription"
+      >
+        <form onSubmit={handleReverseSubmit} className="space-y-4">
+          <p className="text-sm text-slate-400">
+            This will downgrade <strong className="text-white">{reverseModal.order?.ownerId?.name || 'this owner'}</strong>{' '}
+            back to the <strong className="text-white">Free</strong> plan immediately. Their tenants will also lose
+            premium access. You can undo this later.
+          </p>
+
+          <div>
+            <label className="form-label">Reversal Reason</label>
+            <textarea
+              value={reverseModal.reason}
+              onChange={(e) => setReverseModal(r => ({ ...r, reason: e.target.value }))}
+              placeholder="e.g. Chargeback, fraudulent payment, admin decision"
+              className="form-input text-sm h-20"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-border">
+            <button
+              type="button"
+              onClick={() => setReverseModal({ open: false, order: null, reason: '' })}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={reversing}
+              className="btn-danger"
+            >
+              {reversing ? 'Reversing...' : 'Reverse Subscription'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

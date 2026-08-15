@@ -45,12 +45,26 @@ const subscriptionOrderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'paid', 'failed', 'voided'],
+      enum: ['pending', 'paid', 'failed', 'voided', 'reversed'],
       default: 'pending',
     },
     paidAt: {
       type: Date,
       default: null,
+    },
+    // Admin reversal tracking (reverse / undo reversal)
+    reversedAt: {
+      type: Date,
+      default: null,
+    },
+    reversedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    reversalReason: {
+      type: String,
+      default: '',
     },
     // Computed when activated (monthly +1 month, annual +1 year, lifetime null).
     activatedUntil: {

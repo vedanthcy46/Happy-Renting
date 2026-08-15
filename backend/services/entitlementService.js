@@ -265,6 +265,44 @@ async function getOwnerUsageCounts(ownerId) {
 }
 
 /**
+ * Server-side creation guard for an owner's countable resources.
+ * Used by the create controllers (properties / rooms / tenants) so the plan
+ * limits cannot be bypassed from the web or the app.
+ *
+ * @param {object} user authenticated owner user
+ * @param {'properties'|'rooms'|'activeTenants'} kind
+ * @returns {Promise<{ok: boolean, used: number, limit: number, plan: string, message?: string}>}
+ */
+async function getCreationGuard(user, kind) {
+  const resolved = await resolvePlanForUser(user, 'owner');
+  const plan = getPlan(resolved.plan);
+  const counts = await getOwnerUsageCounts(resolved.ownerId);
+
+  const map = {
+    properties: { used: counts.properties.used, limit: plan.properties },
+    rooms: { used: counts.rooms.used, limit: plan.rooms },
+    activeTenants: { used: counts.activeTenants.used, limit: plan.activeTenants },
+  };
+  const entry = map[kind];
+  if (!entry) throw new Error(`Unknown resource kind: ${kind}`);
+
+  if (isUnlimited(entry.limit)) {
+    return { ok: true, used: entry.used, limit: entry.limit, plan: resolved.plan };
+  }
+
+  const ok = entry.used < entry.limit;
+  return {
+    ok,
+    used: entry.used,
+    limit: entry.limit,
+    plan: resolved.plan,
+    message: ok
+      ? undefined
+      : `You've reached the Free plan limit of ${entry.limit} ${kind.replace(/([A-Z])/g, ' $1').toLowerCase()}. Upgrade to Premium from the Happy Renting app to add more.`,
+  };
+}
+
+/**
  * Full entitlement snapshot used by GET /api/ai/entitlement (and later for the
  * subscription screen). Includes AI plus the countable resource limits.
  */
@@ -323,4 +361,6 @@ module.exports = {
   canUseAI,
   recordAIUsage,
   getFullEntitlements,
+  getOwnerUsageCounts,
+  getCreationGuard,
 };

@@ -4,6 +4,7 @@ const { body } = require('express-validator');
 const Property = require('../models/Property');
 const logger   = require('../config/logger');
 const logActivity = require('../utils/activityLogger');
+const entitlementService = require('../services/entitlementService');
 
 const propertyValidation = [
   body('name').optional().trim().isLength({ min: 2, max: 100 }).escape().withMessage('Name 2-100 chars required'),
@@ -32,6 +33,18 @@ const getProperties = async (req, res, next) => {
 // ── POST /api/properties ───────────────────────────────────────────────────
 const createProperty = async (req, res, next) => {
   try {
+    if (req.user.role === 'owner') {
+      const guard = await entitlementService.getCreationGuard(req.user, 'properties');
+      if (!guard.ok) {
+        return res.status(403).json({
+          success: false,
+          code: 'PLAN_LIMIT_REACHED',
+          message: guard.message,
+          entitlement: { plan: guard.plan, used: guard.used, limit: guard.limit },
+        });
+      }
+    }
+
     const { name, address, city } = req.body;
     const property = await Property.create({
       name,

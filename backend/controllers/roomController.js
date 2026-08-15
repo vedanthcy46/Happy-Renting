@@ -8,6 +8,7 @@ const Property        = require('../models/Property');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const logger          = require('../config/logger');
 const logActivity     = require('../utils/activityLogger');
+const entitlementService = require('../services/entitlementService');
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const roomValidation = [
@@ -106,6 +107,19 @@ const createRoom = async (req, res, next) => {
     const ownerId = req.user.role === 'owner'
       ? req.user._id
       : req.body.ownerId;
+
+    // ── Restriction: Free plan room limit (owners only) ──────────────────────
+    if (req.user.role === 'owner') {
+      const guard = await entitlementService.getCreationGuard(req.user, 'rooms');
+      if (!guard.ok) {
+        return res.status(403).json({
+          success: false,
+          code: 'PLAN_LIMIT_REACHED',
+          message: guard.message,
+          entitlement: { plan: guard.plan, used: guard.used, limit: guard.limit },
+        });
+      }
+    }
 
     // ── Restriction: Check if Property is Active ────────────────────────────
     const property = await Property.findById(propertyId);

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
@@ -47,6 +48,7 @@ export const SubscriptionScreen: React.FC = () => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [enabled, setEnabled] = useState(false);
@@ -96,6 +98,7 @@ export const SubscriptionScreen: React.FC = () => {
         Alert.alert(t('subscription.successTitle'), t('subscription.successBody'), [
           { text: 'OK', onPress: () => router.back() },
         ]);
+        queryClient.invalidateQueries({ queryKey: ['planStatus'] });
         await load();
       } else if (res.status === 'pending') {
         Alert.alert(t('subscription.pendingTitle'), t('subscription.pendingBody'));

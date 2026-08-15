@@ -23,6 +23,7 @@ const UsersPage = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [planFilter, setPlanFilter] = useState('');
   const [impactModal, setImpactModal] = useState({ open: false, user: null, impact: null, loading: false });
   const [confirmText, setConfirmText] = useState('');
   const [forceResetLoading, setForceResetLoading] = useState(null);
@@ -182,6 +183,7 @@ const UsersPage = () => {
   };
 
   const filteredUsers = useMemo(() => {
+    const isPremium = (plan) => ['MONTHLY', 'ANNUAL', 'LIFETIME'].includes(plan);
     return users.filter(u => {
       const matchSearch = !searchTerm ||
         u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -189,9 +191,22 @@ const UsersPage = () => {
       const matchStatus = !statusFilter ||
         (statusFilter === 'active' && u.isActive) ||
         (statusFilter === 'inactive' && !u.isActive);
-      return matchSearch && matchStatus;
+      const planStatus = u.planStatus || 'FREE';
+      const matchPlan = !planFilter ||
+        (planFilter === 'premium' && isPremium(planStatus)) ||
+        (planFilter === 'free' && !isPremium(planStatus));
+      return matchSearch && matchStatus && matchPlan;
     });
-  }, [users, searchTerm, statusFilter]);
+  }, [users, searchTerm, statusFilter, planFilter]);
+
+  const planBadge = (planStatus) => {
+    const isPremium = ['MONTHLY', 'ANNUAL', 'LIFETIME'].includes(planStatus);
+    if (isPremium) {
+      const label = planStatus === 'LIFETIME' ? 'Premium · Lifetime' : planStatus === 'MONTHLY' ? 'Premium · Monthly' : 'Premium · Annual';
+      return <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-brand-500/20 text-brand-400">💎 {label}</span>;
+    }
+    return <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-slate-500/20 text-slate-400">Free</span>;
+  };
 
   const getDaysSinceLogin = (lastLogin) => {
     if (!lastLogin) return null;
@@ -233,6 +248,15 @@ const UsersPage = () => {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
+          <select
+            className="form-select w-32 text-xs py-2"
+            value={planFilter}
+            onChange={e => setPlanFilter(e.target.value)}
+          >
+            <option value="">All Plans</option>
+            <option value="premium">Premium</option>
+            <option value="free">Free</option>
+          </select>
           <button id="add-user-btn" onClick={() => setShowAdd(true)} className="btn-primary">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -253,7 +277,7 @@ const UsersPage = () => {
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
-              <tr><th>Name</th><th>Email</th><th>Role</th><th>Verified</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>Verified</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filteredUsers.map(u => (
@@ -274,6 +298,9 @@ const UsersPage = () => {
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${u.role === 'superadmin' ? 'bg-brand-500/20 text-brand-400' : u.role === 'owner' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-500/20 text-slate-400'}`}>
                       {roleLabel(u.role)}
                     </span>
+                  </td>
+                  <td>
+                    {u.role !== 'superadmin' ? planBadge(u.planStatus) : <span className="text-[10px] text-slate-600">—</span>}
                   </td>
                   <td>
                     {u.role !== 'superadmin' ? (

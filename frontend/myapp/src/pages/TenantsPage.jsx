@@ -6,9 +6,14 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import DashboardFilters from '../components/common/DashboardFilters';
 import Modal from '../components/common/Modal';
+import { useAuth } from '../context/AuthContext';
+import PlanLimitBanner from '../components/common/PlanLimitBanner';
+import useOwnerEntitlement from '../hooks/useOwnerEntitlement';
 
 const TenantsPage = () => {
   const toast = useToast();
+  const { isOwner } = useAuth();
+  const { limits, hitTenantLimit } = useOwnerEntitlement();
   const [tenants,    setTenants]    = useState([]);
   const [tab,        setTab]        = useState('active');
   const [loading,    setLoading]    = useState(true);
@@ -205,13 +210,27 @@ const TenantsPage = () => {
           <h1 className="page-title">Tenants</h1>
           <p className="text-slate-400 text-sm mt-1">{filtered.length} record{filtered.length !== 1 ? 's' : ''}</p>
         </div>
-        <Link to="/tenants/add" id="add-tenant-link" className="btn-primary w-fit">
+        <Link
+          to="/tenants/add"
+          id="add-tenant-link"
+          className={`btn-primary w-fit ${isOwner && hitTenantLimit ? 'disabled:opacity-40 disabled:cursor-not-allowed' : ''}`}
+          aria-disabled={isOwner && hitTenantLimit}
+          onClick={(e) => { if (isOwner && hitTenantLimit) e.preventDefault(); }}
+          title={isOwner && hitTenantLimit ? 'Free plan limit reached — upgrade from the app' : undefined}
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           Add Tenant
         </Link>
       </div>
+
+      <PlanLimitBanner
+        show={hitTenantLimit}
+        used={limits.activeTenants?.used}
+        limit={limits.activeTenants?.limit}
+        resource="active tenants"
+      />
 
       {/* Filters */}
       <DashboardFilters onFilterChange={setFilters} showOwnerFilter={true} />
@@ -257,7 +276,14 @@ const TenantsPage = () => {
           <div className="text-5xl mb-4">{tab === 'active' ? '👥' : '📋'}</div>
           <p className="text-slate-400">No {tab} tenants found for the selected filters.</p>
           {tab === 'active' && (
-            <Link to="/tenants/add" className="btn-primary mt-4 inline-flex">Add First Tenant</Link>
+            <Link
+              to="/tenants/add"
+              className="btn-primary mt-4 inline-flex"
+              onClick={(e) => { if (isOwner && hitTenantLimit) e.preventDefault(); }}
+              aria-disabled={isOwner && hitTenantLimit}
+            >
+              {isOwner && hitTenantLimit ? 'Limit reached — upgrade from the app' : 'Add First Tenant'}
+            </Link>
           )}
         </div>
       ) : (

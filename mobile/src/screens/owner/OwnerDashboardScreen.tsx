@@ -18,7 +18,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { WorkspaceSwitcher } from '../../components/WorkspaceSwitcher';
-import { UpdateCard } from '../../components';
+import { UpdateCard, PlanStatusCard } from '../../components';
 import {
   getPaymentSummary,
   getExpenseSummary,
@@ -209,6 +209,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
       >
         {/* â”€â”€ Collection summary card â”€â”€ */}
         <UpdateCard />
+        <PlanStatusCard workspace="owner" />
         <View style={[styles.summaryCard, { backgroundColor: colors.surface }, shadows.md]}>
           <Text style={[styles.summaryCardTitle, { color: colors.text.secondary }]}>
             {t('owner.dashboard.totalCollected')}

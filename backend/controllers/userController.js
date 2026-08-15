@@ -12,6 +12,7 @@ const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const Complaint  = require('../models/Complaint');
 const CoOccupant = require('../models/CoOccupant');
 const emailService = require('../services/emailService');
+const entitlementService = require('../services/entitlementService');
 const logger   = require('../config/logger');
 
 // ── Validation ─────────────────────────────────────────────────────────────
@@ -43,12 +44,46 @@ const getUsers = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const users = await User.find(filter)
-      .select('_id name email role isActive phone lastLogin createdAt mustChangePassword ownerId emailVerified')
+      .select('_id name email role isActive phone lastLogin createdAt mustChangePassword ownerId emailVerified subscription')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
     const total = await User.countDocuments(filter);
+
+    // ── Plan status (Premium / Free) — expiry-aware for owners, inherited for tenants ──
+    // Batch-load subscriptions of owners referenced by tenant users in this page.
+    const tenantUserIds = users.filter((u) => u.role === 'tenant' || (u.roles || []).includes('tenant')).map((u) => u._id);
+    let ownerSubscriptions = new Map();
+    if (tenantUserIds.length) {
+      const activeTenancies = await Tenant.find({ userId: { $in: tenantUserIds }, status: 'active' })
+        .select('userId ownerId')
+        .sort({ createdAt: -1 })
+        .lean();
+      const ownerIds = [...new Set(activeTenancies.map((t) => String(t.ownerId)))];
+      if (ownerIds.length) {
+        const owners = await User.find({ _id: { $in: ownerIds } }).select('subscription').lean();
+        ownerSubscriptions = new Map(owners.map((o) => [String(o._id), o.subscription || {}]));
+      }
+      // Map each tenant user -> their current owner's plan key
+      const ownerPlanByTenant = new Map();
+      for (const t of activeTenancies) {
+        const ownerSub = ownerSubscriptions.get(String(t.ownerId));
+        const planKey = entitlementService.planKeyForOwner({ subscription: ownerSub || {} });
+        if (!ownerPlanByTenant.has(String(t.userId))) ownerPlanByTenant.set(String(t.userId), planKey);
+      }
+      // Attach plan status
+      for (const u of users) {
+        if ((u.role === 'tenant' || (u.roles || []).includes('tenant')) && ownerPlanByTenant.has(String(u._id))) {
+          u.planStatus = ownerPlanByTenant.get(String(u._id));
+        }
+      }
+    }
+    for (const u of users) {
+      if (!u.planStatus) {
+        u.planStatus = entitlementService.planKeyForOwner(u);
+      }
+    }
 
     res.status(200).json({ 
       success: true, 

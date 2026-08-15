@@ -4,10 +4,12 @@ import api from '../api/axios';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import OccupancyBar from '../components/common/OccupancyBar';
+import useOwnerEntitlement from '../hooks/useOwnerEntitlement';
 
 const AddTenantPage = () => {
   const toast    = useToast();
   const navigate = useNavigate();
+  const { hitTenantLimit } = useOwnerEntitlement();
 
   const [rooms,       setRooms]       = useState([]);
   const [users,       setUsers]       = useState([]);  // tenant-role users without active tenancy
@@ -178,6 +180,12 @@ const AddTenantPage = () => {
     const errs = validate();
     if (Object.keys(errs).length) return setErrors(errs);
     if (submitting) return;
+
+    if (hitTenantLimit) {
+      toast.error('Free plan limit reached — upgrade to Premium from the Happy Renting app to add more tenants.');
+      setErrors({ general: 'Free plan limit reached. Upgrade to Premium from the Happy Renting app to add more tenants.' });
+      return;
+    }
 
     setSubmitting(true);
     try {

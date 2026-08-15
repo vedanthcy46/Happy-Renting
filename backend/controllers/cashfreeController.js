@@ -276,6 +276,12 @@ async function handleSubscriptionWebhook(subscriptionOrder, { cfOrderId, cfPayme
     logger.info(`[SUBSCRIPTION] Duplicate paid webhook ignored — orderId=${cfOrderId}`);
     return;
   }
+  // Admin-reversed orders stay reversed — a late/retried webhook must NOT
+  // re-activate the owner's subscription.
+  if (subscriptionOrder.status === 'reversed') {
+    logger.info(`[SUBSCRIPTION] Reversed order webhook ignored — orderId=${cfOrderId}`);
+    return;
+  }
 
   const subscriptionService = require('../services/subscriptionService');
   const sub = await subscriptionService.activateSubscription(

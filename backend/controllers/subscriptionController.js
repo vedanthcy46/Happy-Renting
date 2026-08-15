@@ -181,6 +181,16 @@ exports.getOrderStatus = async (req, res, next) => {
       });
     }
 
+    // Admin-reversed orders stay reversed — never re-activate via status poll.
+    if (order.status === 'reversed') {
+      return res.status(200).json({
+        success: true,
+        status: 'failed',
+        plan: order.plan,
+        message: 'This subscription was reversed by an administrator.',
+      });
+    }
+
     // Otherwise ask Cashfree for live status
     let cfStatus = 'pending';
     try {
@@ -243,6 +253,139 @@ exports.getMySubscription = async (req, res, next) => {
     });
   } catch (err) {
     logger.error(`[SUBSCRIPTION] getMySubscription error: ${err.message}`);
+    next(err);
+  }
+};
+
+/**
+ * GET /api/v2/subscriptions/admin/orders
+ * Superadmin: list all subscription purchase orders (paginated), with the
+ * owning user populated so admins can reverse/undo reversals.
+ */
+exports.adminGetOrders = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+    if (req.query.status && ['pending', 'paid', 'failed', 'voided', 'reversed'].includes(req.query.status)) {
+      filter.status = req.query.status;
+    }
+    if (req.query.ownerId) filter.ownerId = req.query.ownerId;
+
+    const [orders, total] = await Promise.all([
+      SubscriptionOrder.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('ownerId', 'name email role'),
+      SubscriptionOrder.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      count: orders.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      orders,
+    });
+  } catch (err) {
+    logger.error(`[SUBSCRIPTION] adminGetOrders error: ${err.message}`);
+    next(err);
+  }
+};
+
+/**
+ * POST /api/v2/subscriptions/admin/orders/:orderId/reverse
+ * Superadmin: reverse a paid subscription — downgrades the owner to FREE and
+ * marks the order reversed (idempotent; a paid order is only reversed once).
+ */
+exports.adminReverseOrder = async (req, res, next) => {
+  try {
+    const order = await SubscriptionOrder.findById(req.params.orderId);
+    if (!order) {
+      const err = new Error('Subscription order not found');
+      err.statusCode = 404;
+      return next(err);
+    }
+    if (order.status !== 'paid') {
+      const err = new Error('Only paid subscription orders can be reversed');
+      err.statusCode = 400;
+      return next(err);
+    }
+
+    const reason = String(req.body.reason || '').trim() || 'Reversed by administrator';
+    const sub = await subscriptionService.reverseSubscription(order.ownerId);
+
+    order.status = 'reversed';
+    order.reversedAt = new Date();
+    order.reversedBy = req.user._id;
+    order.reversalReason = reason;
+    order.activatedUntil = sub.expiresAt || null;
+    await order.save();
+
+    logger.info(
+      `[SUBSCRIPTION] Order reversed — orderId=${order.cashfreeOrderId || order._id} owner=${order.ownerId} reason="${reason}"`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Subscription reversed. Owner downgraded to Free.',
+      order,
+    });
+  } catch (err) {
+    logger.error(`[SUBSCRIPTION] adminReverseOrder error: ${err.message}`);
+    err.statusCode = err.statusCode || 500;
+    next(err);
+  }
+};
+
+/**
+ * POST /api/v2/subscriptions/admin/orders/:orderId/undo-reversal
+ * Superadmin: restore a reversed subscription — re-activates the owner's plan
+ * with the originally computed expiry.
+ */
+exports.adminUndoReverseOrder = async (req, res, next) => {
+  try {
+    const order = await SubscriptionOrder.findById(req.params.orderId);
+    if (!order) {
+      const err = new Error('Subscription order not found');
+      err.statusCode = 404;
+      return next(err);
+    }
+    if (order.status !== 'reversed') {
+      const err = new Error('Only reversed subscription orders can be restored');
+      err.statusCode = 400;
+      return next(err);
+    }
+
+    const sub = await subscriptionService.undoSubscriptionReversal(
+      order.ownerId,
+      order.plan,
+      order.activatedUntil
+    );
+
+    order.status = 'paid';
+    order.reversedAt = null;
+    order.reversedBy = null;
+    order.reversalReason = '';
+    order.activatedUntil = sub.expiresAt || null;
+    await order.save();
+
+    logger.info(
+      `[SUBSCRIPTION] Reversal undone — orderId=${order.cashfreeOrderId || order._id} owner=${order.ownerId} plan=${order.plan}`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Subscription restored. Owner is back on their paid plan.',
+      order,
+    });
+  } catch (err) {
+    logger.error(`[SUBSCRIPTION] adminUndoReverseOrder error: ${err.message}`);
+    err.statusCode = err.statusCode || 500;
     next(err);
   }
 };

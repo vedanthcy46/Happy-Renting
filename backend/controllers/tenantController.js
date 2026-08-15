@@ -9,6 +9,7 @@ const tenantService = require('../services/tenantService');
 const logActivity   = require('../utils/activityLogger');
 const emailService  = require('../services/emailService');
 const MoveOutRequest = require('../models/MoveOutRequest');
+const entitlementService = require('../services/entitlementService');
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const addTenantValidation = [
@@ -146,6 +147,19 @@ const getTenant = async (req, res, next) => {
 // ── POST /api/tenants  (Move-In) ───────────────────────────────────────────
 const addTenant = async (req, res, next) => {
   try {
+    // ── Restriction: Free plan active-tenant limit (owners only) ─────────────
+    if (req.user.role === 'owner') {
+      const guard = await entitlementService.getCreationGuard(req.user, 'activeTenants');
+      if (!guard.ok) {
+        return res.status(403).json({
+          success: false,
+          code: 'PLAN_LIMIT_REACHED',
+          message: guard.message,
+          entitlement: { plan: guard.plan, used: guard.used, limit: guard.limit },
+        });
+      }
+    }
+
     const { 
       userId, roomId, propertyId, joinDate, moveInDate, advancePaid, securityDeposit, 
       notes, phone, idProof, coOccupants, customBillingDay, isMigratedTenant 

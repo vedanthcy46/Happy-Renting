@@ -8,11 +8,14 @@ import OccupancyBar from '../components/common/OccupancyBar';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
 import DashboardFilters from '../components/common/DashboardFilters';
+import PlanLimitBanner from '../components/common/PlanLimitBanner';
+import useOwnerEntitlement from '../hooks/useOwnerEntitlement';
 
 const RoomsPage = () => {
   const toast = useToast();
   const location = useLocation();
   const { isOwner } = useAuth();
+  const { loading: entLoading, limits, hitRoomLimit } = useOwnerEntitlement();
 
   const queryParams = new URLSearchParams(location.search);
   const initialProp = queryParams.get('propertyId') || '';
@@ -140,7 +143,13 @@ const RoomsPage = () => {
           <p className="text-slate-400 text-sm mt-1">{rooms.length} room{rooms.length !== 1 ? 's' : ''} total</p>
         </div>
         {isOwner && (
-          <button id="add-room-btn" onClick={handleOpenAdd} className="btn-primary">
+          <button
+            id="add-room-btn"
+            onClick={handleOpenAdd}
+            disabled={!entLoading && hitRoomLimit}
+            className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            title={hitRoomLimit ? 'Free plan limit reached — upgrade from the app' : undefined}
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -148,6 +157,13 @@ const RoomsPage = () => {
           </button>
         )}
       </div>
+
+      <PlanLimitBanner
+        show={hitRoomLimit}
+        used={limits.rooms?.used}
+        limit={limits.rooms?.limit}
+        resource="rooms"
+      />
 
       {/* Filters */}
       <DashboardFilters onFilterChange={setFilters} showOwnerFilter={true} hideRoomFilter={true} />
