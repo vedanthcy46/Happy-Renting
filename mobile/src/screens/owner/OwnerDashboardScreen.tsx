@@ -7,18 +7,21 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { WorkspaceSwitcher } from '../../components/WorkspaceSwitcher';
-import { UpdateCard, PlanStatusCard } from '../../components';
+import { UpdateCard, PlanStatusCard, PremiumTag } from '../../components';
+import { getAiEntitlement } from '../../api/ai';
 import {
   getPaymentSummary,
   getExpenseSummary,
@@ -88,6 +91,7 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
   const { colors } = useTheme();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const firstName = user?.name?.split(' ')[0] ?? 'Owner';
 
   // â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -142,6 +146,32 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
     queryFn: () => getRooms(),
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: planData } = useQuery({
+    queryKey: ['planStatus', 'owner'],
+    queryFn: () => getAiEntitlement('owner'),
+    staleTime: 60 * 1000,
+  });
+  const isPremium = ['MONTHLY', 'ANNUAL', 'LIFETIME'].includes(planData?.entitlement?.plan || 'FREE');
+
+  const promptUpgrade = useCallback(() => {
+    Alert.alert(
+      t('subscription.premiumRequiredTitle'),
+      t('subscription.reportsPremiumMsg'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('subscription.viewPlans'), onPress: () => router.navigate('/subscription' as any) },
+      ]
+    );
+  }, [router, t]);
+
+  const openFullHistory = useCallback(() => {
+    if (!isPremium) {
+      promptUpgrade();
+      return;
+    }
+    router.navigate('/owner/reports' as any);
+  }, [isPremium, promptUpgrade, router]);
 
   const isLoading = loadingSummary || loadingExpenseSummary || loadingProperties || loadingTenants || loadingRooms;
 
@@ -250,9 +280,12 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
         <View style={[styles.netCard, { backgroundColor: colors.surface }, shadows.md]}>
           <View style={styles.netHeader}>
             <View style={styles.netHeaderLeft}>
-              <Text style={[styles.netCardTitle, { color: colors.text.secondary }]}>
-                {t('owner.dashboard.netCollectionMonth')}
-              </Text>
+              <View style={styles.netTitleRow}>
+                <Text style={[styles.netCardTitle, { color: colors.text.secondary }]}>
+                  {t('owner.dashboard.netCollectionMonth')}
+                </Text>
+                {!isPremium && <PremiumTag label={t('subscription.premium')} small />}
+              </View>
               {loadingExpenseSummary ? (
                 <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} />
               ) : (
@@ -297,6 +330,17 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
               <Text style={[styles.summaryItemLabel, { color: colors.text.secondary }]}>{t('owner.dashboard.entries')}</Text>
             </View>
           </View>
+
+          <TouchableOpacity
+            style={[styles.netCta, { borderColor: colors.border }]}
+            onPress={openFullHistory}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.netCtaText, { color: colors.text.secondary }]}>
+              {t(isPremium ? 'owner.dashboard.viewFullHistory' : 'owner.dashboard.unlockFullHistory')}
+            </Text>
+            <Ionicons name="chevron-forward" size={15} color={colors.text.tertiary} />
+          </TouchableOpacity>
         </View>
 
         {/* â”€â”€ Stats grid â”€â”€ */}
@@ -463,6 +507,7 @@ const styles = StyleSheet.create({
   },
   netHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   netHeaderLeft: { flex: 1 },
+  netTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   netCardTitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   netCardValue: { fontSize: 32, fontWeight: '700', letterSpacing: -1, marginTop: spacing.xs },
   netIconWrap: {
@@ -472,6 +517,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  netCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  netCtaText: { fontSize: 13, fontWeight: '600' },
 
   // Stat grid
   sectionTitle: { fontSize: 16, fontWeight: '700' },

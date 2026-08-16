@@ -25,3 +25,4 @@ export { ImageLightbox } from './ImageLightbox';
 export { CalendarPicker } from './CalendarPicker';
 export { UpdateCard } from './UpdateCard';
 export { PlanStatusCard } from './PlanStatusCard';
+export { PremiumTag } from './PremiumTag';

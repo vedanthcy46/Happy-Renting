@@ -18,6 +18,8 @@ interface AppHeaderProps {
   onRightPress?: () => void;
   rightIcon?: keyof typeof Ionicons.glyphMap;
   style?: ViewStyle;
+  /** Optional element rendered beside the title (e.g. a Premium tag). */
+  tag?: React.ReactNode;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -28,6 +30,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   rightIcon,
   onRightPress,
   style,
+  tag,
 }) => {
   const { colors } = useTheme();
   const r = useResponsive();
@@ -42,7 +45,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
       </View>
       <View style={styles.center}>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          {tag}
+        </View>
         {subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
       </View>
       <View style={styles.right}>
@@ -72,6 +78,11 @@ const makeStyles = (colors: any, f: (n: number) => number, h: (n: number) => num
   center: {
     flex: 1,
     alignItems: 'center',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   right: {
     width: 44,

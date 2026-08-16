@@ -21,6 +21,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WorkspacePicker } from './WorkspacePicker';
+import { PremiumTag } from './PremiumTag';
 import { useQuery } from '@tanstack/react-query';
 import { cachedOwnerPendingApprovals, cachedOwnerComplaints, cachedNotificationsUnread } from '../repositories';
 import { getAiEntitlement } from '../api/ai';
@@ -38,6 +39,8 @@ interface DrawerItem {
   dividerAfter?: boolean;
   /** Optional count badge shown on the right (hidden when 0/undefined). */
   badge?: number;
+  /** Renders a small "Premium" tag next to the label for premium-only features. */
+  premium?: boolean;
 }
 
 interface DrawerProps {
@@ -149,7 +152,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     { icon: 'checkmark-done-circle', label: t('drawer.pendingApprovals'), route: '/owner/approvals', badge: pendingApprovalsCount },
     { icon: 'construct', label: t('drawer.complaints'), route: '/owner/complaints', badge: openComplaintsCount },
     { icon: 'trending-up', label: t('drawer.expenses'), route: '/owner/expenses' },
-    { icon: 'bar-chart', label: t('drawer.reports'), route: isOwnerPremium ? '/owner/reports' : undefined, onPress: isOwnerPremium ? undefined : promptUpgrade, dividerAfter: true },
+    { icon: 'bar-chart', label: t('drawer.reports'), route: isOwnerPremium ? '/owner/reports' : undefined, onPress: isOwnerPremium ? undefined : promptUpgrade, premium: true, dividerAfter: true },
     { icon: 'notifications', label: t('drawer.notifications'), route: '/notifications', badge: unreadCount, dividerAfter: true },
   ];
 
@@ -288,9 +291,12 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
                 <View style={[styles.drawerItemIcon, { backgroundColor: themeColors.primaryLight + '30' }]}>
                   <Ionicons name={item.icon} size={22} color={item.color || themeColors.primary} />
                 </View>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.text.primary }]}>
-                  {item.label}
-                </Text>
+                <View style={styles.drawerItemLabelWrap}>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.text.primary }]} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                  {item.premium && <PremiumTag small />}
+                </View>
                 {typeof item.badge === 'number' && item.badge > 0 && (
                   <View style={[styles.drawerBadge, { backgroundColor: themeColors.error }]}>
                     <Text style={styles.drawerBadgeText}>{item.badge > 99 ? '99+' : item.badge}</Text>
@@ -449,6 +455,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
+  },
+  drawerItemLabelWrap: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   drawerBadge: {
     minWidth: 22,

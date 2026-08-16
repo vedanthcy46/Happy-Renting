@@ -14,10 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../theme/ThemeProvider';
 import { typography, spacing, radius } from '../theme';
-import { AppHeader } from '../components';
+import { AppHeader, PremiumTag } from '../components';
 import { useAiChat } from '../hooks/useAiChat';
+import { getAiEntitlement } from '../api/ai';
 import { Workspace } from '../types/ai';
 
 function parseInline(text: string, color: string) {
@@ -75,6 +77,12 @@ export const AIAssistantScreen = () => {
   const lastAiLayout = useRef<{ y: number; height: number } | null>(null);
 
   const isOwner = workspace === 'owner';
+  const { data: planData } = useQuery({
+    queryKey: ['planStatus', isOwner ? 'owner' : 'tenant'],
+    queryFn: () => getAiEntitlement(isOwner ? 'owner' : 'tenant'),
+    staleTime: 60 * 1000,
+  });
+  const isPremium = ['MONTHLY', 'ANNUAL', 'LIFETIME'].includes(planData?.entitlement?.plan || 'FREE');
   const suggestions = isOwner
     ? [t('ai.sOwner1'), t('ai.sOwner2'), t('ai.sOwner3'), t('ai.sOwner4'), t('ai.sOwner5'), t('ai.sOwner6'), t('ai.sOwner7'), t('ai.sOwner8'), t('ai.sOwner9'), t('ai.sOwner10')]
     : [t('ai.sTenant1'), t('ai.sTenant2'), t('ai.sTenant3'), t('ai.sTenant4'), t('ai.sTenant5')];
@@ -110,6 +118,7 @@ export const AIAssistantScreen = () => {
         <AppHeader
           title={t('ai.titleAssistant')}
           subtitle={subtitle}
+          tag={!isPremium && <PremiumTag label={t('subscription.premium')} small />}
           rightIcon="trash-outline"
           onRightPress={clearChat}
           onBack={() => router.back()}

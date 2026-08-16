@@ -418,6 +418,8 @@
       "overdue": "Overdue",
       "outstanding": "Outstanding",
       "netCollectionMonth": "Net Collection (this month)",
+      "viewFullHistory": "View full history",
+      "unlockFullHistory": "Unlock full history",
       "collected": "Collected",
       "expenses": "Expenses",
       "entries": "Entries",
@@ -1267,6 +1269,10 @@
       {
         "q": "How do I update my profile?",
         "a": "Go to the Profile tab and tap Edit Profile. You can update your name, phone number. Contact your owner to update your email or room details."
+      },
+      {
+        "q": "What's included in the Free vs Premium plan?",
+        "a": "Rent payments, receipts, complaints and notifications are always free. Your other app features depend on your owner's plan — the Free plan keeps the AI assistant limited, while Premium unlocks unlimited AI prompts and priority features."
       }
     ],
     "ownerFaq": [
@@ -1301,6 +1307,10 @@
       {
         "q": "When do I get paid?",
         "a": "Tenants receive a rent due notification, and you are paid as soon as a payment is verified. Track collected and pending amounts on your Dashboard."
+      },
+      {
+        "q": "What's included in the Free vs Premium plan?",
+        "a": "Free: 1 property, 3 rooms, 3 active tenants, 2 AI prompts per month, and reports for the current month only (no PDF/Excel export). Premium (Monthly/Annual/Lifetime): unlimited properties, rooms and tenants, unlimited AI prompts, full report history, advanced reports, and PDF/Excel export."
       }
     ]
   },
