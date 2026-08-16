@@ -42,6 +42,7 @@ const paymentRoutes  = require('./routes/paymentRoutes');
 const paymentRoutesV2 = require('./routes/paymentRoutesV2');
 const walletRoutes    = require('./routes/walletRoutes');
 const expenseRoutes   = require('./routes/expenseRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const walletAdminRoutes = require('./routes/walletAdminRoutes');
 const ownerRequestRoutes = require('./routes/ownerRequestRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
@@ -230,6 +231,7 @@ app.use('/api/payments',   paymentRoutes);
 app.use('/api/v2/payments',   paymentRoutesV2); // New ledger-based system
 app.use('/api/v2/wallet',     walletRoutes);
 app.use('/api/v2/expenses',   expenseRoutes);
+app.use('/api/v2/analytics',  analyticsRoutes);
 app.use('/api/v2/admin',      walletAdminRoutes);
 app.use('/api/v2/subscriptions', subscriptionRoutes);
 app.use('/api/complaints', complaintRoutes);
