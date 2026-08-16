@@ -6,6 +6,8 @@ const Expense = require('../models/Expense');
 const Property = require('../models/Property');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const logActivity = require('../utils/activityLogger');
+const entitlementService = require('../services/entitlementService');
+const { getPlan, isUnlimited } = require('../config/plans');
 
 // ── Validation chains ──────────────────────────────────────────────────────
 const expenseValidation = [
@@ -32,11 +34,40 @@ const currentMonth = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 };
 
+const shiftMonthKey = (key, delta) => {
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/**
+ * Enforce the plan's reportMonths history window for OWNERS.
+ * FREE allows only the current month; premium allows full history.
+ * Throws a 403 (via next) when the requested month is outside the window.
+ */
+const enforceReportMonthWindow = (user, month) => {
+  if (!user || user.role !== 'owner') return;
+  const plan = getPlan(entitlementService.planKeyForOwner(user));
+  if (isUnlimited(plan.reportMonths) || plan.reportMonths >= 999) return;
+  const nowKey = currentMonth();
+  if (month > nowKey) return; // future months aren't report history — let it return empty
+  const oldestAllowed = shiftMonthKey(nowKey, -(plan.reportMonths - 1));
+  if (month < oldestAllowed) {
+    const err = new Error(
+      'Report history is limited to the last ' + plan.reportMonths + ' month' + (plan.reportMonths === 1 ? '' : 's') +
+      ' on the free plan. Upgrade to access older reports.'
+    );
+    err.statusCode = 403;
+    throw err;
+  }
+};
+
 // ── GET /api/v2/expenses?month=YYYY-MM&propertyId=id ─────────────────────
 exports.getExpenses = async (req, res, next) => {
   try {
     const filter = { ownerId: req.user._id };
     if (req.query.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month)) {
+      enforceReportMonthWindow(req.user, req.query.month);
       filter.month = req.query.month;
     }
     if (req.query.propertyId && /^[a-f\d]{24}$/i.test(req.query.propertyId)) {
@@ -75,6 +106,7 @@ exports.getExpenseSummary = async (req, res, next) => {
     const month = req.query.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month)
       ? req.query.month
       : currentMonth();
+    enforceReportMonthWindow(req.user, month);
     const { start, end } = monthRange(month);
 
     const expenseFilter = { ownerId: req.user._id, month };

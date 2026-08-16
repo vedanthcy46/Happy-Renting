@@ -16,6 +16,8 @@ const Tenant = require('../models/Tenant');
 const emailService = require('../services/emailService');
 const logger = require('../config/logger');
 const { Transform } = require('stream');
+const entitlementService = require('../services/entitlementService');
+const { getPlan } = require('../config/plans');
 
 // ─────────────────────────────────────────────────────────────────────────
 // VALIDATION CHAINS
@@ -497,6 +499,16 @@ const getTransactionHistory = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────
 const exportTransactionsCSV = async (req, res, next) => {
   try {
+    if (req.user.role === 'owner') {
+      const plan = getPlan(entitlementService.planKeyForOwner(req.user));
+      if (!plan.exportExcel) {
+        return res.status(403).json({
+          success: false,
+          message: 'CSV export is a premium feature. Upgrade your plan to export transactions.',
+        });
+      }
+    }
+
     const { month, year } = req.query; // optional filtering
     const filters = {};
 

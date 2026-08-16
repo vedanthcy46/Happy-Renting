@@ -23,6 +23,8 @@ const Complaint    = require('../models/Complaint');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const emailService = require('./emailService');
+const entitlementService = require('./entitlementService');
+const { getPlan } = require('../config/plans');
 
 function monthKey(date) {
   const d = date || new Date();
@@ -169,9 +171,14 @@ function summaryRows(doc, rows, lineHeight) {
 async function emailMonthlyReport(ownerId, month, opts) {
   opts = opts || {};
   const m = month || monthKey();
-  const owner = await User.findById(ownerId).select('name email notificationPreferences').lean();
+  const owner = await User.findById(ownerId).select('name email notificationPreferences subscription').lean();
   if (!owner) throw { statusCode: 404, message: 'Owner not found.' };
   if (!owner.email) return { skipped: 'Owner has no email address.' };
+
+  const plan = getPlan(entitlementService.planKeyForOwner(owner));
+  if (!plan.exportPdf) {
+    return { skipped: 'Monthly report PDF is a premium feature (plan ' + plan.key + ').' };
+  }
 
   const report = await collectReport(ownerId, m);
   const buffer = await buildReportPDF(report, owner.name || 'Owner');
