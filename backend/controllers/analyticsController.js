@@ -47,9 +47,9 @@ const monthRange = (key) => {
  *   incomeTrend:         [{ month, income }]  (actual cash collected)
  *   paidVsPending:       { paid, pending }     (within the returned window)
  *   occupancy:           { totalRooms, occupiedRooms, vacantRooms, occupancyRate }
- *   tenantPaymentStatus: { paid, partial, pending, overdue } (current month record counts)
+ *   tenantPaymentStatus: { paid, partial, pending, overdue } (record counts for `month`)
  *   paymentMethods:      [{ method, amount, count }] (window, completed cash)
- *   propertyCollection:  [{ propertyId, name, expected, collected, pending }] (current month)
+ *   propertyCollection:  [{ propertyId, name, expected, collected, pending }] (for `month`)
  *   propertyOccupancy:   [{ propertyId, name, totalRooms, occupiedRooms, occupancyRate }]
  */
 exports.getOwnerAnalytics = async (req, res, next) => {
@@ -62,6 +62,11 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     months = Math.max(1, months);
 
     const nowKey = currentMonthKey();
+    // Month filter (YYYY-MM) drives the point-in-time series (tenant payment
+    // status, property-wise collection); invalid values fall back to now.
+    const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month || '')
+      ? req.query.month
+      : nowKey;
     const keys = [];
     for (let i = 0; i < months; i++) {
       keys.push(shiftMonthKey(nowKey, -i));
@@ -129,9 +134,9 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     const paid = collectionTrend.reduce((s, m) => s + m.collected, 0);
     const pending = collectionTrend.reduce((s, m) => s + m.pending, 0);
 
-    // ── Tenant payment status (current month rent records by status) ──
+    // ── Tenant payment status (rent records by status for the selected month) ──
     const statusAgg = await MonthlyRentRecord.aggregate([
-      { $match: { ownerId: ownerObjId, month: nowKey } },
+      { $match: { ownerId: ownerObjId, month: monthKey } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
     const statusMap = new Map(statusAgg.map((r) => [r._id, r.count]));
@@ -221,9 +226,9 @@ exports.getOwnerAnalytics = async (req, res, next) => {
       };
     });
 
-    // ── Property-wise rent collection (current month) ──
+    // ── Property-wise rent collection (selected month) ──
     const propCollectionAgg = await MonthlyRentRecord.aggregate([
-      { $match: { ownerId: ownerObjId, month: nowKey } },
+      { $match: { ownerId: ownerObjId, month: monthKey } },
       {
         $group: {
           _id: '$propertyId',
@@ -250,6 +255,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     res.status(200).json({
       success: true,
       months,
+      month: monthKey,
       collectionTrend,
       incomeTrend,
       paidVsPending: { paid, pending },

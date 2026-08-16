@@ -90,6 +90,25 @@ export interface PaymentSummaryMetrics {
   collectionsToday: number;
 }
 
+export interface OwnerAnalytics {
+  success: boolean;
+  months: number;
+  month: string;
+  collectionTrend: { month: string; expected: number; collected: number; pending: number }[];
+  incomeTrend: { month: string; income: number }[];
+  paidVsPending: { paid: number; pending: number };
+  occupancy: { totalRooms: number; occupiedRooms: number; vacantRooms: number; occupancyRate: number };
+  tenantPaymentStatus: { paid: number; partial: number; pending: number; overdue: number };
+  paymentMethods: { method: string; amount: number; count: number }[];
+  propertyCollection: { propertyId: string; name: string; expected: number; collected: number; pending: number }[];
+  propertyOccupancy: { propertyId: string; name: string; totalRooms: number; occupiedRooms: number; occupancyRate: number }[];
+}
+
+export const getOwnerAnalytics = async (params?: { month?: string }): Promise<OwnerAnalytics> => {
+  const { data } = await client.get('/v2/analytics/owner', { params });
+  return data;
+};
+
 export interface OwnerRentRecord {
   _id: string;
   month: string;

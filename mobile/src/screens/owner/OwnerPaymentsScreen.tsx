@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -217,8 +217,20 @@ export const OwnerPaymentsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const router = useRouter();
+  const routeParams = useLocalSearchParams<{ status?: string }>();
 
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  // Deep-link support: charts/notifications can open this tab pre-filtered, e.g. ?status=overdue
+  const initialStatus: FilterStatus = ['pending', 'partial', 'overdue', 'paid'].includes(routeParams.status ?? '')
+    ? (routeParams.status as FilterStatus)
+    : 'all';
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialStatus);
+
+  // If already mounted and re-navigated with a new status param, sync the filter.
+  useEffect(() => {
+    if (routeParams.status && ['pending', 'partial', 'overdue', 'paid'].includes(routeParams.status)) {
+      setFilterStatus(routeParams.status as FilterStatus);
+    }
+  }, [routeParams.status]);
   const [search, setSearch] = useState('');
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
@@ -298,7 +310,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
     rejectMutation.mutate({ id: rejectTargetId, reason });
   };
 
-  const tabs: { key: FilterStatus; label: string }[] = [
+  const tabs: { key: FilterStatus; label: string; count?: number }[] = [
     { key: 'all', label: t('owner.payments.tabAll') },
     { key: 'overdue', label: t('owner.payments.tabOverdue'), count: metrics?.overdueCount },
     { key: 'pending', label: t('owner.payments.tabPending'), count: metrics?.pendingCount },

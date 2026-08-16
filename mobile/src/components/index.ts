@@ -26,3 +26,7 @@ export { CalendarPicker } from './CalendarPicker';
 export { UpdateCard } from './UpdateCard';
 export { PlanStatusCard } from './PlanStatusCard';
 export { PremiumTag } from './PremiumTag';
+export { GroupedBarChart } from './charts/GroupedBarChart';
+export { DonutChart } from './charts/DonutChart';
+export { TrendLineChart } from './charts/TrendLineChart';
+export { HorizontalBarChart } from './charts/HorizontalBarChart';

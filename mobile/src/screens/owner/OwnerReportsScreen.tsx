@@ -10,14 +10,25 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
-import { getExpenses, getExpenseSummary, getProperties, type OwnerExpense } from '../../api/owner';
+import { getExpenses, getExpenseSummary, getProperties, getOwnerAnalytics, type OwnerExpense } from '../../api/owner';
 import { getAiEntitlement } from '../../api/ai';
 import { useRouter } from 'expo-router';
+import { GroupedBarChart, DonutChart, TrendLineChart, HorizontalBarChart, PremiumTag } from '../../components';
 
 const PREMIUM_PLANS = ['MONTHLY', 'ANNUAL', 'LIFETIME'];
 
 const formatCurrency = (n: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  cash: 'Cash',
+  upi: 'UPI',
+  bank_transfer: 'Bank Transfer',
+  cheque: 'Cheque',
+  other: 'Other',
+};
+
+const METHOD_COLORS = ['#4B6BED', '#16A34A', '#D97706', '#7C3AED', '#64748B'];
 
 const CATEGORY_LABEL: Record<string, string> = {
   maintenance: 'Maintenance', electricity: 'Electricity', water: 'Water',
@@ -36,6 +47,14 @@ const monthLabel = (m: string) => {
   const idx = parseInt(mm, 10) - 1;
   if (isNaN(idx)) return m;
   return `${months[idx] ?? mm} ${y}`;
+};
+
+const shortMonthLabel = (m: string) => {
+  const [y, mm] = m.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const idx = parseInt(mm, 10) - 1;
+  if (isNaN(idx)) return m;
+  return months[idx] ?? mm;
 };
 
 const shiftMonth = (m: string, dir: number) => {
@@ -80,10 +99,35 @@ export const OwnerReportsScreen: React.FC = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: analyticsData, isLoading: loadingAnalytics } = useQuery({
+    // month is part of the key so tenant status / property collection refetch
+    // when the month selector changes (backend scopes them to `month`).
+    queryKey: ['ownerAnalytics', month],
+    queryFn: () => getOwnerAnalytics({ month }),
+    staleTime: 5 * 60 * 1000,
+    enabled: isPremium,
+  });
+
   const summary = summaryData?.summary;
   const expenses = expensesData?.expenses ?? [];
   const properties = propData?.properties ?? [];
   const income = summary?.totalIncome ?? 0;
+
+  // Defensive shape: older backends / cached responses may omit newer series.
+  // Missing fields become safe empty defaults so charts never receive NaN/undefined.
+  const analytics = useMemo(() => {
+    if (!analyticsData) return null;
+    return {
+      collectionTrend: analyticsData.collectionTrend ?? [],
+      incomeTrend: analyticsData.incomeTrend ?? [],
+      paidVsPending: analyticsData.paidVsPending ?? { paid: 0, pending: 0 },
+      occupancy: analyticsData.occupancy ?? { totalRooms: 0, occupiedRooms: 0, vacantRooms: 0, occupancyRate: 0 },
+      tenantPaymentStatus: analyticsData.tenantPaymentStatus ?? { paid: 0, partial: 0, pending: 0, overdue: 0 },
+      paymentMethods: analyticsData.paymentMethods ?? [],
+      propertyCollection: analyticsData.propertyCollection ?? [],
+      propertyOccupancy: analyticsData.propertyOccupancy ?? [],
+    };
+  }, [analyticsData]);
 
   const promptUpgrade = () => {
     Alert.alert(
@@ -216,6 +260,205 @@ export const OwnerReportsScreen: React.FC = () => {
           )}
         </View>
 
+        {/* Premium Analytics */}
+        {isPremium && (
+          <>
+            <View style={styles.analyticsTitleRow}>
+              <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>
+                {t('owner.reports.premiumAnalytics')}
+              </Text>
+              <PremiumTag small />
+            </View>
+
+            {loadingAnalytics && (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
+            )}
+
+            {!loadingAnalytics && analytics && (
+              <>
+                {/* Monthly rent collection */}
+                <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                  <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                    {t('owner.reports.chartMonthlyCollection')}
+                  </Text>
+                  <GroupedBarChart
+                    data={analytics.collectionTrend.map((m) => ({
+                      label: shortMonthLabel(m.month),
+                      values: [m.collected, m.pending],
+                    }))}
+                    series={[
+                      { label: t('owner.reports.collected'), color: colors.success },
+                      { label: t('owner.reports.pending'), color: colors.error },
+                    ]}
+                    valueFormat={formatCurrency}
+                  />
+                </View>
+
+                {/* Paid vs Pending */}
+                <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                  <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                    {t('owner.reports.chartPaidVsPending')}
+                  </Text>
+                  <DonutChart
+                    segments={[
+                      { label: t('owner.reports.paid'), value: analytics.paidVsPending.paid, color: colors.success },
+                      { label: t('owner.reports.pending'), value: analytics.paidVsPending.pending, color: colors.error },
+                    ]}
+                    size={130}
+                    centerLabel={t('owner.reports.overall')}
+                    valueFormat={formatCurrency}
+                  />
+                  {analytics.paidVsPending.pending > 0 && (
+                    <TouchableOpacity
+                      style={styles.actionRow}
+                      onPress={() => router.navigate({ pathname: '/(owner-tabs)/payments', params: { status: 'pending' } } as any)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="alert-circle-outline" size={14} color={colors.error} />
+                      <Text style={[styles.actionText, { color: colors.error }]}>
+                        {t('owner.reports.viewPendingPayments')}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={colors.error} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Pending rent trend */}
+                <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                  <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                    {t('owner.reports.chartPendingTrend')}
+                  </Text>
+                  <TrendLineChart
+                    data={analytics.collectionTrend.map((m) => ({ label: shortMonthLabel(m.month), value: m.pending }))}
+                    color={colors.error}
+                    valueFormat={formatCurrency}
+                  />
+                </View>
+
+                {/* Income trend */}
+                <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                  <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                    {t('owner.reports.chartIncomeTrend')}
+                  </Text>
+                  <TrendLineChart
+                    data={analytics.incomeTrend.map((m) => ({ label: shortMonthLabel(m.month), value: m.income }))}
+                    color={colors.primary}
+                    valueFormat={formatCurrency}
+                  />
+                </View>
+
+                {/* Occupancy */}
+                <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                  <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                    {t('owner.reports.chartOccupancy')}
+                  </Text>
+                  <DonutChart
+                    segments={[
+                      { label: t('owner.reports.occupied'), value: analytics.occupancy.occupiedRooms, color: colors.primary },
+                      { label: t('owner.reports.vacant'), value: analytics.occupancy.vacantRooms, color: colors.border },
+                    ]}
+                    size={130}
+                    centerLabel={t('owner.reports.occupancyRate')}
+                    centerValue={`${analytics.occupancy.occupancyRate}%`}
+                  />
+                  {analytics.occupancy.vacantRooms > 0 && (
+                    <TouchableOpacity
+                      style={styles.actionRow}
+                      onPress={() => router.navigate('/(owner-tabs)/properties' as any)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="business-outline" size={14} color={colors.primary} />
+                      <Text style={[styles.actionText, { color: colors.primary }]}>
+                        {t('owner.reports.viewVacantRooms', { count: analytics.occupancy.vacantRooms })}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Tenant payment status (current month) */}
+                <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                  <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                    {t('owner.reports.chartTenantStatus')}
+                  </Text>
+                  <HorizontalBarChart
+                    data={[
+                      { label: t('owner.reports.paid'), value: analytics.tenantPaymentStatus.paid, color: colors.success },
+                      { label: t('owner.reports.partial'), value: analytics.tenantPaymentStatus.partial, color: colors.warning },
+                      { label: t('owner.reports.pending'), value: analytics.tenantPaymentStatus.pending, color: colors.text.tertiary },
+                      { label: t('owner.reports.overdue'), value: analytics.tenantPaymentStatus.overdue, color: colors.error },
+                    ]}
+                    onRowPress={(i) => {
+                      const status = ['paid', 'partial', 'pending', 'overdue'][i];
+                      router.navigate({ pathname: '/(owner-tabs)/payments', params: { status } } as any);
+                    }}
+                  />
+                  <Text style={[styles.chartHint, { color: colors.text.tertiary }]}>
+                    {t('owner.reports.tapToFilterHint')}
+                  </Text>
+                </View>
+
+                {/* Property-wise rent collection (current month) */}
+                {analytics.propertyCollection.length > 0 && (
+                  <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                    <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                      {t('owner.reports.chartPropertyCollection')}
+                    </Text>
+                    <HorizontalBarChart
+                      data={analytics.propertyCollection.map((p) => ({
+                        label: p.name,
+                        value: p.collected,
+                        color: colors.success,
+                        subLabel: p.pending > 0 ? t('owner.reports.pendingShort', { amount: formatCurrency(p.pending) }) : undefined,
+                      }))}
+                      valueFormat={formatCurrency}
+                    />
+                  </View>
+                )}
+
+                {/* Property-wise occupancy */}
+                {analytics.propertyOccupancy.length > 0 && (
+                  <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                    <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                      {t('owner.reports.chartPropertyOccupancy')}
+                    </Text>
+                    <HorizontalBarChart
+                      data={analytics.propertyOccupancy.map((p) => ({
+                        label: p.name,
+                        value: p.occupancyRate,
+                        color: p.occupancyRate >= 100 ? colors.success : p.occupancyRate > 0 ? colors.primary : colors.border,
+                        subLabel: `${p.occupiedRooms}/${p.totalRooms}`,
+                      }))}
+                      maxValue={100}
+                      valueFormat={(n) => `${n}%`}
+                      onRowPress={() => router.navigate('/(owner-tabs)/properties' as any)}
+                    />
+                  </View>
+                )}
+
+                {/* Payment method distribution */}
+                {analytics.paymentMethods.length > 0 && (
+                  <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
+                    <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
+                      {t('owner.reports.chartPaymentMethods')}
+                    </Text>
+                    <DonutChart
+                      segments={analytics.paymentMethods.map((m, i) => ({
+                        label: PAYMENT_METHOD_LABEL[m.method] ?? m.method,
+                        value: m.amount,
+                        color: METHOD_COLORS[i % METHOD_COLORS.length],
+                      }))}
+                      size={130}
+                      centerLabel={t('owner.reports.collected')}
+                      valueFormat={formatCurrency}
+                    />
+                  </View>
+                )}
+              </>
+            )}
+          </>
+        )}
+
         {/* Expense breakdown */}
         <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>{t('owner.reports.sectionBreakdown')}</Text>
         <View style={[styles.breakdownCard, { backgroundColor: colors.surface }, shadows.sm]}>
@@ -297,4 +540,10 @@ const styles = StyleSheet.create({
   expSub: { fontSize: 11, marginTop: 2 },
   expAmount: { fontSize: 13, fontWeight: '700' },
   emptyExp: { fontSize: 13, textAlign: 'center', paddingVertical: spacing.sm },
+  analyticsTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.sm },
+  analyticsCard: { borderRadius: radius.xl, padding: spacing.lg, gap: spacing.md },
+  analyticsTitle: { fontSize: 15, fontWeight: '700' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: spacing.xs },
+  actionText: { fontSize: 12, fontWeight: '700' },
+  chartHint: { fontSize: 11, textAlign: 'center' },
 });

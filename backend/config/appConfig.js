@@ -10,11 +10,11 @@
 const appConfig = {
   mobile: {
     // Latest published Play Store version (semver) and versionCode.
-    latestVersion: '2.6.0',
-    latestVersionCode: 22,
+    latestVersion: '2.7.0',
+    latestVersionCode: 23,
     playStoreUrl: 'https://play.google.com/store/apps/details?id=co.in.happyrenting.tenant',
     // Optional short release notes shown inside the update card.
-    releaseNotes: '',
+    releaseNotes: 'Premium analytics charts with month filtering, chart stability fixes, and more language support.',
     // Days to wait before re-showing the update card after "Later".
     remindIntervalDays: 3,
   },
