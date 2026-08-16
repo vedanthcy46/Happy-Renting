@@ -1090,7 +1090,7 @@ export const OwnerTenantsScreen: React.FC = () => {
       t('owner.tenants.coDeleteTitle'),
       t('owner.tenants.coDeleteMsg', { name: co.name }),
       [
-        { text: t('owner.commonTenant.cancel'), style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('owner.tenants.coDeleteConfirm'),
           style: 'destructive',
@@ -1125,7 +1125,7 @@ export const OwnerTenantsScreen: React.FC = () => {
       Alert.alert(
         t('owner.tenants.reverseDeletedTitle'),
         t('owner.tenants.reverseDeletedMsg'),
-        [{ text: t('owner.commonTenant.ok'), onPress: () => setReverseTarget(null) }]
+        [{ text: t('common.ok'), onPress: () => setReverseTarget(null) }]
       );
       return;
     }
@@ -1133,7 +1133,7 @@ export const OwnerTenantsScreen: React.FC = () => {
       t('owner.tenants.reverseAlertTitle'),
       t('owner.tenants.reverseAlertMsg', { name: tenant.userId.name, room: tenant.roomId.roomNumber }),
       [
-        { text: t('owner.commonTenant.cancel'), style: 'cancel', onPress: () => setReverseTarget(null) },
+        { text: t('common.cancel'), style: 'cancel', onPress: () => setReverseTarget(null) },
         {
           text: t('owner.tenants.reverseAlertRestore'),
           onPress: () => reverseMoveOutMutation.mutate(tenant._id),

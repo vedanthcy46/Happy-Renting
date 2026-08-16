@@ -99,6 +99,7 @@ export const SubscriptionScreen: React.FC = () => {
           { text: 'OK', onPress: () => router.back() },
         ]);
         queryClient.invalidateQueries({ queryKey: ['planStatus'] });
+        queryClient.invalidateQueries({ queryKey: ['mySubscription'] });
         await load();
       } else if (res.status === 'pending') {
         Alert.alert(t('subscription.pendingTitle'), t('subscription.pendingBody'));

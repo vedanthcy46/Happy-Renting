@@ -27,30 +27,31 @@ export const PlanStatusCard: React.FC<PlanStatusCardProps> = ({ workspace }) => 
   const { colors } = useTheme();
   const router = useRouter();
 
+  // NOTE: this query shares the ['planStatus', workspace] cache key with the
+  // dashboard/reports/drawer screens, so it MUST cache the raw entitlement
+  // response like they do. Caching a transformed shape here made premium
+  // users read `data.plan` from the raw object (undefined) and show "Free".
   const { data, isLoading, isError } = useQuery({
     queryKey: ['planStatus', workspace],
-    queryFn: async () => {
-      const entitlementRes = await getAiEntitlement(workspace);
-      const plan = entitlementRes?.entitlement?.plan || 'FREE';
-      let expiresAt: string | null = null;
-      if (workspace === 'owner') {
-        try {
-          const subRes = await getMySubscription();
-          expiresAt = subRes?.subscription?.expiresAt || null;
-        } catch {
-          expiresAt = null;
-        }
-      }
-      return { plan, expiresAt };
-    },
+    queryFn: () => getAiEntitlement(workspace),
     staleTime: 60 * 1000,
     retry: 1,
   });
 
+  const { data: subData } = useQuery({
+    queryKey: ['mySubscription'],
+    queryFn: getMySubscription,
+    staleTime: 60 * 1000,
+    retry: 1,
+    enabled: workspace === 'owner',
+  });
+
   if (isLoading || isError || !data) return null;
 
-  const isPremium = PREMIUM_PLANS.includes(data.plan);
-  const labelKey = PLAN_LABEL_KEYS[data.plan];
+  const plan = data.entitlement?.plan || 'FREE';
+  const expiresAt = subData?.subscription?.expiresAt || null;
+  const isPremium = PREMIUM_PLANS.includes(plan);
+  const labelKey = PLAN_LABEL_KEYS[plan];
 
   const onPress = () => {
     if (workspace === 'owner') router.navigate('/subscription' as any);
@@ -75,8 +76,8 @@ export const PlanStatusCard: React.FC<PlanStatusCardProps> = ({ workspace }) => 
           <Text style={styles.message}>
             {labelKey ? t(labelKey) : ''}
             {workspace === 'tenant' ? ` · ${t('subscription.managedByOwner')}` : ''}
-            {data.expiresAt && data.plan !== 'LIFETIME'
-              ? ` · ${t('subscription.expiresOn', { date: new Date(data.expiresAt).toLocaleDateString() })}`
+            {expiresAt && plan !== 'LIFETIME'
+              ? ` · ${t('subscription.expiresOn', { date: new Date(expiresAt).toLocaleDateString() })}`
               : ''}
           </Text>
         </View>

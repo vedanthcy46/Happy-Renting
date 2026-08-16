@@ -92,7 +92,9 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     }
     const keys = [];
     for (let i = 0; i < months; i++) {
-      keys.push(shiftMonthKey(nowKey, -i));
+      // The window ends at the SELECTED month (not "today") so every chart,
+      // including trends, responds to the month filter.
+      keys.push(shiftMonthKey(monthKey, -i));
     }
 
     // ── Monthly rent collection (expected / collected / pending) ──
@@ -168,7 +170,8 @@ exports.getOwnerAnalytics = async (req, res, next) => {
       overdue: statusMap.get('overdue') || 0,
     };
 
-    // ── Payment method distribution (window, completed positive cash) ──
+    // ── Payment method distribution (selected month, completed positive cash) ──
+    const selRange = monthRange(monthKey);
     const methodAgg = await PaymentTransaction.aggregate([
       {
         $match: {
@@ -176,10 +179,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
           status: 'completed',
           amount: { $gt: 0 },
           transactionType: { $nin: NON_CASH_TRANSACTION_TYPES },
-          paymentDate: {
-            $gte: monthBounds[monthBounds.length - 1].start,
-            $lt: monthBounds[0].end,
-          },
+          paymentDate: { $gte: selRange.start, $lt: selRange.end },
         },
       },
       {
