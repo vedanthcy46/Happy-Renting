@@ -32,6 +32,14 @@ export interface Room {
   isActive: boolean;
 }
 
+export interface CoOccupant {
+  _id: string;
+  name: string;
+  phone?: string;
+  idProof?: string;
+  status?: string;
+}
+
 export interface OwnerTenant {
   _id: string;
   status: 'active' | 'vacated' | 'pending_deletion';
@@ -47,6 +55,7 @@ export interface OwnerTenant {
   refundNote?: string;
   securityDeposit?: number;
   notes?: string;
+  coOccupants?: CoOccupant[];
   userId: {
     _id: string;
     name: string;

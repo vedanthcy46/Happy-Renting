@@ -166,7 +166,7 @@ export const ComplaintScreen: React.FC = () => {
       <KeyboardSafeModal
         visible={showAddModal}
         animationType="slide"
-        overlayStyle={styles.modalOverlay}
+        overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
         onRequestClose={() => setShowAddModal(false)}
       >
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>

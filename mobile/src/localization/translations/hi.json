@@ -78,7 +78,10 @@
     "managedByOwner": "आपके मालिक की योजना के साथ शामिल",
     "freeOwnerSub": "असीमित AI, रिपोर्ट और अधिक अनलॉक करें",
     "freeTenantSub": "प्रीमियम लाभ आपके मालिक की योजना में शामिल हैं",
-    "active": "सक्रिय"
+    "active": "सक्रिय",
+    "premiumRequiredTitle": "प्रीमियम फीचर",
+    "reportsPremiumMsg": "रिपोर्ट और निर्यात प्रीमियम फीचर हैं। पूरी रिपोर्ट इतिहास देखने और PDF रिपोर्ट निर्यात करने के लिए अपग्रेड करें।",
+    "viewPlans": "योजनाएं देखें"
   },
   "login": {
     "title": "वापसी पर स्वागत है",
@@ -553,7 +556,33 @@
       "refundConfirm": "चुका दिया गया चिह्नित करें",
       "refundAlertTitle": "चुका दिया गया",
       "refundAlertMsg": "रिफंड को चुकता के रूप में चिह्नित किया गया है।",
-      "refundErr": "रिफंड दर्ज करने में विफल। कृपया पुनः प्रयास करें।"
+      "refundErr": "रिफंड दर्ज करने में विफल। कृपया पुनः प्रयास करें।",
+      "coTitle": "सह-निवासी",
+      "coCount": "{{count}} सह-निवासी",
+      "coCount_other": "{{count}} सह-निवासी",
+      "coEmpty": "कोई सह-निवासी पंजीकृत नहीं है।",
+      "coAdd": "सह-निवासी जोड़ें",
+      "coEdit": "संपादित करें",
+      "coRemove": "हटाएं",
+      "coAddTitle": "सह-निवासी जोड़ें",
+      "coEditTitle": "सह-निवासी संपादित करें",
+      "coFieldName": "नाम *",
+      "coFieldPhone": "फ़ोन",
+      "coFieldId": "आईडी प्रमाण जानकारी",
+      "coPlaceholderName": "पूरा नाम",
+      "coPlaceholderPhone": "फ़ोन नंबर",
+      "coPlaceholderId": "आधार / पासपोर्ट #",
+      "coNameRequired": "नाम आवश्यक है",
+      "coSavedTitle": "सहेजा गया",
+      "coAddedMsg": "सह-निवासी सफलतापूर्वक जोड़ा गया।",
+      "coUpdatedMsg": "सह-निवासी सफलतापूर्वक अपडेट किया गया।",
+      "coDeleteTitle": "सह-निवासी हटाएं",
+      "coDeleteMsg": "{{name}} को इस कमरे से हटाएं?",
+      "coDeleteConfirm": "हटाएं",
+      "coDeletedMsg": "सह-निवासी सफलतापूर्वक हटाया गया।",
+      "coErr": "सह-निवासी सहेजने में विफल। कृपया पुनः प्रयास करें।",
+      "coErrDelete": "सह-निवासी हटाने में विफल। कृपया पुनः प्रयास करें।",
+      "coRoomLabel": "कमरे के लिए"
     },
     "expenses": {
       "title": "खर्चे",
@@ -603,6 +632,7 @@
       "catCleaning": "सफाई",
       "catInternet": "इंटरनेट",
       "catMisc": "विविध",
+      "catSubscription": "सदस्यता",
       "alertOfflineSave": "ऑफ़लाइन सहेजा गया",
       "alertOfflineSaveMsg": "खर्च इस डिवाइस पर सहेजा गया है। वापस ऑनलाइन आने पर यह अपने आप सिंक हो जाएगा।",
       "alertOfflineUpdateMsg": "बदलाव सहेजे गए। ऑनलाइन आने पर सिंक होंगे।",
@@ -1330,3 +1360,5 @@
     "tenantWorkspace": "किराएदार का कार्यक्षेत्र"
   }
 }
+
+

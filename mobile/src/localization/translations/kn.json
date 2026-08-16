@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "appName": "Happy Renting",
     "save": "ಉಳಿಸಿ",
@@ -78,7 +78,10 @@
     "managedByOwner": "ನಿಮ್ಮ ಮಾಲೀಕರ ಯೋಜನೆಯಲ್ಲಿ ಸೇರಿದೆ",
     "freeOwnerSub": "ಅನ್‍ಲಿಮಿಟೆಡ್ AI, ವರದಿಗಳು ಮತ್ತು ಹೆಚ್ಚಿನದನ್ನು ಅನ್‍ಲಾಕ್ ಮಾಡಿ",
     "freeTenantSub": "ಪ್ರೀಮಿಯಂ ಪ್ರಯೋಜನಗಳು ನಿಮ್ಮ ಮಾಲೀಕರ ಯೋಜನೆಯಲ್ಲಿ ಸೇರಿವೆ",
-    "active": "ಸಕ್ರಿಯ"
+    "active": "ಸಕ್ರಿಯ",
+    "premiumRequiredTitle": "ಪ್ರೀಮಿಯಂ ವೈಶಿಷ್ಟ್ಯ",
+    "reportsPremiumMsg": "ವರದಿಗಳು ಮತ್ತು ರಫ್ತುಗಳು ಪ್ರೀಮಿಯಂ ವೈಶಿಷ್ಟ್ಯಗಳಾಗಿವೆ. ಸಂಪೂರ್ಣ ವರದಿ ಇತಿಹಾಸವನ್ನು ನೋಡಲು ಮತ್ತು PDF ವರದಿಗಳನ್ನು ರಫ್ತು ಮಾಡಲು ಅಪ್ಗ್ರೇಡ್ ಮಾಡಿ.",
+    "viewPlans": "ಯೋಜನೆಗಳನ್ನು ನೋಡಿ"
   },
   "login": {
     "title": "ಮರಳಿ ಸ್ವಾಗತ",
@@ -553,7 +556,33 @@
       "refundConfirm": "ಇತ್ಯರ್ಥವಾಗಿದೆ ಎಂದು ಗುರುತಿಸಿ",
       "refundAlertTitle": "ಇತ್ಯರ್ಥಗೊಂಡಿದೆ",
       "refundAlertMsg": "ಹಣ ವಾಪಸ್ ನೀಡಿ ಇತ್ಯರ್ಥಪಡಿಸಲಾಗಿದೆ.",
-      "refundErr": "ವಿಫಲವಾಗಿದೆ."
+      "refundErr": "ವಿಫಲವಾಗಿದೆ.",
+      "coTitle": "ಸಹ-ನಿವಾಸಿಗಳು",
+      "coCount": "{{count}} ಸಹ-ನಿವಾಸಿ",
+      "coCount_other": "{{count}} ಸಹ-ನಿವಾಸಿಗಳು",
+      "coEmpty": "ಯಾವುದೇ ಸಹ-ನಿವಾಸಿಗಳು ನೋಂದಾಯಿಸಿಲ್ಲ.",
+      "coAdd": "ಸಹ-ನಿವಾಸಿ ಸೇರಿಸಿ",
+      "coEdit": "ಸಂಪಾದಿಸಿ",
+      "coRemove": "ತೆಗೆದುಹಾಕಿ",
+      "coAddTitle": "ಸಹ-ನಿವಾಸಿ ಸೇರಿಸಿ",
+      "coEditTitle": "ಸಹ-ನಿವಾಸಿ ಸಂಪಾದಿಸಿ",
+      "coFieldName": "ಹೆಸರು *",
+      "coFieldPhone": "ಫೋನ್",
+      "coFieldId": "ID ಪುರಾವೆ ಮಾಹಿತಿ",
+      "coPlaceholderName": "ಪೂರ್ಣ ಹೆಸರು",
+      "coPlaceholderPhone": "ಫೋನ್ ಸಂಖ್ಯೆ",
+      "coPlaceholderId": "ಆಧಾರ್ / ಪಾಸ್‌ಪೋರ್ಟ್ #",
+      "coNameRequired": "ಹೆಸರು ಅಗತ್ಯವಿದೆ",
+      "coSavedTitle": "ಉಳಿಸಲಾಗಿದೆ",
+      "coAddedMsg": "ಸಹ-ನಿವಾಸಿ ಯಶಸ್ವಿಯಾಗಿ ಸೇರಿಸಲಾಗಿದೆ.",
+      "coUpdatedMsg": "ಸಹ-ನಿವಾಸಿ ಯಶಸ್ವಿಯಾಗಿ ನವೀಕರಿಸಲಾಗಿದೆ.",
+      "coDeleteTitle": "ಸಹ-ನಿವಾಸಿ ತೆಗೆದುಹಾಕಿ",
+      "coDeleteMsg": "{{name}} ಅನ್ನು ಈ ಕೋಣೆಯಿಂದ ತೆಗೆದುಹಾಕುವುದೇ?",
+      "coDeleteConfirm": "ತೆಗೆದುಹಾಕಿ",
+      "coDeletedMsg": "ಸಹ-ನಿವಾಸಿ ಯಶಸ್ವಿಯಾಗಿ ತೆಗೆದುಹಾಕಲಾಗಿದೆ.",
+      "coErr": "ಸಹ-ನಿವಾಸಿ ಉಳಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "coErrDelete": "ಸಹ-ನಿವಾಸಿ ತೆಗೆದುಹಾಕಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "coRoomLabel": "ಕೋಣೆಗಾಗಿ"
     },
     "expenses": {
       "title": "ಖರ್ಚುಗಳು",
@@ -603,6 +632,7 @@
       "catCleaning": "ಶುಚಿಗೊಳಿಸುವಿಕೆ",
       "catInternet": "ಇಂಟರ್ನೆಟ್",
       "catMisc": "ಇತರ ಖರ್ಚುಗಳು",
+      "catSubscription": "ಚಂದಾದಾರಿಕೆ",
       "alertOfflineSave": "ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ",
       "alertOfflineSaveMsg": "ಆನ್‌ಲೈನ್ ಬಂದಾಗ ಸಿಂಕ್ ಆಗುತ್ತದೆ.",
       "alertOfflineUpdateMsg": "ಬದಲಾವಣೆಗಳು ಉಳಿದಿವೆ.",
@@ -1330,3 +1360,5 @@
     "tenantWorkspace": "ಬಾಡಿಗೆದಾರರ ವಿಭಾಗ"
   }
 }
+
+

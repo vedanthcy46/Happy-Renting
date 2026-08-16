@@ -23,8 +23,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { WorkspacePicker } from './WorkspacePicker';
 import { useQuery } from '@tanstack/react-query';
 import { cachedOwnerPendingApprovals, cachedOwnerComplaints, cachedNotificationsUnread } from '../repositories';
+import { getAiEntitlement } from '../api/ai';
 
 const DRAWER_WIDTH_MAX = 360;
+
+const PREMIUM_PLANS = ['MONTHLY', 'ANNUAL', 'LIFETIME'];
 
 interface DrawerItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -81,6 +84,14 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     refetchInterval: 30 * 1000,
   });
 
+  const { data: planData } = useQuery({
+    queryKey: ['planStatus', 'owner'],
+    queryFn: () => getAiEntitlement('owner'),
+    enabled: isOpen && isOwnerWorkspace,
+    staleTime: 60 * 1000,
+  });
+  const isOwnerPremium = PREMIUM_PLANS.includes(planData?.entitlement?.plan || 'FREE');
+
   const pendingApprovalsCount = approvalsData?.transactions?.length ?? 0;
   const openComplaintsCount = (complaintsData?.complaints ?? []).filter(
     (c: { status?: string }) => c.status === 'pending' || c.status === 'in-progress'
@@ -90,6 +101,20 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
   const navigate = (route: string) => {
     onClose();
     setTimeout(() => router.push(route as any), 300);
+  };
+
+  const promptUpgrade = () => {
+    onClose();
+    setTimeout(() => {
+      Alert.alert(
+        t('subscription.premiumRequiredTitle'),
+        t('subscription.reportsPremiumMsg'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('subscription.viewPlans'), onPress: () => router.navigate('/subscription' as any) },
+        ]
+      );
+    }, 300);
   };
 
   const handleLogout = () => {
@@ -124,7 +149,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     { icon: 'checkmark-done-circle', label: t('drawer.pendingApprovals'), route: '/owner/approvals', badge: pendingApprovalsCount },
     { icon: 'construct', label: t('drawer.complaints'), route: '/owner/complaints', badge: openComplaintsCount },
     { icon: 'trending-up', label: t('drawer.expenses'), route: '/owner/expenses' },
-    { icon: 'bar-chart', label: t('drawer.reports'), route: '/owner/reports', dividerAfter: true },
+    { icon: 'bar-chart', label: t('drawer.reports'), route: isOwnerPremium ? '/owner/reports' : undefined, onPress: isOwnerPremium ? undefined : promptUpgrade, dividerAfter: true },
     { icon: 'notifications', label: t('drawer.notifications'), route: '/notifications', badge: unreadCount, dividerAfter: true },
   ];
 

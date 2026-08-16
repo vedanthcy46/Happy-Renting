@@ -196,9 +196,10 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 4,
+    lineHeight: 13,
   },
   tabItem: {
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
 });

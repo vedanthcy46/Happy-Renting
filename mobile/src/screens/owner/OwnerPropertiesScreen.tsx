@@ -44,6 +44,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   visible, initial, onClose, onSave, saving, t
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState(initial?.name ?? '');
   const [address, setAddress] = useState(initial?.address ?? '');
   const [city, setCity] = useState(initial?.city ?? '');
@@ -61,7 +62,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     <KeyboardSafeModal
       visible={visible}
       animationType="slide"
-      overlayStyle={styles.modalOverlay}
+      overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
       onRequestClose={onClose}
     >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>

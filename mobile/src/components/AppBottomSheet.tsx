@@ -62,10 +62,14 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   }, [keyboardHeight, keyboardPad]);
 
   const bottomInset = insets.bottom;
+  const topSafe = Math.max(insets.top + 24, 24);
 
   // Lift the sheet above the keyboard (YouTube-style) while keeping it on-screen.
+  // The top-safe cap ensures the header (title / first fields) never slide under
+  // the status bar when the sheet is tall — the overflow is instead handled by
+  // scroll padding below.
   const sheetStyle = useAnimatedStyle(() => {
-    const lift = Math.min(keyboardPad.value, Math.max(height - sheetHeight.value - 20, 0));
+    const lift = Math.min(keyboardPad.value, Math.max(height - sheetHeight.value - topSafe, 0));
     return {
       height: sheetHeight.value,
       transform: [{ translateY: -lift }],
@@ -75,7 +79,7 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   // Scroll padding covers only the part of the sheet still behind the keyboard
   // (when the sheet is too tall to fully clear it).
   const scrollContentStyle = useAnimatedStyle(() => {
-    const lift = Math.min(keyboardPad.value, Math.max(height - sheetHeight.value - 20, 0));
+    const lift = Math.min(keyboardPad.value, Math.max(height - sheetHeight.value - topSafe, 0));
     const behind = Math.max(keyboardPad.value - lift, 0);
     return {
       paddingBottom: spacing.huge + bottomInset + behind + 16,
@@ -142,7 +146,7 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
       statusBarTranslucent
       onRequestClose={closeSheet}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingBottom: insets.bottom + 64 }]}>
         <Animated.View pointerEvents="none" style={[styles.scrim, { backgroundColor: OVERLAY_COLOR }, scrimStyle]} />
         <TouchableOpacity
           style={styles.backdrop}

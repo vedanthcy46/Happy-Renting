@@ -11,6 +11,10 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { getExpenses, getExpenseSummary, getProperties, type OwnerExpense } from '../../api/owner';
+import { getAiEntitlement } from '../../api/ai';
+import { useRouter } from 'expo-router';
+
+const PREMIUM_PLANS = ['MONTHLY', 'ANNUAL', 'LIFETIME'];
 
 const formatCurrency = (n: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -44,10 +48,19 @@ export const OwnerReportsScreen: React.FC = () => {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [month, setMonth] = useState(currentMonth());
   const [propertyId, setPropertyId] = useState<string | undefined>(undefined);
   const [exporting, setExporting] = useState(false);
+
+  const { data: planData } = useQuery({
+    queryKey: ['planStatus', 'owner'],
+    queryFn: () => getAiEntitlement('owner'),
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+  const isPremium = PREMIUM_PLANS.includes(planData?.entitlement?.plan || 'FREE');
 
   const { data: summaryData, isLoading, refetch } = useQuery({
     queryKey: ['ownerExpenseSummary', month, propertyId],
@@ -72,7 +85,22 @@ export const OwnerReportsScreen: React.FC = () => {
   const properties = propData?.properties ?? [];
   const income = summary?.totalIncome ?? 0;
 
+  const promptUpgrade = () => {
+    Alert.alert(
+      t('subscription.premiumRequiredTitle'),
+      t('subscription.reportsPremiumMsg'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('subscription.viewPlans'), onPress: () => router.navigate('/subscription' as any) },
+      ]
+    );
+  };
+
   const handleExport = async () => {
+    if (!isPremium) {
+      promptUpgrade();
+      return;
+    }
     try {
       setExporting(true);
       const { generateOwnerReportPdf } = await import('../../utils/reportPdf');
@@ -91,6 +119,14 @@ export const OwnerReportsScreen: React.FC = () => {
     } finally {
       setExporting(false);
     }
+  };
+
+  const changeMonth = (dir: number) => {
+    if (dir < 0 && !isPremium) {
+      promptUpgrade();
+      return;
+    }
+    setMonth(shiftMonth(month, dir));
   };
 
   const propertyTabs = [
@@ -116,11 +152,11 @@ export const OwnerReportsScreen: React.FC = () => {
 
       <View style={[styles.compactFilter, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.monthNav}>
-          <TouchableOpacity onPress={() => setMonth(shiftMonth(month, -1))} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          <TouchableOpacity onPress={() => changeMonth(-1)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
             <Ionicons name="chevron-back" size={18} color={colors.primary} />
           </TouchableOpacity>
           <Text style={[styles.monthLabel, { color: colors.text.primary }]}>{monthLabel(month)}</Text>
-          <TouchableOpacity onPress={() => setMonth(shiftMonth(month, 1))} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          <TouchableOpacity onPress={() => changeMonth(1)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
         </View>

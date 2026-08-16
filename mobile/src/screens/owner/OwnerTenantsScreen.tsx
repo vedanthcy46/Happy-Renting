@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
-import { getOwnerTenants, moveOutTenant, reverseMoveOutTenant, updateTenant, markRefundSettled, type OwnerTenant } from '../../api/owner';
+import { getOwnerTenants, moveOutTenant, reverseMoveOutTenant, updateTenant, markRefundSettled, addCoOccupant, updateCoOccupant, deleteCoOccupant, type OwnerTenant, type CoOccupant } from '../../api/owner';
 import { KeyboardSafeModal } from '../../components';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -31,8 +31,8 @@ const formatDate = (iso?: string) => {
   });
 };
 
-const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DAYS = ['S','M','T','W','T','F','S'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -63,13 +63,17 @@ interface TenantDetailSheetProps {
   onReverseOut: (tenant: OwnerTenant) => void;
   onEdit: (tenant: OwnerTenant) => void;
   onSettleRefund: (tenant: OwnerTenant) => void;
+  onAddCoOccupant: (tenant: OwnerTenant) => void;
+  onEditCoOccupant: (tenant: OwnerTenant, co: CoOccupant) => void;
+  onDeleteCoOccupant: (tenant: OwnerTenant, co: CoOccupant) => void;
   t: (key: string) => string;
 }
 
 const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
-  tenant, visible, onClose, onMoveOut, onReverseOut, onEdit, onSettleRefund, t
+  tenant, visible, onClose, onMoveOut, onReverseOut, onEdit, onSettleRefund, onAddCoOccupant, onEditCoOccupant, onDeleteCoOccupant, t
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   if (!tenant) return null;
 
   const row = (label: string, value: string) => (
@@ -96,96 +100,150 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                 {tenant.userId.email}
               </Text>
             </View>
-        <StatusBadge status={tenant.status} t={t} />
+            <StatusBadge status={tenant.status} t={t} />
           </View>
 
           <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
 
-          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
-    {row(t('owner.tenants.detailRoom'), `Room ${tenant.roomId.roomNumber}${tenant.roomId.floor ? ` · Floor ${tenant.roomId.floor}` : ''}`)}
-    {row(t('owner.tenants.detailProperty'), tenant.propertyId.name)}
-    {row(t('owner.tenants.detailMonthlyRent'), `₹${tenant.roomId.monthlyRent.toLocaleString('en-IN')}`)}
-    {row(t('owner.tenants.detailMoveIn'), formatDate(tenant.moveInDate ?? tenant.joinDate))}
-    {tenant.exitDate && row(t('owner.tenants.detailExit'), formatDate(tenant.exitDate))}
-    {tenant.phone && row(t('owner.tenants.detailPhone'), tenant.phone)}
-    {tenant.idProof && row(t('owner.tenants.detailIdNumber'), tenant.idProof)}
-    {tenant.securityDeposit != null && row(t('owner.tenants.detailSecurityDeposit'), `₹${Number(tenant.securityDeposit).toLocaleString('en-IN')}`)}
-    {tenant.advancePaid != null && row(t('owner.tenants.detailAdvancePaid'), `₹${Number(tenant.advancePaid).toLocaleString('en-IN')}`)}
-    {tenant.notes ? row(t('owner.tenants.detailNotes'), tenant.notes) : null}
-          </ScrollView>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: spacing.sm }}>
+            {row(t('owner.tenants.detailRoom'), `Room ${tenant.roomId.roomNumber}${tenant.roomId.floor ? ` · Floor ${tenant.roomId.floor}` : ''}`)}
+            {row(t('owner.tenants.detailProperty'), tenant.propertyId.name)}
+            {row(t('owner.tenants.detailMonthlyRent'), `₹${tenant.roomId.monthlyRent.toLocaleString('en-IN')}`)}
+            {row(t('owner.tenants.detailMoveIn'), formatDate(tenant.moveInDate ?? tenant.joinDate))}
+            {tenant.exitDate && row(t('owner.tenants.detailExit'), formatDate(tenant.exitDate))}
+            {tenant.phone && row(t('owner.tenants.detailPhone'), tenant.phone)}
+            {tenant.idProof && row(t('owner.tenants.detailIdNumber'), tenant.idProof)}
+            {tenant.securityDeposit != null && row(t('owner.tenants.detailSecurityDeposit'), `₹${Number(tenant.securityDeposit).toLocaleString('en-IN')}`)}
+            {tenant.advancePaid != null && row(t('owner.tenants.detailAdvancePaid'), `₹${Number(tenant.advancePaid).toLocaleString('en-IN')}`)}
+            {tenant.notes ? row(t('owner.tenants.detailNotes'), tenant.notes) : null}
 
-          {tenant.status === 'active' && (
-            <>
-              <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-                onPress={() => { onClose(); onEdit(tenant); }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="create-outline" size={18} color={colors.primary} />
-                 <Text style={[styles.actionBtnText, { color: colors.primary }]}>{t('owner.tenants.detailEdit')}</Text>
-              </TouchableOpacity>
-              <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.errorLight, borderColor: colors.error }]}
-                onPress={() => { onClose(); onMoveOut(tenant); }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="exit-outline" size={18} color={colors.error} />
-                 <Text style={[styles.actionBtnText, { color: colors.error }]}>{t('owner.tenants.detailMoveOut')}</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          {tenant.status === 'vacated' && (
-            <>
-              {(Number(tenant.advanceRefundAmount || 0) > 0 || Number(tenant.advancePaid || 0) > 0) && (
-                <>
-                  <View style={styles.sheetDivider} />
-                  <View style={[styles.refundCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <View>
-                         <Text style={[styles.refundTitle, { color: tenant.refundSettled ? colors.success : colors.warning }]}>
-                           {tenant.refundSettled ? t('owner.tenants.refundSettled') : t('owner.tenants.refundDue')}
-                         </Text>
-                        <Text style={[styles.refundAmount, { color: colors.text.primary }]}>
-                          ₹{(Number(tenant.advanceRefundAmount) > 0 ? Number(tenant.advanceRefundAmount) : Number(tenant.advancePaid)).toLocaleString('en-IN')}
+            {/* Co-Occupants */}
+            <View style={[styles.coSection, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={styles.coHeader}>
+                <Text style={[styles.coTitle, { color: colors.text.primary }]}>
+                  {t('owner.tenants.coTitle')} ({tenant.coOccupants?.length ?? 0})
+                </Text>
+                {tenant.status === 'active' && (
+                  <TouchableOpacity
+                    style={[styles.coAddBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => { onClose(); onAddCoOccupant(tenant); }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add" size={14} color="#FFFFFF" />
+                    <Text style={styles.coAddBtnText}>{t('owner.tenants.coAdd')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {!tenant.coOccupants || tenant.coOccupants.length === 0 ? (
+                <Text style={[styles.coEmpty, { color: colors.text.tertiary }]}>{t('owner.tenants.coEmpty')}</Text>
+              ) : (
+                tenant.coOccupants.map(co => (
+                  <View key={co._id} style={[styles.coRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[styles.coName, { color: colors.text.primary }]} numberOfLines={1}>{co.name}</Text>
+                      {(co.phone || co.idProof) && (
+                        <Text style={[styles.coMeta, { color: colors.text.tertiary }]} numberOfLines={1}>
+                          {[co.phone, co.idProof ? `ID: ${co.idProof}` : ''].filter(Boolean).join(' · ')}
                         </Text>
-                        {tenant.refundSettled && tenant.refundSettledAt && (
-                          <Text style={[styles.refundDate, { color: colors.text.tertiary }]}>
-                            {formatDate(tenant.refundSettledAt)}
-                          </Text>
-                        )}
-                        {tenant.refundSettled && tenant.refundNote ? (
-                          <Text style={[styles.refundDate, { color: colors.text.tertiary }]} numberOfLines={2}>
-                            {tenant.refundNote}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {!tenant.refundSettled && (
-                        <TouchableOpacity
-                          style={[styles.refundBtn, { backgroundColor: colors.warning }]}
-                          onPress={() => { onClose(); onSettleRefund(tenant); }}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
-                           <Text style={styles.refundBtnText}>{t('owner.tenants.markSettled')}</Text>
-                        </TouchableOpacity>
                       )}
                     </View>
+                    {tenant.status === 'active' && (
+                      <View style={styles.coActions}>
+                        <TouchableOpacity
+                          style={[styles.coActionBtn, { backgroundColor: colors.primaryLight }]}
+                          onPress={() => { onClose(); onEditCoOccupant(tenant, co); }}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Ionicons name="create-outline" size={16} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.coActionBtn, { backgroundColor: colors.errorLight }]}
+                          onPress={() => { onClose(); onDeleteCoOccupant(tenant, co); }}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={colors.error} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
-                </>
+                ))
               )}
-              <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.successLight, borderColor: colors.success }]}
-                onPress={() => { onClose(); onReverseOut(tenant); }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="arrow-undo-outline" size={18} color={colors.success} />
-                 <Text style={[styles.actionBtnText, { color: colors.success }]}>{t('owner.tenants.detailReverse')}</Text>
-              </TouchableOpacity>
-            </>
-          )}
+            </View>
+
+            {tenant.status === 'active' && (
+              <>
+                <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                  onPress={() => { onClose(); onEdit(tenant); }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.actionBtnText, { color: colors.primary }]}>{t('owner.tenants.detailEdit')}</Text>
+                </TouchableOpacity>
+                <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.errorLight, borderColor: colors.error }]}
+                  onPress={() => { onClose(); onMoveOut(tenant); }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="exit-outline" size={18} color={colors.error} />
+                  <Text style={[styles.actionBtnText, { color: colors.error }]}>{t('owner.tenants.detailMoveOut')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {tenant.status === 'vacated' && (
+              <>
+                {(Number(tenant.advanceRefundAmount || 0) > 0 || Number(tenant.advancePaid || 0) > 0) && (
+                  <>
+                    <View style={styles.sheetDivider} />
+                    <View style={[styles.refundCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View>
+                          <Text style={[styles.refundTitle, { color: tenant.refundSettled ? colors.success : colors.warning }]}>
+                            {tenant.refundSettled ? t('owner.tenants.refundSettled') : t('owner.tenants.refundDue')}
+                          </Text>
+                          <Text style={[styles.refundAmount, { color: colors.text.primary }]}>
+                            ₹{(Number(tenant.advanceRefundAmount) > 0 ? Number(tenant.advanceRefundAmount) : Number(tenant.advancePaid)).toLocaleString('en-IN')}
+                          </Text>
+                          {tenant.refundSettled && tenant.refundSettledAt && (
+                            <Text style={[styles.refundDate, { color: colors.text.tertiary }]}>
+                              {formatDate(tenant.refundSettledAt)}
+                            </Text>
+                          )}
+                          {tenant.refundSettled && tenant.refundNote ? (
+                            <Text style={[styles.refundDate, { color: colors.text.tertiary }]} numberOfLines={2}>
+                              {tenant.refundNote}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {!tenant.refundSettled && (
+                          <TouchableOpacity
+                            style={[styles.refundBtn, { backgroundColor: colors.warning }]}
+                            onPress={() => { onClose(); onSettleRefund(tenant); }}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
+                            <Text style={styles.refundBtnText}>{t('owner.tenants.markSettled')}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  </>
+                )}
+                <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.successLight, borderColor: colors.success }]}
+                  onPress={() => { onClose(); onReverseOut(tenant); }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-undo-outline" size={18} color={colors.success} />
+                  <Text style={[styles.actionBtnText, { color: colors.success }]}>{t('owner.tenants.detailReverse')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -316,6 +374,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
   tenant, visible, onClose, onConfirm, saving, t
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const todayISO = new Date().toISOString().split('T')[0];
   const [exitDate, setExitDate] = useState(todayISO);
   const [notes, setNotes] = useState('');
@@ -333,7 +392,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
       <KeyboardSafeModal
         visible={visible}
         animationType="fade"
-        overlayStyle={styles.sheetOverlay}
+        overlayStyle={[styles.sheetOverlay, { paddingBottom: insets.bottom + 64 }]}
         onRequestClose={onClose}
       >
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
@@ -343,33 +402,33 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
-          <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.moveOutFieldExitDate')}</Text>
-            <TouchableOpacity
-              style={[styles.input, styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
-              onPress={() => setCalendarVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={{ color: exitDate ? colors.text.primary : colors.text.tertiary, fontSize: 15 }}>
-                {exitDate || t('owner.tenants.moveOutEmptyExitDate')}
-              </Text>
-              <Ionicons name="calendar-outline" size={18} color={colors.text.tertiary} />
-            </TouchableOpacity>
-          </View>
+            <View style={styles.formField}>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.moveOutFieldExitDate')}</Text>
+              <TouchableOpacity
+                style={[styles.input, styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setCalendarVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: exitDate ? colors.text.primary : colors.text.tertiary, fontSize: 15 }}>
+                  {exitDate || t('owner.tenants.moveOutEmptyExitDate')}
+                </Text>
+                <Ionicons name="calendar-outline" size={18} color={colors.text.tertiary} />
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.formField}>
-            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.moveOutFieldNotes')}</Text>
-            <TextInput
-              style={[styles.input, styles.inputMultiline, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
-              value={notes}
-              onChangeText={setNotes}
-                 placeholder={t('owner.tenants.moveOutPlaceholderNotes')}
-              placeholderTextColor={colors.text.tertiary}
-              multiline
-              numberOfLines={3}
-              maxLength={500}
-            />
-          </View>
+            <View style={styles.formField}>
+              <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.moveOutFieldNotes')}</Text>
+              <TextInput
+                style={[styles.input, styles.inputMultiline, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder={t('owner.tenants.moveOutPlaceholderNotes')}
+                placeholderTextColor={colors.text.tertiary}
+                multiline
+                numberOfLines={3}
+                maxLength={500}
+              />
+            </View>
           </ScrollView>
 
           <View style={styles.modalActions}>
@@ -394,7 +453,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-    </KeyboardSafeModal>
+      </KeyboardSafeModal>
 
       <CalendarModal
         visible={calendarVisible}
@@ -429,6 +488,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
   tenant, visible, onClose, onSave, saving, t
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'finance' | 'profile'>('finance');
   const [deposit, setDeposit] = useState('');
   const [advance, setAdvance] = useState('');
@@ -471,20 +531,20 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
     });
   };
 
-return (
+  return (
     <KeyboardSafeModal
       visible={visible}
       animationType="slide"
-      overlayStyle={styles.sheetOverlay}
+      overlayStyle={[styles.sheetOverlay, { paddingBottom: insets.bottom + 64 }]}
       onRequestClose={onClose}
     >
-        <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.editTitle')}</Text>
-          <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
-            {tenant.userId.name} · Room {tenant.roomId.roomNumber}
-          </Text>
+      <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.editTitle')}</Text>
+        <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
+          {tenant.userId.name} · Room {tenant.roomId.roomNumber}
+        </Text>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
           {/* Tabs */}
           <View style={[styles.editTabRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
             {(['finance', 'profile'] as const).map(tabKey => (
@@ -494,9 +554,9 @@ return (
                 onPress={() => setTab(tabKey)}
                 activeOpacity={0.8}
               >
-                 <Text style={[styles.editTabText, { color: tab === tabKey ? '#FFFFFF' : colors.text.secondary }]}>
-                   {tabKey === 'finance' ? t('owner.tenants.editTabFinance') : t('owner.tenants.editTabProfile')}
-                 </Text>
+                <Text style={[styles.editTabText, { color: tab === tabKey ? '#FFFFFF' : colors.text.secondary }]}>
+                  {tabKey === 'finance' ? t('owner.tenants.editTabFinance') : t('owner.tenants.editTabProfile')}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -519,7 +579,7 @@ return (
                   placeholder={t('owner.tenants.editPlaceholderDeposit')}
                   placeholderTextColor={colors.text.tertiary}
                 />
-                 <Text style={[styles.fieldHint, { color: colors.text.tertiary }]}>{t('owner.tenants.editHintDeposit')}</Text>
+                <Text style={[styles.fieldHint, { color: colors.text.tertiary }]}>{t('owner.tenants.editHintDeposit')}</Text>
               </View>
               <View style={styles.formField}>
                 <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.editFieldPaid')}</Text>
@@ -580,30 +640,30 @@ return (
               </View>
             </>
           )}
-          </ScrollView>
+        </ScrollView>
 
-          <View style={styles.modalActions}>
-             <TouchableOpacity
-               style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
-               onPress={onClose}
-               activeOpacity={0.7}
-             >
-               <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
-             </TouchableOpacity>
-             <TouchableOpacity
-               style={[styles.modalBtn, { backgroundColor: colors.primary }]}
-               onPress={handleSave}
-               activeOpacity={0.8}
-               disabled={saving}
-             >
-{saving ? (
-                 <ActivityIndicator color="#FFFFFF" size="small" />
-               ) : (
-                 <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.editTitle')}</Text>
-               )}
-              </TouchableOpacity>
-          </View>
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: colors.primary }]}
+            onPress={handleSave}
+            activeOpacity={0.8}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.editTitle')}</Text>
+            )}
+          </TouchableOpacity>
         </View>
+      </View>
     </KeyboardSafeModal>
   );
 };
@@ -623,6 +683,7 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
   tenant, visible, onClose, onConfirm, saving, t
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [note, setNote] = useState('');
 
   React.useEffect(() => {
@@ -637,53 +698,179 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
     <KeyboardSafeModal
       visible={visible}
       animationType="fade"
-      overlayStyle={styles.sheetOverlay}
+      overlayStyle={[styles.sheetOverlay, { paddingBottom: insets.bottom + 64 }]}
       onRequestClose={onClose}
     >
-        <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.refundTitle')}</Text>
-          <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
-            {tenant.userId.name} · ₹{amount.toLocaleString('en-IN')}
-          </Text>
+      <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.refundTitle')}</Text>
+        <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
+          {tenant.userId.name} · ₹{amount.toLocaleString('en-IN')}
+        </Text>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
           <View style={styles.formField}>
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.refundFieldNote')}</Text>
             <TextInput
               style={[styles.input, styles.inputMultiline, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
               value={note}
               onChangeText={setNote}
-                 placeholder={t('owner.tenants.refundPlaceholderNote')}
+              placeholder={t('owner.tenants.refundPlaceholderNote')}
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={3}
               maxLength={500}
             />
           </View>
-          </ScrollView>
+        </ScrollView>
 
-          <View style={styles.modalActions}>
-             <TouchableOpacity
-               style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
-               onPress={onClose}
-               activeOpacity={0.7}
-             >
-               <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
-             </TouchableOpacity>
-             <TouchableOpacity
-               style={[styles.modalBtn, { backgroundColor: colors.warning }]}
-               onPress={() => onConfirm(note.trim())}
-               activeOpacity={0.8}
-               disabled={saving}
-             >
-{saving ? (
-                 <ActivityIndicator color="#FFFFFF" size="small" />
-               ) : (
-                 <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.refundConfirm')}</Text>
-               )}
-              </TouchableOpacity>
-          </View>
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: colors.warning }]}
+            onPress={() => onConfirm(note.trim())}
+            activeOpacity={0.8}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.refundConfirm')}</Text>
+            )}
+          </TouchableOpacity>
         </View>
+      </View>
+    </KeyboardSafeModal>
+  );
+};
+
+// ─── Co-occupant modal (Add/Edit) ─────────────────────────────────────────
+
+interface CoOccupantModalProps {
+  tenant: OwnerTenant | null;
+  coOccupant: CoOccupant | null;
+  visible: boolean;
+  onClose: () => void;
+  onSave: (payload: { name: string; phone: string; idProof: string }) => void;
+  saving: boolean;
+  t: (key: string) => string;
+}
+
+const CoOccupantModal: React.FC<CoOccupantModalProps> = ({
+  tenant, coOccupant, visible, onClose, onSave, saving, t
+}) => {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [idProof, setIdProof] = useState('');
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    if (visible) {
+      setName(coOccupant?.name || '');
+      setPhone(coOccupant?.phone || '');
+      setIdProof(coOccupant?.idProof || '');
+      setError('');
+    }
+  }, [visible, coOccupant]);
+
+  if (!tenant) return null;
+
+  const handleSave = () => {
+    if (!name.trim()) {
+      setError(t('owner.tenants.coNameRequired'));
+      return;
+    }
+    setError('');
+    onSave({ name: name.trim(), phone: phone.trim(), idProof: idProof.trim() });
+  };
+
+  return (
+    <KeyboardSafeModal
+      visible={visible}
+      animationType="fade"
+      overlayStyle={[styles.sheetOverlay, { paddingBottom: insets.bottom + 64 }]}
+      onRequestClose={onClose}
+    >
+      <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>
+          {coOccupant ? t('owner.tenants.coEditTitle') : t('owner.tenants.coAddTitle')}
+        </Text>
+        <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
+          {tenant.userId.name} · {t('owner.tenants.coRoomLabel')} {tenant.roomId.roomNumber}
+        </Text>
+
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
+          {error ? (
+            <View style={[styles.editError, { backgroundColor: colors.errorLight, borderColor: colors.error }]}>
+              <Text style={[styles.editErrorText, { color: colors.error }]}>{error}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.coFieldName')}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={name}
+              onChangeText={setName}
+              placeholder={t('owner.tenants.coPlaceholderName')}
+              placeholderTextColor={colors.text.tertiary}
+              maxLength={60}
+            />
+          </View>
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.coFieldPhone')}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder={t('owner.tenants.coPlaceholderPhone')}
+              placeholderTextColor={colors.text.tertiary}
+            />
+          </View>
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.coFieldId')}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={idProof}
+              onChangeText={setIdProof}
+              placeholder={t('owner.tenants.coPlaceholderId')}
+              placeholderTextColor={colors.text.tertiary}
+            />
+          </View>
+        </ScrollView>
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: colors.primary }]}
+            onPress={handleSave}
+            activeOpacity={0.8}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>
+                {coOccupant ? t('owner.commonOwner.saveChanges') : t('owner.tenants.coAdd')}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
     </KeyboardSafeModal>
   );
 };
@@ -718,9 +905,9 @@ const TenantCard: React.FC<{ tenant: OwnerTenant; onPress: () => void; t: (key: 
         <Text style={[styles.tenantSub, { color: colors.text.secondary }]} numberOfLines={1}>
           Room {tenant.roomId.roomNumber} · {tenant.propertyId.name}
         </Text>
-          <Text style={[styles.tenantDate, { color: colors.text.tertiary }]}>
-            {t('owner.tenants.since', { date: formatDate(tenant.moveInDate ?? tenant.joinDate) })}
-          </Text>
+        <Text style={[styles.tenantDate, { color: colors.text.tertiary }]}>
+          {t('owner.tenants.since', { date: formatDate(tenant.moveInDate ?? tenant.joinDate) })}
+        </Text>
       </View>
 
       <View style={styles.cardRight}>
@@ -755,6 +942,9 @@ export const OwnerTenantsScreen: React.FC = () => {
   const [refundVisible, setRefundVisible] = useState(false);
   const [moveOutVisible, setMoveOutVisible] = useState(false);
   const [reverseTarget, setReverseTarget] = useState<OwnerTenant | null>(null);
+  const [coTarget, setCoTarget] = useState<OwnerTenant | null>(null);
+  const [coOccupant, setCoOccupant] = useState<CoOccupant | null>(null);
+  const [coVisible, setCoVisible] = useState(false);
 
   const queryStatus = filter === 'all' ? undefined : filter;
 
@@ -847,6 +1037,78 @@ export const OwnerTenantsScreen: React.FC = () => {
     refundMutation.mutate({ id: refundTarget._id, note });
   };
 
+  const addCoMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { name: string; phone: string; idProof: string } }) =>
+      addCoOccupant(id, [payload]),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ownerTenants'] });
+      setCoTarget(null);
+      setCoVisible(false);
+      Alert.alert(t('owner.tenants.coSavedTitle'), t('owner.tenants.coAddedMsg'));
+    },
+    onError: (err: any) =>
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.tenants.coErr')),
+  });
+
+  const updateCoMutation = useMutation({
+    mutationFn: ({ id, coId, payload }: { id: string; coId: string; payload: { name: string; phone: string; idProof: string } }) =>
+      updateCoOccupant(id, coId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ownerTenants'] });
+      setCoTarget(null);
+      setCoVisible(false);
+      Alert.alert(t('owner.tenants.coSavedTitle'), t('owner.tenants.coUpdatedMsg'));
+    },
+    onError: (err: any) =>
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.tenants.coErr')),
+  });
+
+  const deleteCoMutation = useMutation({
+    mutationFn: ({ id, coId }: { id: string; coId: string }) => deleteCoOccupant(id, coId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ownerTenants'] });
+      Alert.alert(t('owner.tenants.coSavedTitle'), t('owner.tenants.coDeletedMsg'));
+    },
+    onError: (err: any) =>
+      Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.tenants.coErrDelete')),
+  });
+
+  const openAddCoOccupant = (tenant: OwnerTenant) => {
+    setCoOccupant(null);
+    setCoTarget(tenant);
+    setCoVisible(true);
+  };
+
+  const openEditCoOccupant = (tenant: OwnerTenant, co: CoOccupant) => {
+    setCoOccupant(co);
+    setCoTarget(tenant);
+    setCoVisible(true);
+  };
+
+  const triggerDeleteCoOccupant = (tenant: OwnerTenant, co: CoOccupant) => {
+    Alert.alert(
+      t('owner.tenants.coDeleteTitle'),
+      t('owner.tenants.coDeleteMsg', { name: co.name }),
+      [
+        { text: t('owner.commonTenant.cancel'), style: 'cancel' },
+        {
+          text: t('owner.tenants.coDeleteConfirm'),
+          style: 'destructive',
+          onPress: () => deleteCoMutation.mutate({ id: tenant._id, coId: co._id }),
+        },
+      ]
+    );
+  };
+
+  const handleSaveCoOccupant = (payload: { name: string; phone: string; idProof: string }) => {
+    if (!coTarget) return;
+    if (coOccupant) {
+      updateCoMutation.mutate({ id: coTarget._id, coId: coOccupant._id, payload });
+    } else {
+      addCoMutation.mutate({ id: coTarget._id, payload });
+    }
+  };
+
   const openDetail = (t: OwnerTenant) => {
     setSelectedTenant(t);
     setDetailVisible(true);
@@ -857,27 +1119,27 @@ export const OwnerTenantsScreen: React.FC = () => {
     setMoveOutVisible(true);
   };
 
-const triggerReverseOut = (tenant: OwnerTenant) => {
+  const triggerReverseOut = (tenant: OwnerTenant) => {
     setReverseTarget(tenant);
     if (/@deleted\.local$/.test(tenant.userId.email || '')) {
-        Alert.alert(
-          t('owner.tenants.reverseDeletedTitle'),
-          t('owner.tenants.reverseDeletedMsg'),
-          [{ text: t('owner.commonTenant.ok'), onPress: () => setReverseTarget(null) }]
-        );
+      Alert.alert(
+        t('owner.tenants.reverseDeletedTitle'),
+        t('owner.tenants.reverseDeletedMsg'),
+        [{ text: t('owner.commonTenant.ok'), onPress: () => setReverseTarget(null) }]
+      );
       return;
     }
-      Alert.alert(
-        t('owner.tenants.reverseAlertTitle'),
-        t('owner.tenants.reverseAlertMsg', { name: tenant.userId.name, room: tenant.roomId.roomNumber }),
-        [
-          { text: t('owner.commonTenant.cancel'), style: 'cancel', onPress: () => setReverseTarget(null) },
-          {
-            text: t('owner.tenants.reverseAlertRestore'),
-            onPress: () => reverseMoveOutMutation.mutate(tenant._id),
-          },
-        ]
-      );
+    Alert.alert(
+      t('owner.tenants.reverseAlertTitle'),
+      t('owner.tenants.reverseAlertMsg', { name: tenant.userId.name, room: tenant.roomId.roomNumber }),
+      [
+        { text: t('owner.commonTenant.cancel'), style: 'cancel', onPress: () => setReverseTarget(null) },
+        {
+          text: t('owner.tenants.reverseAlertRestore'),
+          onPress: () => reverseMoveOutMutation.mutate(tenant._id),
+        },
+      ]
+    );
   };
 
   const tabs: { key: FilterTab; label: string }[] = [
@@ -979,6 +1241,9 @@ const triggerReverseOut = (tenant: OwnerTenant) => {
         onReverseOut={triggerReverseOut}
         onEdit={(t) => { setEditTarget(t); setEditVisible(true); }}
         onSettleRefund={(t) => { setRefundTarget(t); setRefundVisible(true); }}
+        onAddCoOccupant={openAddCoOccupant}
+        onEditCoOccupant={openEditCoOccupant}
+        onDeleteCoOccupant={triggerDeleteCoOccupant}
         t={t}
       />
 
@@ -1006,6 +1271,16 @@ const triggerReverseOut = (tenant: OwnerTenant) => {
         onClose={() => setRefundVisible(false)}
         onConfirm={handleSettleRefund}
         saving={refundMutation.isPending}
+        t={t}
+      />
+
+      <CoOccupantModal
+        tenant={coTarget}
+        coOccupant={coOccupant}
+        visible={coVisible}
+        onClose={() => { setCoVisible(false); setCoTarget(null); setCoOccupant(null); }}
+        onSave={handleSaveCoOccupant}
+        saving={addCoMutation.isPending || updateCoMutation.isPending}
         t={t}
       />
     </View>
@@ -1097,6 +1372,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xxl,
     padding: spacing.xxl,
     paddingBottom: spacing.xxxl + spacing.xxl,
+    maxHeight: '90%',
   },
   sheetHandle: {
     width: 36,
@@ -1209,6 +1485,50 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   refundBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+
+  // Co-Occupants
+  coSection: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  coHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  coTitle: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  coAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
+  },
+  coAddBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  coEmpty: { fontSize: 12, fontStyle: 'italic' },
+  coRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+  },
+  coName: { fontSize: 13, fontWeight: '600' },
+  coMeta: { fontSize: 11, marginTop: 1 },
+  coActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  coActionBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // States
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },

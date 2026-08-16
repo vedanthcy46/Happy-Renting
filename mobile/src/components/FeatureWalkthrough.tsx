@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeProvider';
 import { useResponsive } from '../theme';
 
-export const TAB_BAR_BASE_HEIGHT = 56;
+export const TAB_BAR_BASE_HEIGHT = 64;
 
 /** Total tab bar height: content height + bottom safe-area/gesture inset (YouTube-style). */
 export const getTabBarHeight = (bottomInset: number) => TAB_BAR_BASE_HEIGHT + Math.max(bottomInset, 8);

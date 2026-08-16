@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTheme } from '../theme/ThemeProvider';
 import { spacing, radius, shadows, useResponsive } from '../theme';
@@ -34,6 +35,7 @@ export const WorkspacePicker: React.FC<WorkspacePickerProps> = ({
   visible, onClose, required = false,
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { width } = useResponsive();
   const { activeWorkspace, setWorkspace, user } = useAuthStore();
   const isNarrowed = width >= 600;
@@ -54,7 +56,7 @@ export const WorkspacePicker: React.FC<WorkspacePickerProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingBottom: insets.bottom + 64 }]}>
         {!required && (
           <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
         )}

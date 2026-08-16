@@ -28,6 +28,7 @@ interface RoomFormModalProps {
 
 const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propertyId, onClose, onSave, saving, t }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [roomNumber, setRoomNumber] = useState(initial?.roomNumber ?? '');
   const [floor, setFloor] = useState(initial?.floor ?? '');
   const [capacity, setCapacity] = useState(initial ? String(initial.capacity) : '1');
@@ -70,7 +71,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
     <KeyboardSafeModal
       visible={visible}
       animationType="slide"
-      overlayStyle={styles.modalOverlay}
+      overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
       onRequestClose={onClose}
     >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>

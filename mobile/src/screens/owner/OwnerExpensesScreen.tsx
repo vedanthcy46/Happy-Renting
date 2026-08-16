@@ -254,6 +254,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
   visible, initial, monthDefault, properties, onClose, onSubmit, saving, t
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [propertyId, setPropertyId] = useState('');
   const [category, setCategory] = useState('');
   const [title, setTitle] = useState('');
@@ -304,7 +305,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
     <KeyboardSafeModal
       visible={visible}
       animationType="slide"
-      overlayStyle={styles.sheetOverlay}
+      overlayStyle={[styles.sheetOverlay, { paddingBottom: insets.bottom + 64 }]}
       onRequestClose={onClose}
     >
         <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />

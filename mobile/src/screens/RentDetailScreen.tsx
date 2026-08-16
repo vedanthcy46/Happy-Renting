@@ -431,7 +431,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
       <KeyboardSafeModal
         visible={showManualModal}
         animationType="slide"
-        overlayStyle={styles.modalOverlay}
+        overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
         onRequestClose={() => setShowManualModal(false)}
       >
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>

@@ -156,9 +156,10 @@ interface SelectSheetProps {
 
 const SelectSheet: React.FC<SelectSheetProps> = ({ visible, title, options, selectedKey, onSelect, onClose }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <View style={styles.sheetOverlay}>
+      <View style={[styles.sheetOverlay, { paddingBottom: insets.bottom + 64 }]}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
           <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />

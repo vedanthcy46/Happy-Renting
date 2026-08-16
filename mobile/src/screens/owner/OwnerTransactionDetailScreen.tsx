@@ -39,6 +39,7 @@ interface AddPaymentModalProps {
 
 const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId, onClose, onSaved, t }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('cash');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -83,7 +84,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
     <KeyboardSafeModal
       visible={visible}
       animationType="slide"
-      overlayStyle={styles.modalOverlay}
+      overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
       onRequestClose={onClose}
     >
         <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
@@ -100,7 +101,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
 
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.fieldMethod')}</Text>
             <View style={styles.methodRow}>
-              {['cash', 'UPI', 'bank_transfer', 'cheque'].map(m => (
+              {['cash', 'upi', 'bank_transfer', 'cheque'].map(m => (
                 <TouchableOpacity
                   key={m}
                   style={[styles.methodChip, { backgroundColor: method === m ? colors.primary : colors.background, borderColor: method === m ? colors.primary : colors.border }]}
@@ -108,7 +109,7 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.methodText, { color: method === m ? '#FFFFFF' : colors.text.secondary }]}>
-                    {m === 'bank_transfer' ? 'Bank' : m === 'cheque' ? 'Cheque' : m.charAt(0).toUpperCase() + m.slice(1)}
+                    {m === 'bank_transfer' ? 'Bank' : m === 'upi' ? 'UPI' : m === 'cheque' ? 'Cheque' : m.charAt(0).toUpperCase() + m.slice(1)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -399,7 +400,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       <KeyboardSafeModal
         visible={!!reverseTarget}
         animationType="fade"
-        overlayStyle={styles.modalOverlay}
+        overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
         onRequestClose={() => { setReverseTarget(null); setReverseReason(''); }}
       >
           <View style={[styles.reverseSheet, { backgroundColor: colors.surface }]}>
