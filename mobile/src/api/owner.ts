@@ -94,6 +94,7 @@ export interface OwnerAnalytics {
   success: boolean;
   months: number;
   month: string;
+  propertyId: string | null;
   collectionTrend: { month: string; expected: number; collected: number; pending: number }[];
   incomeTrend: { month: string; income: number }[];
   paidVsPending: { paid: number; pending: number };
@@ -104,7 +105,7 @@ export interface OwnerAnalytics {
   propertyOccupancy: { propertyId: string; name: string; totalRooms: number; occupiedRooms: number; occupancyRate: number }[];
 }
 
-export const getOwnerAnalytics = async (params?: { month?: string }): Promise<OwnerAnalytics> => {
+export const getOwnerAnalytics = async (params?: { month?: string; propertyId?: string }): Promise<OwnerAnalytics> => {
   const { data } = await client.get('/v2/analytics/owner', { params });
   return data;
 };

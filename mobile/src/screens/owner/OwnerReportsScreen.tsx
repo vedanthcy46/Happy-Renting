@@ -100,10 +100,10 @@ export const OwnerReportsScreen: React.FC = () => {
   });
 
   const { data: analyticsData, isLoading: loadingAnalytics } = useQuery({
-    // month is part of the key so tenant status / property collection refetch
-    // when the month selector changes (backend scopes them to `month`).
-    queryKey: ['ownerAnalytics', month],
-    queryFn: () => getOwnerAnalytics({ month }),
+    // month + propertyId are part of the key so tenant status / property
+    // collection / all series refetch when either filter changes.
+    queryKey: ['ownerAnalytics', month, propertyId ?? 'all'],
+    queryFn: () => getOwnerAnalytics({ month, propertyId }),
     staleTime: 5 * 60 * 1000,
     enabled: isPremium,
   });
@@ -157,6 +157,28 @@ export const OwnerReportsScreen: React.FC = () => {
         expenseCount: summary?.expenseCount ?? 0,
         propertyName: propertyId ? properties.find(p => p._id === propertyId)?.name ?? 'All properties' : 'All properties',
         items: expenses,
+        // Include every premium chart currently visible on screen.
+        analytics: analytics,
+        labels: {
+          monthlyCollection: t('owner.reports.chartMonthlyCollection'),
+          paidVsPending: t('owner.reports.chartPaidVsPending'),
+          pendingTrend: t('owner.reports.chartPendingTrend'),
+          incomeTrend: t('owner.reports.chartIncomeTrend'),
+          occupancy: t('owner.reports.chartOccupancy'),
+          tenantStatus: t('owner.reports.chartTenantStatus'),
+          propertyCollection: t('owner.reports.chartPropertyCollection'),
+          propertyOccupancy: t('owner.reports.chartPropertyOccupancy'),
+          paymentMethods: t('owner.reports.chartPaymentMethods'),
+          collected: t('owner.reports.collected'),
+          pending: t('owner.reports.pending'),
+          paid: t('owner.reports.paid'),
+          partial: t('owner.reports.partial'),
+          overdue: t('owner.reports.overdue'),
+          occupied: t('owner.reports.occupied'),
+          vacant: t('owner.reports.vacant'),
+          overall: t('owner.reports.overall'),
+          occupancyRate: t('owner.reports.occupancyRate'),
+        },
       });
     } catch (e) {
       Alert.alert(t('owner.commonOwner.error'), t('owner.reports.errExport'));

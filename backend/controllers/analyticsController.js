@@ -67,6 +67,17 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month || '')
       ? req.query.month
       : nowKey;
+    // Optional property filter scopes every series to a single property.
+    let propertyObjId = null;
+    if (req.query.propertyId && mongoose.Types.ObjectId.isValid(req.query.propertyId)) {
+      propertyObjId = new mongoose.Types.ObjectId(req.query.propertyId);
+    }
+    const recordMatch = { ownerId: ownerObjId };
+    const txnMatch = { ownerId: ownerObjId };
+    if (propertyObjId) {
+      recordMatch.propertyId = propertyObjId;
+      txnMatch.propertyId = propertyObjId;
+    }
     const keys = [];
     for (let i = 0; i < months; i++) {
       keys.push(shiftMonthKey(nowKey, -i));
@@ -76,7 +87,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
 
     // ── Monthly rent collection (expected / collected / pending) ──
     const recordAgg = await MonthlyRentRecord.aggregate([
-      { $match: { ownerId: ownerObjId, month: { $in: keys } } },
+      { $match: { ...recordMatch, month: { $in: keys } } },
       {
         $group: {
           _id: '$month',
@@ -99,7 +110,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     const incomeAgg = await PaymentTransaction.aggregate([
       {
         $match: {
-          ownerId: ownerObjId,
+          ...txnMatch,
           status: 'completed',
           amount: { $gt: 0 },
           transactionType: { $nin: NON_CASH_TRANSACTION_TYPES },
@@ -136,7 +147,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
 
     // ── Tenant payment status (rent records by status for the selected month) ──
     const statusAgg = await MonthlyRentRecord.aggregate([
-      { $match: { ownerId: ownerObjId, month: monthKey } },
+      { $match: { ...recordMatch, month: monthKey } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
     const statusMap = new Map(statusAgg.map((r) => [r._id, r.count]));
@@ -151,7 +162,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     const methodAgg = await PaymentTransaction.aggregate([
       {
         $match: {
-          ownerId: ownerObjId,
+          ...txnMatch,
           status: 'completed',
           amount: { $gt: 0 },
           transactionType: { $nin: NON_CASH_TRANSACTION_TYPES },
@@ -177,7 +188,10 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     }));
 
     // ── Occupancy + property-wise series ──
-    const properties = await Property.find({ ownerId: ownerObjId }).select('_id name').lean();
+    const propertyQuery = propertyObjId
+      ? { ownerId: ownerObjId, _id: propertyObjId }
+      : { ownerId: ownerObjId };
+    const properties = await Property.find(propertyQuery).select('_id name').lean();
     const propertyIds = properties.map((p) => p._id);
     const occupancyAgg = propertyIds.length
       ? await Room.aggregate([
@@ -228,7 +242,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
 
     // ── Property-wise rent collection (selected month) ──
     const propCollectionAgg = await MonthlyRentRecord.aggregate([
-      { $match: { ownerId: ownerObjId, month: monthKey } },
+      { $match: { ...recordMatch, month: monthKey } },
       {
         $group: {
           _id: '$propertyId',
@@ -256,6 +270,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
       success: true,
       months,
       month: monthKey,
+      propertyId: propertyObjId ? String(propertyObjId) : null,
       collectionTrend,
       incomeTrend,
       paidVsPending: { paid, pending },
