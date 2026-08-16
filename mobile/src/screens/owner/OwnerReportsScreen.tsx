@@ -157,8 +157,13 @@ export const OwnerReportsScreen: React.FC = () => {
         expenseCount: summary?.expenseCount ?? 0,
         propertyName: propertyId ? properties.find(p => p._id === propertyId)?.name ?? 'All properties' : 'All properties',
         items: expenses,
-        // Include every premium chart currently visible on screen.
-        analytics: analytics,
+        // Include every premium chart currently visible on screen. Property-wise
+        // charts are skipped when a single property is filtered (same as the UI).
+        analytics: analytics
+          ? propertyId
+            ? { ...analytics, propertyCollection: [], propertyOccupancy: [] }
+            : analytics
+          : null,
         labels: {
           monthlyCollection: t('owner.reports.chartMonthlyCollection'),
           paidVsPending: t('owner.reports.chartPaidVsPending'),
@@ -420,8 +425,8 @@ export const OwnerReportsScreen: React.FC = () => {
                   </Text>
                 </View>
 
-                {/* Property-wise rent collection (current month) */}
-                {analytics.propertyCollection.length > 0 && (
+                {/* Property-wise rent collection — only meaningful across all properties */}
+                {!propertyId && analytics.propertyCollection.length > 0 && (
                   <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
                     <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
                       {t('owner.reports.chartPropertyCollection')}
@@ -438,8 +443,8 @@ export const OwnerReportsScreen: React.FC = () => {
                   </View>
                 )}
 
-                {/* Property-wise occupancy */}
-                {analytics.propertyOccupancy.length > 0 && (
+                {/* Property-wise occupancy — only meaningful across all properties */}
+                {!propertyId && analytics.propertyOccupancy.length > 0 && (
                   <View style={[styles.analyticsCard, { backgroundColor: colors.surface }, shadows.sm]}>
                     <Text style={[styles.analyticsTitle, { color: colors.text.primary }]}>
                       {t('owner.reports.chartPropertyOccupancy')}

@@ -14,6 +14,7 @@ const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const Room = require('../models/Room');
 const Property = require('../models/Property');
+const Tenant = require('../models/Tenant');
 const entitlementService = require('../services/entitlementService');
 const { getPlan, isUnlimited } = require('../config/plans');
 
@@ -72,11 +73,21 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     if (req.query.propertyId && mongoose.Types.ObjectId.isValid(req.query.propertyId)) {
       propertyObjId = new mongoose.Types.ObjectId(req.query.propertyId);
     }
+    // Older records may pre-date reliable propertyId stamping; fall back to
+    // matching via the property's tenants so filtering never yields nothing.
+    let propertyTenantIds = null;
+    if (propertyObjId) {
+      const tenants = await Tenant.find({ propertyId: propertyObjId }).select('_id').lean();
+      propertyTenantIds = tenants.map((t) => t._id);
+    }
     const recordMatch = { ownerId: ownerObjId };
     const txnMatch = { ownerId: ownerObjId };
     if (propertyObjId) {
-      recordMatch.propertyId = propertyObjId;
-      txnMatch.propertyId = propertyObjId;
+      recordMatch.$or = [{ propertyId: propertyObjId }, { tenantId: { $in: propertyTenantIds } }];
+      txnMatch.$or = [
+        { propertyId: propertyObjId },
+        ...(propertyTenantIds.length ? [{ tenantId: { $in: propertyTenantIds } }] : []),
+      ];
     }
     const keys = [];
     for (let i = 0; i < months; i++) {
