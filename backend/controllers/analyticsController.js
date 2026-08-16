@@ -63,6 +63,7 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     months = Math.max(1, months);
 
     const nowKey = currentMonthKey();
+    const ownerObjId = new mongoose.Types.ObjectId(ownerId);
     // Month filter (YYYY-MM) drives the point-in-time series (tenant payment
     // status, property-wise collection); invalid values fall back to now.
     const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month || '')
@@ -93,8 +94,6 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     for (let i = 0; i < months; i++) {
       keys.push(shiftMonthKey(nowKey, -i));
     }
-
-    const ownerObjId = new mongoose.Types.ObjectId(ownerId);
 
     // ── Monthly rent collection (expected / collected / pending) ──
     const recordAgg = await MonthlyRentRecord.aggregate([
