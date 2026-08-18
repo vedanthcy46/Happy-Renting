@@ -53,6 +53,13 @@ export interface OwnerTenant {
   refundSettled?: boolean;
   refundSettledAt?: string;
   refundNote?: string;
+  refundOriginalDeposit?: number;
+  refundTotalDeductions?: number;
+  refundAmount?: number;
+  refundMethod?: string;
+  refundReference?: string;
+  refundDate?: string;
+  refundDeductions?: { category: string; description?: string; amount: number }[];
   securityDeposit?: number;
   notes?: string;
   coOccupants?: CoOccupant[];
@@ -66,6 +73,7 @@ export interface OwnerTenant {
     roomNumber: string;
     floor?: string;
     monthlyRent: number;
+    securityDeposit?: number;
     currentOccupancy: number;
     capacity: number;
   };
@@ -447,8 +455,18 @@ export const deleteCoOccupant = async (tenantId: string, coId: string) => {
   return data;
 };
 
-export const markRefundSettled = async (tenantId: string, note?: string) => {
-  const { data } = await client.patch(`/tenants/${tenantId}/mark-refund-settled`, { note });
+export interface RefundSettlementPayload {
+  originalDeposit?: number;
+  deductions: { category: string; description?: string; amount: number }[];
+  refundAmount?: number;
+  refundMethod?: string;
+  refundReference?: string;
+  refundDate?: string;
+  note?: string;
+}
+
+export const markRefundSettled = async (tenantId: string, payload: RefundSettlementPayload) => {
+  const { data } = await client.patch(`/tenants/${tenantId}/mark-refund-settled`, payload);
   return data;
 };
 

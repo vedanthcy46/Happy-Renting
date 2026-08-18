@@ -106,6 +106,38 @@ const tenantSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    refundOriginalDeposit: {
+      type: Number,
+      default: 0
+    },
+    refundDeductions: [
+      {
+        _id: false,
+        category: { type: String, default: '' },
+        description: { type: String, default: '' },
+        amount: { type: Number, default: 0 },
+      },
+    ],
+    refundTotalDeductions: {
+      type: Number,
+      default: 0
+    },
+    refundAmount: {
+      type: Number,
+      default: 0
+    },
+    refundMethod: {
+      type: String,
+      default: ''
+    },
+    refundReference: {
+      type: String,
+      default: ''
+    },
+    refundDate: {
+      type: Date,
+      default: null
+    },
     advanceRefundAmount: {
       type: Number,
       default: 0

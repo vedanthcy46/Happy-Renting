@@ -510,9 +510,11 @@ const sendAdminNewRequestAlert = async (request) => {
 };
 
 // ── 12. Tenant Onboarding ───────────────────────────────────────────────────
-const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName, verificationToken = null) => {
-  const subject = `Welcome to ${property.name}! Your login details inside.`;
+const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName, verificationToken = null, { joinDate, dueDay } = {}) => {
+  const subject = `Welcome to ${property.name}! Your tenancy details inside.`;
   const verifyUrl = verificationToken ? `${WEBSITE_URL}/verify-email?token=${verificationToken}` : null;
+  const hasRealPassword = !!tempPassword && tempPassword !== '********';
+  const effectiveDueDay = dueDay || 5;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
@@ -522,12 +524,14 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
         You can now manage your tenancy, view payments, and raise complaints online.
       </p>
       
-      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-        <p style="margin: 0; font-weight: bold; color: #1e293b;">Your Login Credentials:</p>
-        <p style="margin: 5px 0 0; color: #475569;"><strong>Email:</strong> ${tenant.email}</p>
-        <p style="margin: 5px 0 0; color: #475569;"><strong>Temp Password:</strong> <code style="background: #e2e8f0; padding: 2px 5px; border-radius: 4px;">${tempPassword}</code></p>
-        <p style="margin: 10px 0 0; font-size: 12px; color: #ef4444;">* You will be asked to change this password on your first login.</p>
-      </div>
+      ${hasRealPassword ? `
+        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+          <p style="margin: 0; font-weight: bold; color: #1e293b;">Your Login Credentials:</p>
+          <p style="margin: 5px 0 0; color: #475569;"><strong>Email:</strong> ${tenant.email}</p>
+          <p style="margin: 5px 0 0; color: #475569;"><strong>Temp Password:</strong> <code style="background: #e2e8f0; padding: 2px 5px; border-radius: 4px;">${tempPassword}</code></p>
+          <p style="margin: 10px 0 0; font-size: 12px; color: #ef4444;">* You will be asked to change this password on your first login.</p>
+        </div>
+      ` : ''}
 
       ${verifyUrl ? `
         <div style="text-align: center; margin: 30px 0; padding: 20px; background: #eff6ff; border-radius: 8px;">
@@ -545,9 +549,12 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
       `}
 
       <div style="margin: 20px 0; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <p style="margin: 0; font-weight: bold; color: #1e293b;">Tenancy Details:</p>
-        <p style="margin: 5px 0 0; color: #475569;"><strong>Property:</strong> ${property.name}</p>
-        <p style="margin: 5px 0 0; color: #475569;"><strong>Room:</strong> ${room.roomNumber}</p>
+        <p style="margin: 0; font-weight: bold; color: #1e293b;">Your Lease Details:</p>
+        <p style="margin: 8px 0 0; color: #475569;"><strong>Property:</strong> ${property.name}</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Address:</strong> ${property.address || '—'}</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Room Number:</strong> ${room.roomNumber}</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Date of Join:</strong> ${formatDateOnly(joinDate)}</p>
+        <p style="margin: 5px 0 0; color: #475569;"><strong>Rent Due Date:</strong> Every ${effectiveDueDay}th of the month</p>
       </div>
 
       ${getFooter()}
@@ -775,6 +782,46 @@ const sendBillGeneratedEmail = async ({ user, role, rentRecord, property, room, 
   await Notification.create({ userId: user._id, title: notifTitle, message: notifMsg, type: 'billing' }).catch(() => null);
 };
 
+// Formats a "YYYY-MM" month string into a human label like "March 2026"
+const formatMonthLabel = (month) => {
+  if (!month) return '—';
+  const [y, mo] = String(month).split('-').map(Number);
+  if (!y || !mo) return String(month);
+  return new Date(y, mo - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+};
+
+// Consolidated notification sent when multiple historical bills are generated
+// at once (e.g. tenant added with months of backfill) to avoid email spam.
+const sendBillBackfillSummaryEmail = async ({ user, property, room, fromMonth, toMonth, count, totalAmount, tenantUser }) => {
+  const fromLabel = formatMonthLabel(fromMonth);
+  const toLabel = formatMonthLabel(toMonth);
+  const subject = `Your rent bills for ${fromLabel} - ${toLabel} are ready`;
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+      <h2 style="color: #2563eb;">Your Rent Bills Are Ready</h2>
+      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>Welcome to <strong>${property.name}</strong>! We have generated <strong>${count}</strong> rent bill${count > 1 ? 's' : ''} covering your tenancy so far.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <div style="padding: 15px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 4px;">
+        <p style="margin: 5px 0;"><strong>Billing Period:</strong> ${fromLabel} → ${toLabel}</p>
+        <p style="margin: 5px 0;"><strong>Total Bills Generated:</strong> ${count}</p>
+        <p style="margin: 5px 0;"><strong>Total Rent:</strong> ₹${(totalAmount || 0).toLocaleString('en-IN')}</p>
+      </div>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      <p><strong>Property:</strong> ${property.name}</p>
+      <p><strong>Room:</strong> ${room.roomNumber}</p>
+      <p>Each bill is payable on the 5th of the following month. You can view and pay them from your dashboard.</p>
+      <hr style="border: 0; border-top: 1px solid #eee;" />
+      ${getButton('View & Pay')}
+      ${getFooter()}
+    </div>
+  `;
+  await queueEmail(user.email, subject, html, 'alert');
+
+  await Notification.create({ userId: user._id, title: 'Rent Bills Generated', message: `Generated ${count} bills from ${fromLabel} to ${toLabel}.`, type: 'billing' }).catch(() => null);
+};
+
 const sendDueTodayReminderEmail = async (user, rentRecord, property, room) => {
   const lang = normalizeLanguage(user.preferredLanguage);
   const subject = t('reminder.dueToday.title', null, lang) + ' - ' + rentRecord.month;
@@ -907,6 +954,66 @@ const sendFinalSettlementEmail = async ({ user, role, rentRecord, property, room
     : `Your final settlement is generated. Balance: ₹${(rentRecord.remainingAmount || 0).toLocaleString()}`;
 
   await Notification.create({ userId: user._id, title: notifTitle, message: notifMsg, type: 'billing' }).catch(() => null);
+};
+
+// ── Security Deposit Refund Settled (To Tenant) ─────────────────────────────
+const sendRefundSettledEmail = async (tenantUser, property, room, settlement) => {
+  const methodLabel = (settlement.refundMethod || '').toUpperCase();
+  const propertyName = property?.name || 'your property';
+  const roomText = room && room.roomNumber ? `, Room <strong>${room.roomNumber}</strong>` : '';
+  const subject = `Security Deposit Settlement - ${propertyName}`;
+
+  const deductionRows = (settlement.deductions || []).map(d => `
+    <tr style="border-bottom: 1px solid #e2e8f0;">
+      <td style="padding: 8px; color: #475569; font-size: 14px;">
+        <strong>${d.category || 'Deduction'}</strong>
+        ${d.description ? `<br/><span style="font-size: 12px; color: #94a3b8;">${d.description}</span>` : ''}
+      </td>
+      <td style="padding: 8px; color: #dc2626; font-size: 14px; text-align: right; white-space: nowrap;">− ₹${(d.amount || 0).toLocaleString('en-IN')}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #2563eb;">
+      <h2 style="color: #1e293b; margin-top: 0;">Security Deposit Settlement</h2>
+      <p>Hello <strong>${tenantUser.name}</strong>,</p>
+      <p>Your security deposit settlement for <strong>${propertyName}</strong>${roomText} has been completed by your landlord. Here is the full breakdown:</p>
+
+      <div style="margin: 20px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr style="background: #f8fafc;">
+            <td style="padding: 10px; color: #1e293b; font-size: 14px;"><strong>Original Security Deposit</strong></td>
+            <td style="padding: 10px; color: #1e293b; font-size: 14px; text-align: right;"><strong>₹${(settlement.originalDeposit || 0).toLocaleString('en-IN')}</strong></td>
+          </tr>
+          ${deductionRows}
+          <tr style="background: #fef2f2;">
+            <td style="padding: 10px; color: #dc2626; font-size: 14px;"><strong>Total Deductions</strong></td>
+            <td style="padding: 10px; color: #dc2626; font-size: 14px; text-align: right;"><strong>− ₹${(settlement.totalDeductions || 0).toLocaleString('en-IN')}</strong></td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; border: 1px solid #bbf7d0; text-align: center;">
+        <p style="margin: 0; color: #166534; font-size: 13px;">Final Refundable Amount</p>
+        <p style="margin: 4px 0 0; color: #15803d; font-size: 26px; font-weight: 800;">₹${(settlement.refundAmount || 0).toLocaleString('en-IN')}</p>
+        ${settlement.refundMethod ? `<p style="margin: 6px 0 0; color: #166534; font-size: 12px;">Method: ${methodLabel}${settlement.refundReference ? ` · Ref: ${settlement.refundReference}` : ''}</p>` : ''}
+        <p style="margin: 2px 0 0; color: #166534; font-size: 12px;">Settled on: ${formatDateOnly(settlement.refundDate)}</p>
+      </div>
+
+      ${settlement.note ? `
+        <div style="margin: 20px 0; padding: 12px 15px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 4px;">
+          <p style="margin: 0; color: #475569; font-size: 13px;"><strong>Note:</strong> ${settlement.note}</p>
+        </div>
+      ` : ''}
+
+      <p style="color: #94a3b8; font-size: 12px; margin-top: 20px;">
+        If you believe any information in this settlement is incorrect, please contact your property owner or our support team at <a href="mailto:support@happyrenting.co.in" style="color: #2563eb; text-decoration: none;">support@happyrenting.co.in</a>.
+      </p>
+
+      ${getFooter()}
+    </div>
+  `;
+  await sendEmail(tenantUser.email, subject, html);
 };
 
 const sendSystemFailureAlert = async (type, errorMsg) => {
@@ -1141,11 +1248,13 @@ module.exports = {
   sendPasswordResetEmail,
   sendLoginAlertEmail,
   sendBillGeneratedEmail,
+  sendBillBackfillSummaryEmail,
   sendDueTodayReminderEmail,
   sendDueSoonReminderEmail,
   sendTransactionReversalEmail,
   sendMoveOutInitiatedEmail,
   sendFinalSettlementEmail,
+  sendRefundSettledEmail,
   sendOwnerBillingSummaryEmail,
   sendOwnerAlertSummaryEmail,
   sendSystemFailureAlert,

@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
-import { getOwnerTenants, moveOutTenant, reverseMoveOutTenant, updateTenant, markRefundSettled, addCoOccupant, updateCoOccupant, deleteCoOccupant, type OwnerTenant, type CoOccupant } from '../../api/owner';
+import { getOwnerTenants, moveOutTenant, reverseMoveOutTenant, updateTenant, markRefundSettled, addCoOccupant, updateCoOccupant, deleteCoOccupant, type OwnerTenant, type CoOccupant, type RefundSettlementPayload } from '../../api/owner';
 import { KeyboardSafeModal } from '../../components';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -200,12 +200,12 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                     <View style={styles.sheetDivider} />
                     <View style={[styles.refundCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View>
+                        <View style={{ flex: 1 }}>
                           <Text style={[styles.refundTitle, { color: tenant.refundSettled ? colors.success : colors.warning }]}>
                             {tenant.refundSettled ? t('owner.tenants.refundSettled') : t('owner.tenants.refundDue')}
                           </Text>
                           <Text style={[styles.refundAmount, { color: colors.text.primary }]}>
-                            ₹{(Number(tenant.advanceRefundAmount) > 0 ? Number(tenant.advanceRefundAmount) : Number(tenant.advancePaid)).toLocaleString('en-IN')}
+                            ₹{((tenant.refundSettled ? (Number(tenant.refundAmount) || Number(tenant.advanceRefundAmount) || 0) : (Number(tenant.advanceRefundAmount) || Number(tenant.advancePaid) || 0))).toLocaleString('en-IN')}
                           </Text>
                           {tenant.refundSettled && tenant.refundSettledAt && (
                             <Text style={[styles.refundDate, { color: colors.text.tertiary }]}>
@@ -216,6 +216,27 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                             <Text style={[styles.refundDate, { color: colors.text.tertiary }]} numberOfLines={2}>
                               {tenant.refundNote}
                             </Text>
+                          ) : null}
+                          {tenant.refundSettled && (tenant.refundDeductions?.length || tenant.refundTotalDeductions) ? (
+                            <View style={[styles.settlementMini, { borderColor: colors.border }]}>
+                              <View style={styles.summaryRow}>
+                                <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementOriginal')}</Text>
+                                <Text style={[styles.summaryValue, { color: colors.text.primary }]}>₹{(Number(tenant.refundOriginalDeposit) || Number(tenant.advancePaid) || 0).toLocaleString('en-IN')}</Text>
+                              </View>
+                              <View style={styles.summaryRow}>
+                                <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementTotalDeductions')}</Text>
+                                <Text style={[styles.summaryValue, { color: colors.error }]}>− ₹{(Number(tenant.refundTotalDeductions) || 0).toLocaleString('en-IN')}</Text>
+                              </View>
+                              <View style={styles.summaryRow}>
+                                <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementRefunded')}</Text>
+                                <Text style={[styles.summaryValue, { color: colors.success, fontWeight: '800' }]}>₹{(Number(tenant.refundAmount) || Number(tenant.advanceRefundAmount) || 0).toLocaleString('en-IN')}</Text>
+                              </View>
+                              {tenant.refundMethod ? (
+                                <Text style={[styles.refundDate, { color: colors.text.tertiary }]} numberOfLines={1}>
+                                  {tenant.refundMethod.toUpperCase()}{tenant.refundReference ? ` · ${tenant.refundReference}` : ''}
+                                </Text>
+                              ) : null}
+                            </View>
                           ) : null}
                         </View>
                         {!tenant.refundSettled && (
@@ -668,13 +689,19 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
   );
 };
 
-// ─── Refund settle modal (optional note) ──────────────────────────────────
+// ─── Refund settle modal (deposit + deductions + refund amount) ───────────
+
+interface RefundDeductionDraft {
+  category: string;
+  description: string;
+  amount: string;
+}
 
 interface RefundSettleModalProps {
   tenant: OwnerTenant | null;
   visible: boolean;
   onClose: () => void;
-  onConfirm: (note: string) => void;
+  onConfirm: (payload: RefundSettlementPayload) => void;
   saving: boolean;
   t: (key: string) => string;
 }
@@ -684,15 +711,66 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [originalDeposit, setOriginalDeposit] = useState('');
+  const [deductions, setDeductions] = useState<RefundDeductionDraft[]>([{ category: 'rent', description: '', amount: '' }]);
+  const [method, setMethod] = useState('cash');
+  const [reference, setReference] = useState('');
   const [note, setNote] = useState('');
+  const [error, setError] = useState('');
 
   React.useEffect(() => {
-    if (visible) setNote('');
-  }, [visible]);
+    if (visible && tenant) {
+      const deposit = Number(tenant.advancePaid) || Number(tenant.advanceRefundAmount) || Number(tenant.roomId?.securityDeposit) || 0;
+      setOriginalDeposit(deposit ? String(deposit) : '');
+      setDeductions([{ category: 'rent', description: '', amount: '' }]);
+      setMethod('cash');
+      setReference('');
+      setNote('');
+      setError('');
+    }
+  }, [visible, tenant]);
 
   if (!tenant) return null;
 
-  const amount = Number(tenant.advanceRefundAmount) > 0 ? Number(tenant.advanceRefundAmount) : Number(tenant.advancePaid);
+  const totalDeductions = deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const refundable = Math.max(0, (Number(originalDeposit) || 0) - totalDeductions);
+
+  const updateDeduction = (idx: number, field: keyof RefundDeductionDraft, value: string) => {
+    setDeductions(ds => ds.map((d, i) => (i === idx ? { ...d, [field]: value } : d)));
+    setError('');
+  };
+
+  const addDeduction = () => setDeductions(ds => [...ds, { category: 'damage', description: '', amount: '' }]);
+  const removeDeduction = (idx: number) => {
+    setDeductions(ds => {
+      const next = ds.filter((_, i) => i !== idx);
+      return next.length ? next : [{ category: 'rent', description: '', amount: '' }];
+    });
+  };
+
+  const handleConfirm = () => {
+    const cleanDeductions = deductions
+      .filter(d => (Number(d.amount) || 0) > 0 || d.description)
+      .map(d => ({
+        category: d.category.trim() || 'other',
+        description: d.description.trim(),
+        amount: Number(d.amount) || 0,
+      }));
+
+    if (cleanDeductions.length === 0 && !originalDeposit) {
+      setError(t('owner.tenants.settlementRequired'));
+      return;
+    }
+
+    onConfirm({
+      originalDeposit: Number(originalDeposit) || 0,
+      deductions: cleanDeductions,
+      refundAmount: refundable,
+      refundMethod: method,
+      refundReference: reference.trim() || undefined,
+      note: note.trim() || undefined,
+    });
+  };
 
   return (
     <KeyboardSafeModal
@@ -702,12 +780,109 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.refundTitle')}</Text>
+        <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.settlementTitle')}</Text>
         <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
-          {tenant.userId.name} · ₹{amount.toLocaleString('en-IN')}
+          {tenant.userId.name} · Room {tenant.roomId.roomNumber}
         </Text>
 
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementFieldDeposit')}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={originalDeposit}
+              onChangeText={setOriginalDeposit}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.text.tertiary}
+            />
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementDeductionsLabel')}</Text>
+            {deductions.map((d, idx) => (
+              <View key={idx} style={[styles.deductionRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TextInput
+                    style={[styles.input, styles.deductionCategory, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+                    value={d.category}
+                    onChangeText={v => updateDeduction(idx, 'category', v)}
+                    placeholder={t('owner.tenants.settlementDeductionCategory')}
+                    placeholderTextColor={colors.text.tertiary}
+                    maxLength={40}
+                  />
+                  <TextInput
+                    style={[styles.input, styles.deductionAmount, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+                    value={d.amount}
+                    onChangeText={v => updateDeduction(idx, 'amount', v)}
+                    keyboardType="numeric"
+                    placeholder="₹0"
+                    placeholderTextColor={colors.text.tertiary}
+                  />
+                  <TouchableOpacity onPress={() => removeDeduction(idx)} style={styles.deductionRemove} activeOpacity={0.7}>
+                    <Ionicons name="close-circle" size={20} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+                  value={d.description}
+                  onChangeText={v => updateDeduction(idx, 'description', v)}
+                  placeholder={t('owner.tenants.settlementDeductionDesc')}
+                  placeholderTextColor={colors.text.tertiary}
+                  maxLength={120}
+                />
+              </View>
+            ))}
+            <TouchableOpacity onPress={addDeduction} style={styles.addDeductionBtn} activeOpacity={0.8}>
+              <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+              <Text style={[styles.addDeductionText, { color: colors.primary }]}>{t('owner.tenants.settlementAddDeduction')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.summaryBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementTotalDeductions')}</Text>
+              <Text style={[styles.summaryValue, { color: colors.error }]}>− ₹{totalDeductions.toLocaleString('en-IN')}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementRefundable')}</Text>
+              <Text style={[styles.summaryValue, { color: colors.success, fontWeight: '800' }]}>₹{refundable.toLocaleString('en-IN')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementFieldMethod')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {['cash', 'upi', 'bank', 'other'].map(m => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => setMethod(m)}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.methodChip,
+                    { borderColor: method === m ? colors.primary : colors.border, backgroundColor: method === m ? colors.primaryLight : colors.background },
+                  ]}
+                >
+                  <Text style={{ color: method === m ? colors.primary : colors.text.secondary, fontSize: 12, fontWeight: '700' }}>
+                    {t(`owner.tenants.settlementMethod_${m}`)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementFieldReference')}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={reference}
+              onChangeText={setReference}
+              placeholder={t('owner.tenants.settlementPlaceholderReference')}
+              placeholderTextColor={colors.text.tertiary}
+              maxLength={60}
+            />
+          </View>
+
           <View style={styles.formField}>
             <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.tenants.refundFieldNote')}</Text>
             <TextInput
@@ -721,6 +896,12 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
               maxLength={500}
             />
           </View>
+
+          {error ? (
+            <View style={[styles.editError, { backgroundColor: colors.errorLight, borderColor: colors.error }]}>
+              <Text style={[styles.editErrorText, { color: colors.error }]}>{error}</Text>
+            </View>
+          ) : null}
         </ScrollView>
 
         <View style={styles.modalActions}>
@@ -733,14 +914,14 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.modalBtn, { backgroundColor: colors.warning }]}
-            onPress={() => onConfirm(note.trim())}
+            onPress={handleConfirm}
             activeOpacity={0.8}
             disabled={saving}
           >
             {saving ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.refundConfirm')}</Text>
+              <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>{t('owner.tenants.settlementConfirm')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1021,20 +1202,20 @@ export const OwnerTenantsScreen: React.FC = () => {
   };
 
   const refundMutation = useMutation({
-    mutationFn: ({ id, note }: { id: string; note: string }) => markRefundSettled(id, note || undefined),
+    mutationFn: ({ id, payload }: { id: string; payload: RefundSettlementPayload }) => markRefundSettled(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerTenants'] });
       setRefundTarget(null);
       setRefundVisible(false);
-      Alert.alert(t('owner.tenants.refundAlertTitle'), t('owner.tenants.refundAlertMsg'));
+      Alert.alert(t('owner.tenants.settlementAlertTitle'), t('owner.tenants.settlementAlertMsg'));
     },
     onError: (err: any) =>
       Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.tenants.refundErr')),
   });
 
-  const handleSettleRefund = (note: string) => {
+  const handleSettleRefund = (payload: RefundSettlementPayload) => {
     if (!refundTarget) return;
-    refundMutation.mutate({ id: refundTarget._id, note });
+    refundMutation.mutate({ id: refundTarget._id, payload });
   };
 
   const addCoMutation = useMutation({
@@ -1485,6 +1666,52 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   refundBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+
+  // Refund settlement modal & breakdown
+  deductionRow: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  deductionCategory: { flex: 2 },
+  deductionAmount: { flex: 1, textAlign: 'right' },
+  deductionRemove: { padding: spacing.xs, marginLeft: spacing.xs },
+  addDeductionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  addDeductionText: { fontSize: 13, fontWeight: '700' },
+  summaryBox: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  summaryLabel: { fontSize: 12, fontWeight: '600' },
+  summaryValue: { fontSize: 14, fontWeight: '700' },
+  methodChip: {
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  settlementMini: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    gap: 2,
+  },
 
   // Co-Occupants
   coSection: {

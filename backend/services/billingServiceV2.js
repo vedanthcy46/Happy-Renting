@@ -107,6 +107,9 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
         let iterYear = startYear;
         let iterMonth = startMonthIndex;
 
+        // Records created for this tenant in this run (for consolidated emailing)
+        const createdRecords = [];
+
         // Failsafe iteration counter to absolutely guarantee no infinite loops
         let circuitBreaker = 0;
 
@@ -153,16 +156,10 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
             billingResults.created++;
             logger.info(`[CRON-V2] Created rent record for tenant ${tenant._id}`);
 
-            // Email Triggers
-            // Do not spam historical backfills
+            // Track created records for emailing after the loop (so historical
+            // backfills can be consolidated into a single email instead of spamming)
             if (!tenant.isMigratedTenant || tenant.migrationBackfillCompleted) {
-              const isFinalMonth = tenant.status === 'vacated' && tenant.exitDate && new Date(tenant.exitDate).toISOString().slice(0, 7) === iterMonthStr;
-              
-              if (isFinalMonth) {
-                if (tenant.userId) await emailService.sendFinalSettlementEmail({ user: tenant.userId, role: 'tenant', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
-              } else {
-                if (tenant.userId) await emailService.sendBillGeneratedEmail({ user: tenant.userId, role: 'tenant', rentRecord: newRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
-              }
+              createdRecords.push(newRecord);
 
               if (tenant.ownerId) {
                 const ownerIdKey = String(tenant.ownerId._id || tenant.ownerId);
@@ -178,6 +175,38 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
           if (iterMonth > 11) {
             iterMonth = 0;
             iterYear++;
+          }
+        }
+
+        // ── Email newly created bills ─────────────────────────────────────────
+        // If more than 2 bills were backfilled at once, send ONE consolidated
+        // email covering the whole range (from → to) instead of one email per bill.
+        if (createdRecords.length > 2) {
+          if (tenant.userId) {
+            const fromMonth = createdRecords[0].month;
+            const toMonth = createdRecords[createdRecords.length - 1].month;
+            const totalAmount = createdRecords.reduce((sum, rec) => sum + (rec.totalRent || 0), 0);
+            await emailService.sendBillBackfillSummaryEmail({
+              user: tenant.userId,
+              role: 'tenant',
+              property: tenant.propertyId,
+              room: tenant.roomId,
+              tenantUser: tenant.userId,
+              fromMonth,
+              toMonth,
+              count: createdRecords.length,
+              totalAmount,
+            }).catch(() => null);
+          }
+        } else {
+          for (const createdRecord of createdRecords) {
+            const isFinalMonth = tenant.status === 'vacated' && tenant.exitDate && new Date(tenant.exitDate).toISOString().slice(0, 7) === createdRecord.month;
+
+            if (isFinalMonth) {
+              if (tenant.userId) await emailService.sendFinalSettlementEmail({ user: tenant.userId, role: 'tenant', rentRecord: createdRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
+            } else {
+              if (tenant.userId) await emailService.sendBillGeneratedEmail({ user: tenant.userId, role: 'tenant', rentRecord: createdRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
+            }
           }
         }
 

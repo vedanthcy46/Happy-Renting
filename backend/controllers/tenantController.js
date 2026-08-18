@@ -460,14 +460,84 @@ const markRefundSettled = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
+    const {
+      deductions, originalDeposit, refundAmount, refundMethod, refundReference, refundDate, note,
+    } = req.body;
+
+    // Normalize deductions (never trust client-side totals)
+    const normalizedDeductions = Array.isArray(deductions)
+      ? deductions.map(d => ({
+          category: String(d?.category || '').trim(),
+          description: String(d?.description || '').trim(),
+          amount: Math.max(0, Number(d?.amount) || 0),
+        })).filter(d => d.amount > 0 || d.category || d.description)
+      : [];
+    const totalDeductions = normalizedDeductions.reduce((sum, d) => sum + d.amount, 0);
+
+    // Base deposit — prefer the explicitly recorded deposit, fall back to what was paid
+    const baseDeposit = Number(originalDeposit ?? tenant.advancePaid ?? tenant.securityDeposit ?? 0);
+
+    // Server-side calculation of the final refundable amount
+    const computedRefund = Math.max(0, baseDeposit - totalDeductions);
+
+    if (refundAmount !== undefined && refundAmount !== null && refundAmount !== '') {
+      if (Math.abs(Number(refundAmount) - computedRefund) > 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Refund amount does not match the security deposit minus recorded deductions.',
+        });
+      }
+    }
+
+    const settledAt = new Date();
+
     tenant.refundSettled = true;
-    tenant.refundSettledAt = new Date();
-    tenant.refundNote = req.body.note || '';
-    
+    tenant.refundSettledAt = settledAt;
+    tenant.refundNote = note || '';
+    tenant.refundOriginalDeposit = baseDeposit;
+    tenant.refundDeductions = normalizedDeductions;
+    tenant.refundTotalDeductions = totalDeductions;
+    tenant.refundAmount = computedRefund;
+    tenant.advanceRefundAmount = computedRefund; // keep legacy field in sync
+    tenant.refundMethod = String(refundMethod || '').trim();
+    tenant.refundReference = String(refundReference || '').trim();
+    tenant.refundDate = refundDate ? new Date(refundDate) : settledAt;
+
     await tenant.save();
 
-    await logActivity(req.user._id, 'REFUND_SETTLED', tenant._id, 'Tenant', `Marked refund settled for tenant ${tenant._id}`, req.ip);
-    
+    await logActivity(req.user._id, 'REFUND_SETTLED', tenant._id, 'Tenant', `Marked refund settled for tenant ${tenant._id} (₹${computedRefund} after ₹${totalDeductions} deductions)`, req.ip);
+
+    // Notify the tenant with the full settlement breakdown
+    try {
+      const [tenantUser, property, room] = await Promise.all([
+        User.findById(tenant.userId).select('name email preferredLanguage'),
+        tenant.propertyId ? require('../models/Property').findById(tenant.propertyId) : null,
+        Room.findById(tenant.roomId).select('roomNumber'),
+      ]);
+
+      if (tenantUser) {
+        await emailService.sendRefundSettledEmail(
+          tenantUser,
+          property,
+          room,
+          {
+            originalDeposit: baseDeposit,
+            deductions: normalizedDeductions,
+            totalDeductions,
+            refundAmount: computedRefund,
+            refundMethod: tenant.refundMethod,
+            refundReference: tenant.refundReference,
+            refundDate: tenant.refundDate,
+            note: tenant.refundNote,
+          }
+        ).catch((emailErr) => {
+          logger.error(`[REFUND SETTLED] Failed to send settlement email to tenant ${tenant.userId}: ${emailErr.message}`);
+        });
+      }
+    } catch (notifyErr) {
+      logger.error(`[REFUND SETTLED] Post-settlement notification failed: ${notifyErr.message}`);
+    }
+
     res.status(200).json({ success: true, message: 'Refund marked as settled.', tenant });
   } catch (err) {
     next(err);

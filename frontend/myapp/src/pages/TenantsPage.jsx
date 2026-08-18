@@ -28,6 +28,15 @@ const TenantsPage = () => {
   const [exitError,  setExitError]  = useState('');
   const [reversing,  setReversing]  = useState(null); // tenantId being reversed
 
+  // Refund / settlement modal state
+  const [settle, setSettle] = useState({
+    open: false, tenant: null,
+    originalDeposit: '',
+    deductions: [{ category: 'rent', description: '', amount: '' }],
+    refundMethod: 'cash', refundReference: '', note: '',
+    saving: false, error: '',
+  });
+
   // Edit Advance modal state
   // Edit Advance/Profile modal state
   const [editAdv,    setEditAdv]    = useState({ open: false, tenant: null, amount: '', total: '', name: '', email: '', phone: '', idProof: '' });
@@ -114,6 +123,73 @@ const TenantsPage = () => {
       idProof: tenant.idProof || ''
     });
     setEditTab('finance');
+  };
+
+  const openSettle = (tenant) => {
+    const deposit = Number(tenant.advancePaid) || Number(tenant.advanceRefundAmount) || Number(tenant.roomId?.securityDeposit) || Number(tenant.securityDeposit) || 0;
+    setSettle({
+      open: true, tenant,
+      originalDeposit: String(deposit || ''),
+      deductions: [{ category: 'rent', description: '', amount: '' }],
+      refundMethod: 'cash', refundReference: '', note: '',
+      saving: false, error: '',
+    });
+  };
+
+  const closeSettle = () => setSettle(s => ({ ...s, open: false, tenant: null, error: '' }));
+
+  const updateSettleDeduction = (idx, field, value) => {
+    setSettle(s => {
+      const deductions = s.deductions.map((d, i) => i === idx ? { ...d, [field]: value } : d);
+      return { ...s, deductions, error: '' };
+    });
+  };
+
+  const addSettleDeduction = () => {
+    setSettle(s => ({ ...s, deductions: [...s.deductions, { category: 'damage', description: '', amount: '' }], error: '' }));
+  };
+
+  const removeSettleDeduction = (idx) => {
+    setSettle(s => {
+      const deductions = s.deductions.filter((_, i) => i !== idx);
+      return { ...s, deductions: deductions.length ? deductions : [{ category: 'rent', description: '', amount: '' }] };
+    });
+  };
+
+  const settleTotalDeductions = settle.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const settleRefundable = Math.max(0, (Number(settle.originalDeposit) || 0) - settleTotalDeductions);
+
+  const handleConfirmSettle = async (e) => {
+    e.preventDefault();
+    const tenant = settle.tenant;
+    if (!tenant || settle.saving) return;
+    if (settleTotalDeductions <= 0 && !settle.originalDeposit) {
+      return setSettle(s => ({ ...s, error: 'Add at least one deduction or a valid deposit amount.' }));
+    }
+    setSettle(s => ({ ...s, saving: true, error: '' }));
+    try {
+      await api.patch(`/tenants/${tenant._id}/mark-refund-settled`, {
+        originalDeposit: Number(settle.originalDeposit) || 0,
+        deductions: settle.deductions
+          .filter(d => (Number(d.amount) || 0) > 0 || d.description)
+          .map(d => ({
+            category: d.category,
+            description: d.description || '',
+            amount: Number(d.amount) || 0,
+          })),
+        refundAmount: settleRefundable,
+        refundMethod: settle.refundMethod,
+        refundReference: settle.refundReference || undefined,
+        note: settle.note || undefined,
+      });
+      toast.success('Security deposit settlement recorded. Email sent to the tenant.');
+      closeSettle();
+      fetchTenants();
+    } catch (err) {
+      setSettle(s => ({ ...s, error: err.response?.data?.message || err.message }));
+    } finally {
+      setSettle(s => ({ ...s, saving: false }));
+    }
   };
 
     const handleUpdateAdvance = async (e) => {
@@ -377,24 +453,17 @@ const TenantsPage = () => {
                     )}
                     {tab === 'vacated' && (
                       <td className="text-right">
-                        {(t.advanceRefundAmount > 0 || t.advancePaid > 0) ? (
+                        {(t.advanceRefundAmount > 0 || t.advancePaid > 0 || t.refundSettled) ? (
                           t.refundSettled ? (
                             <span className="inline-flex flex-col items-end">
                               <span className="text-[10px] font-bold text-success uppercase">✓ Settled</span>
+                              <span className="text-[9px] text-success font-bold">₹{(t.refundAmount || t.advanceRefundAmount || 0).toLocaleString()}</span>
                               <span className="text-[9px] text-slate-500 font-mono">{new Date(t.refundSettledAt).toLocaleDateString()}</span>
                             </span>
                           ) : (
                             <div className="flex flex-col items-end gap-1">
                               <span className="text-[10px] font-bold text-warning uppercase">💰 Refund Due</span>
-                              <button onClick={() => {
-                                const note = window.prompt("Enter an optional note for marking this refund as settled:");
-                                if (note !== null) {
-                                  api.patch(`/tenants/${t._id}/mark-refund-settled`, { note }).then(() => {
-                                    toast.success('Refund marked as settled!');
-                                    fetchTenants();
-                                  }).catch(e => toast.error('Failed to settle refund: ' + e.message));
-                                }
-                              }} className="btn-secondary py-0.5 px-2 text-[9px] uppercase font-bold border-warning/30 text-warning hover:bg-warning/10">
+                              <button onClick={() => openSettle(t)} className="btn-secondary py-0.5 px-2 text-[9px] uppercase font-bold border-warning/30 text-warning hover:bg-warning/10">
                                 Mark Settled
                               </button>
                             </div>
@@ -492,6 +561,38 @@ const TenantsPage = () => {
                             )}
                           </div>
                         </div>
+
+                        {tab === 'vacated' && t.refundSettled && (
+                          <div className="mt-6 p-4 rounded-xl bg-surface-card border border-surface-border">
+                            <h4 className="text-[10px] uppercase font-bold text-brand-400 mb-3">Final Security Deposit Settlement</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Original Deposit</p>
+                                <p className="text-sm text-white">₹{(t.refundOriginalDeposit || t.advancePaid || 0).toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Total Deductions</p>
+                                <p className="text-sm text-danger">− ₹{(t.refundTotalDeductions || 0).toLocaleString()}</p>
+                                {t.refundDeductions?.length > 0 && (
+                                  <ul className="mt-1 space-y-0.5">
+                                    {t.refundDeductions.map((d, i) => (
+                                      <li key={i} className="text-[10px] text-slate-500">
+                                        {d.category || 'Deduction'}{d.amount > 0 ? ` — ₹${Number(d.amount).toLocaleString()}` : ''}
+                                        {d.description ? ` (${d.description})` : ''}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Refunded Amount</p>
+                                <p className="text-sm font-bold text-success">₹{(t.refundAmount || t.advanceRefundAmount || 0).toLocaleString()}</p>
+                                {t.refundMethod && <p className="text-[10px] text-slate-500 capitalize">via {t.refundMethod}{t.refundReference ? ` · ${t.refundReference}` : ''}</p>}
+                                {t.refundNote && <p className="text-[10px] text-slate-500 italic mt-1">{t.refundNote}</p>}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -525,6 +626,125 @@ const TenantsPage = () => {
           <div className="flex gap-3">
             <button type="button" onClick={() => setMoveOut({ open: false, tenant: null })} className="btn-secondary flex-1">Cancel</button>
             <button id="confirm-moveout" type="submit" disabled={exiting} className="btn-danger flex-1">{exiting ? 'Processing…' : 'Confirm Move Out'}</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Security Deposit Settlement Modal */}
+      <Modal isOpen={settle.open} onClose={closeSettle} title="Security Deposit Settlement" size="md">
+        <form onSubmit={handleConfirmSettle} noValidate className="space-y-4">
+          {settle.tenant && (
+            <div className="p-3 rounded-xl bg-surface border border-surface-border">
+              <p className="text-sm text-slate-400">Settling deposit for:</p>
+              <p className="text-white font-semibold mt-1">{settle.tenant.userId?.name}</p>
+              <p className="text-slate-400 text-sm">Room {settle.tenant.roomId?.roomNumber}</p>
+            </div>
+          )}
+
+          {settle.error && <div className="p-3 rounded-xl bg-danger/10 border border-danger/30 text-danger text-sm">{settle.error}</div>}
+
+          <div>
+            <label className="form-label">Original Security Deposit (₹)</label>
+            <input
+              type="number"
+              min="0"
+              className="form-input"
+              value={settle.originalDeposit}
+              onChange={e => setSettle(s => ({ ...s, originalDeposit: e.target.value, error: '' }))}
+              placeholder="e.g. 20000"
+            />
+          </div>
+
+          <div>
+            <label className="form-label">Deductions</label>
+            <div className="space-y-2">
+              {settle.deductions.map((d, idx) => (
+                <div key={idx} className="flex flex-col gap-2 p-3 rounded-xl bg-surface border border-surface-border">
+                  <div className="flex gap-2">
+                    <select
+                      className="form-input flex-1"
+                      value={d.category}
+                      onChange={e => updateSettleDeduction(idx, 'category', e.target.value)}
+                    >
+                      <option value="rent">Rent</option>
+                      <option value="electricity">Electricity</option>
+                      <option value="water">Water</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="damage">Damage / Repair</option>
+                      <option value="cleaning">Cleaning</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-input w-32"
+                      value={d.amount}
+                      onChange={e => updateSettleDeduction(idx, 'amount', e.target.value)}
+                      placeholder="Amount"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSettleDeduction(idx)}
+                      className="btn-secondary px-2 text-danger"
+                      title="Remove deduction"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={d.description}
+                    onChange={e => updateSettleDeduction(idx, 'description', e.target.value)}
+                    placeholder="Description / reason (e.g. broken bathroom tap)"
+                  />
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addSettleDeduction} className="mt-2 text-[11px] uppercase font-bold text-brand-400 hover:text-brand-300">
+              + Add Deduction
+            </button>
+          </div>
+
+          <div className="p-3 rounded-xl bg-surface border border-surface-border space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Total Deductions</span>
+              <span className="text-danger font-bold">− ₹{settleTotalDeductions.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Refundable Amount</span>
+              <span className="text-success font-bold">₹{settleRefundable.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="form-label">Refund Method</label>
+              <select className="form-input" value={settle.refundMethod} onChange={e => setSettle(s => ({ ...s, refundMethod: e.target.value }))}>
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Reference / UTR ID (optional)</label>
+              <input type="text" className="form-input" value={settle.refundReference} onChange={e => setSettle(s => ({ ...s, refundReference: e.target.value }))} placeholder="e.g. UTR123456789" />
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">Note (optional)</label>
+            <textarea className="form-input resize-none" rows={2} value={settle.note} onChange={e => setSettle(s => ({ ...s, note: e.target.value }))} placeholder="Any additional note for the tenant…" maxLength={500} />
+          </div>
+
+          <div className="p-3 rounded-xl bg-warning/10 border border-warning/30">
+            <p className="text-warning text-xs">⚠️ This records the final settlement and emails the full breakdown to the tenant.</p>
+          </div>
+
+          <div className="flex gap-3">
+            <button type="button" onClick={closeSettle} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={settle.saving} className="btn-primary flex-1">{settle.saving ? 'Processing…' : 'Confirm Settlement'}</button>
           </div>
         </form>
       </Modal>

@@ -111,7 +111,7 @@ const moveIn = async (params, performedBy) => {
 
   // ── Pre-transaction checks ──
   const [user, room] = await Promise.all([
-    User.findById(userId).select('role isActive email emailVerified emailVerificationToken'),
+    User.findById(userId).select('name role isActive email emailVerified emailVerificationToken'),
     Room.findById(roomId).select('roomNumber capacity currentOccupancy ownerId isActive propertyId'),
   ]);
 
@@ -259,11 +259,15 @@ const moveIn = async (params, performedBy) => {
           const verificationToken = hasVerified ? null : (user.emailVerificationToken || null);
           await emailService.sendTenantWelcome(
             user,
-            params.tempPassword || '********',
+            params.tempPassword,
             property,
             room,
             owner.name,
-            verificationToken
+            verificationToken,
+            {
+              joinDate: tenant.moveInDate || tenant.joinDate,
+              dueDay: tenant.billingDay || tenant.rentDueDay || 5,
+            }
           );
         } catch (emailErr) {
           logger.error(`[TENANT CREATE] Failed to send welcome email: ${emailErr.message}`);

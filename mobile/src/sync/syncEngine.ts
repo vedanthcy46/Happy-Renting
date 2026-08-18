@@ -207,7 +207,15 @@ async function dispatch(item: OutboxItem): Promise<void> {
       break;
     case 'owner.tenant.markRefundSettled':
       if (!item.entityId) throw new Error('Missing entityId');
-      await markRefundSettled(item.entityId, item.payload.note ? String(item.payload.note) : undefined);
+      await markRefundSettled(item.entityId, {
+        originalDeposit: Number(item.payload.originalDeposit) || 0,
+        deductions: Array.isArray(item.payload.deductions) ? item.payload.deductions : [],
+        refundAmount: item.payload.refundAmount !== undefined && item.payload.refundAmount !== null
+          ? Number(item.payload.refundAmount) : undefined,
+        refundMethod: item.payload.refundMethod ? String(item.payload.refundMethod) : undefined,
+        refundReference: item.payload.refundReference ? String(item.payload.refundReference) : undefined,
+        note: item.payload.note ? String(item.payload.note) : undefined,
+      });
       break;
     case 'owner.transaction.verify':
       if (!item.entityId) throw new Error('Missing entityId');
