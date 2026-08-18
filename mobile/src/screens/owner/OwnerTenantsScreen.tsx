@@ -264,6 +264,51 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
                 </TouchableOpacity>
               </>
             )}
+
+            {tenant.refundHistory?.length ? (
+              <>
+                <View style={styles.sheetDivider} />
+                <View style={[styles.refundCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <Text style={[styles.coTitle, { color: colors.text.primary }]}>{t('owner.tenants.settlementHistoryTitle')}</Text>
+                  {tenant.refundHistory.map((h, hi) => (
+                    <View key={hi} style={[styles.coRow, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: spacing.sm }]}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementOriginal')}</Text>
+                          <Text style={[styles.summaryValue, { color: colors.text.primary }]}>₹{(Number(h.originalDeposit) || 0).toLocaleString('en-IN')}</Text>
+                        </View>
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementTotalDeductions')}</Text>
+                          <Text style={[styles.summaryValue, { color: colors.error }]}>− ₹{(Number(h.totalDeductions) || 0).toLocaleString('en-IN')}</Text>
+                        </View>
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>{t('owner.tenants.settlementRefunded')}</Text>
+                          <Text style={[styles.summaryValue, { color: colors.success, fontWeight: '800' }]}>₹{(Number(h.amount) || 0).toLocaleString('en-IN')}</Text>
+                        </View>
+                        {h.method ? (
+                          <Text style={[styles.refundDate, { color: colors.text.tertiary }]} numberOfLines={1}>
+                            {h.method.toUpperCase()}{h.reference ? ` · ${h.reference}` : ''}
+                          </Text>
+                        ) : null}
+                        {h.settledAt ? (
+                          <Text style={[styles.refundDate, { color: colors.text.tertiary }]}>
+                            {t('owner.tenants.settlementHistorySettled')} {formatDate(h.settledAt)}
+                          </Text>
+                        ) : null}
+                        {h.reversedAt ? (
+                          <Text style={[styles.refundDate, { color: colors.warning }]}>
+                            {t('owner.tenants.settlementHistoryReversed')} {formatDate(h.reversedAt)}
+                          </Text>
+                        ) : null}
+                        {h.note ? (
+                          <Text style={[styles.refundDate, { color: colors.text.tertiary }]} numberOfLines={2}>{h.note}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
           </ScrollView>
         </View>
       </View>
@@ -693,9 +738,13 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
 
 interface RefundDeductionDraft {
   category: string;
+  customCategory?: string;
   description: string;
   amount: string;
 }
+
+const DEDUCTION_CATEGORY_KEYS = ['rent', 'damage', 'cleaning', 'maintenance', 'electricity', 'water', 'other'] as const;
+const deductionCategoryTKey = (k: string) => `owner.tenants.settlementCat${k.charAt(0).toUpperCase()}${k.slice(1)}`;
 
 interface RefundSettleModalProps {
   tenant: OwnerTenant | null;
@@ -717,16 +766,18 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
   const [reference, setReference] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+  const [openCategory, setOpenCategory] = useState<number | null>(null);
 
   React.useEffect(() => {
     if (visible && tenant) {
       const deposit = Number(tenant.advancePaid) || Number(tenant.advanceRefundAmount) || Number(tenant.roomId?.securityDeposit) || 0;
       setOriginalDeposit(deposit ? String(deposit) : '');
-      setDeductions([{ category: 'rent', description: '', amount: '' }]);
+      setDeductions([{ category: t('owner.tenants.settlementCatRent'), description: '', amount: '' }]);
       setMethod('cash');
       setReference('');
       setNote('');
       setError('');
+      setOpenCategory(null);
     }
   }, [visible, tenant]);
 
@@ -740,22 +791,27 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
     setError('');
   };
 
-  const addDeduction = () => setDeductions(ds => [...ds, { category: 'damage', description: '', amount: '' }]);
+  const addDeduction = () => setDeductions(ds => [...ds, { category: t('owner.tenants.settlementCatDamage'), description: '', amount: '' }]);
   const removeDeduction = (idx: number) => {
     setDeductions(ds => {
       const next = ds.filter((_, i) => i !== idx);
-      return next.length ? next : [{ category: 'rent', description: '', amount: '' }];
+      return next.length ? next : [{ category: t('owner.tenants.settlementCatRent'), description: '', amount: '' }];
     });
+    setOpenCategory(null);
   };
 
   const handleConfirm = () => {
+    const otherLabel = t('owner.tenants.settlementCatOther');
     const cleanDeductions = deductions
       .filter(d => (Number(d.amount) || 0) > 0 || d.description)
-      .map(d => ({
-        category: d.category.trim() || 'other',
-        description: d.description.trim(),
-        amount: Number(d.amount) || 0,
-      }));
+      .map(d => {
+        const isOther = d.category.trim() === otherLabel;
+        return {
+          category: (isOther && d.customCategory?.trim() ? d.customCategory.trim() : d.category.trim()) || 'other',
+          description: d.description.trim(),
+          amount: Number(d.amount) || 0,
+        };
+      });
 
     if (cleanDeductions.length === 0 && !originalDeposit) {
       setError(t('owner.tenants.settlementRequired'));
@@ -803,14 +859,19 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
             {deductions.map((d, idx) => (
               <View key={idx} style={[styles.deductionRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TextInput
-                    style={[styles.input, styles.deductionCategory, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
-                    value={d.category}
-                    onChangeText={v => updateDeduction(idx, 'category', v)}
-                    placeholder={t('owner.tenants.settlementDeductionCategory')}
-                    placeholderTextColor={colors.text.tertiary}
-                    maxLength={40}
-                  />
+                  <TouchableOpacity
+                    style={[styles.input, styles.deductionCategory, styles.categoryTrigger, { borderColor: colors.border, backgroundColor: colors.background }]}
+                    onPress={() => setOpenCategory(openCategory === idx ? null : idx)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[{ flex: 1, fontSize: 15 }, d.category ? { color: colors.text.primary } : { color: colors.text.tertiary }]}
+                    >
+                      {d.category || t('owner.tenants.settlementDeductionCategory')}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={colors.text.tertiary} />
+                  </TouchableOpacity>
                   <TextInput
                     style={[styles.input, styles.deductionAmount, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                     value={d.amount}
@@ -823,6 +884,44 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
                     <Ionicons name="close-circle" size={20} color={colors.error} />
                   </TouchableOpacity>
                 </View>
+                {openCategory === idx && (
+                  <View style={[styles.categoryOptions, { borderColor: colors.border }]}>
+                    {DEDUCTION_CATEGORY_KEYS.map((k, oi) => {
+                      const label = t(deductionCategoryTKey(k));
+                      const selected = d.category === label;
+                      return (
+                        <TouchableOpacity
+                          key={k}
+                          style={[
+                            styles.categoryOption,
+                            selected && { backgroundColor: colors.primaryLight },
+                            oi < DEDUCTION_CATEGORY_KEYS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+                          ]}
+                          onPress={() => {
+                            updateDeduction(idx, 'category', label);
+                            setOpenCategory(null);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.categoryOptionText, { color: selected ? colors.primary : colors.text.primary }, selected && { fontWeight: '600' }]}>
+                            {label}
+                          </Text>
+                          {selected && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+                {d.category === t('owner.tenants.settlementCatOther') && (
+                  <TextInput
+                    style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+                    value={d.customCategory}
+                    onChangeText={v => updateDeduction(idx, 'customCategory', v)}
+                    placeholder={t('owner.tenants.settlementCatOtherPlaceholder')}
+                    placeholderTextColor={colors.text.tertiary}
+                    maxLength={40}
+                  />
+                )}
                 <TextInput
                   style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
                   value={d.description}
@@ -1676,6 +1775,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   deductionCategory: { flex: 2 },
+  categoryTrigger: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
+  categoryOptions: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  categoryOptionText: { fontSize: 14 },
   deductionAmount: { flex: 1, textAlign: 'right' },
   deductionRemove: { padding: spacing.xs, marginLeft: spacing.xs },
   addDeductionBtn: {

@@ -142,6 +142,28 @@ const tenantSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    refundHistory: [
+      {
+        _id: false,
+        settledAt: { type: Date, default: null },
+        originalDeposit: { type: Number, default: 0 },
+        deductions: [
+          {
+            _id: false,
+            category: { type: String, default: '' },
+            description: { type: String, default: '' },
+            amount: { type: Number, default: 0 },
+          },
+        ],
+        totalDeductions: { type: Number, default: 0 },
+        amount: { type: Number, default: 0 },
+        method: { type: String, default: '' },
+        reference: { type: String, default: '' },
+        date: { type: Date, default: null },
+        note: { type: String, default: '' },
+        reversedAt: { type: Date, default: null },
+      },
+    ],
     rentDueDay: {
       type   : Number,
       min    : [1, 'Rent due day must be at least 1'],

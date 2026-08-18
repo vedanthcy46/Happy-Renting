@@ -60,6 +60,7 @@ export interface OwnerTenant {
   refundReference?: string;
   refundDate?: string;
   refundDeductions?: { category: string; description?: string; amount: number }[];
+  refundHistory?: RefundSettlementHistory[];
   securityDeposit?: number;
   notes?: string;
   coOccupants?: CoOccupant[];
@@ -463,6 +464,19 @@ export interface RefundSettlementPayload {
   refundReference?: string;
   refundDate?: string;
   note?: string;
+}
+
+export interface RefundSettlementHistory {
+  settledAt?: string;
+  originalDeposit?: number;
+  deductions?: { category: string; description?: string; amount: number }[];
+  totalDeductions?: number;
+  amount?: number;
+  method?: string;
+  reference?: string;
+  date?: string;
+  note?: string;
+  reversedAt?: string;
 }
 
 export const markRefundSettled = async (tenantId: string, payload: RefundSettlementPayload) => {

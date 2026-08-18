@@ -593,6 +593,46 @@ const TenantsPage = () => {
                             </div>
                           </div>
                         )}
+
+                        {t.refundHistory?.length > 0 && (
+                          <div className="mt-6 p-4 rounded-xl bg-surface-card border border-surface-border">
+                            <h4 className="text-[10px] uppercase font-bold text-brand-400 mb-3">Settlement History</h4>
+                            <div className="space-y-4">
+                              {t.refundHistory.map((h, i) => (
+                                <div key={i} className="border-t border-surface-border pt-4 first:border-t-0 first:pt-0">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                      <p className="text-[10px] text-slate-500 uppercase font-bold">Original Deposit</p>
+                                      <p className="text-sm text-white">₹{(h.originalDeposit || 0).toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-slate-500 uppercase font-bold">Total Deductions</p>
+                                      <p className="text-sm text-danger">− ₹{(h.totalDeductions || 0).toLocaleString()}</p>
+                                      {h.deductions?.length > 0 && (
+                                        <ul className="mt-1 space-y-0.5">
+                                          {h.deductions.map((d, di) => (
+                                            <li key={di} className="text-[10px] text-slate-500">
+                                              {d.category || 'Deduction'}{d.amount > 0 ? ` — ₹${Number(d.amount).toLocaleString()}` : ''}
+                                              {d.description ? ` (${d.description})` : ''}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-slate-500 uppercase font-bold">Refunded Amount</p>
+                                      <p className="text-sm font-bold text-success">₹{(h.amount || 0).toLocaleString()}</p>
+                                      {h.method && <p className="text-[10px] text-slate-500 capitalize">via {h.method}{h.reference ? ` · ${h.reference}` : ''}</p>}
+                                      {h.settledAt && <p className="text-[10px] text-slate-500 mt-1">Settled on {new Date(h.settledAt).toLocaleDateString()}</p>}
+                                      {h.reversedAt && <p className="text-[10px] text-warning mt-0.5">Reversed on {new Date(h.reversedAt).toLocaleDateString()}</p>}
+                                      {h.note && <p className="text-[10px] text-slate-500 italic mt-1">{h.note}</p>}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )}

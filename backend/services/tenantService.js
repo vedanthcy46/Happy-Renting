@@ -540,7 +540,9 @@ const deleteCoOccupant = async (tenantId, coOccupantId, callerId, callerRole) =>
 
 const reverseMoveOut = async (tenantId, callerRole, callerId) => {
   const tenant = await Tenant.findById(tenantId).select(
-    'status ownerId roomId userId exitDate'
+    'status ownerId roomId userId exitDate ' +
+    'refundSettled refundSettledAt refundNote refundOriginalDeposit refundDeductions ' +
+    'refundTotalDeductions refundAmount refundMethod refundReference refundDate advanceRefundAmount'
   );
 
   if (!tenant) {
@@ -596,9 +598,46 @@ const reverseMoveOut = async (tenantId, callerRole, callerId) => {
   let updatedTenant;
 
   await withTransactionOrFallback(async (session) => {
+    // Preserve the settled refund as history before clearing the live flag, so
+    // the audit trail of the refund transaction survives a reversal.
+    const refundUpdate = {
+      $set: {
+        status: 'active',
+        exitDate: null,
+        vacatedBy: null,
+        refundSettled: false,
+        refundSettledAt: null,
+        refundNote: '',
+        refundOriginalDeposit: 0,
+        refundDeductions: [],
+        refundTotalDeductions: 0,
+        refundAmount: 0,
+        refundMethod: '',
+        refundReference: '',
+        refundDate: null,
+        advanceRefundAmount: 0,
+      },
+    };
+    if (tenant.refundSettled) {
+      refundUpdate.$push = {
+        refundHistory: {
+          settledAt: tenant.refundSettledAt,
+          originalDeposit: tenant.refundOriginalDeposit,
+          deductions: tenant.refundDeductions || [],
+          totalDeductions: tenant.refundTotalDeductions,
+          amount: tenant.refundAmount,
+          method: tenant.refundMethod,
+          reference: tenant.refundReference,
+          date: tenant.refundDate,
+          note: tenant.refundNote,
+          reversedAt: new Date(),
+        },
+      };
+    }
+
     updatedTenant = await Tenant.findOneAndUpdate(
       { _id: tenantId, status: 'vacated' },
-      { $set: { status: 'active', exitDate: null, vacatedBy: null } },
+      refundUpdate,
       { returnDocument: 'after', session }
     );
 
