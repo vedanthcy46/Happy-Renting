@@ -55,9 +55,9 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className={`card w-full ${sizes[size]} animate-slide-up shadow-glass`}>
+      <div className={`card w-full ${sizes[size]} animate-slide-up shadow-glass flex flex-col max-h-[85vh]`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border shrink-0">
           <h2 id="modal-title" className="text-lg font-semibold text-white">
             {title}
           </h2>
@@ -73,7 +73,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
           </button>
         </div>
         {/* Body */}
-        <div className="px-6 py-5">
+        <div className="px-6 py-5 overflow-y-auto">
           {children}
         </div>
       </div>
