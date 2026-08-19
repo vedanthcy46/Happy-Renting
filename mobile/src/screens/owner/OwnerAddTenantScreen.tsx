@@ -4,7 +4,7 @@ import {
   ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Modal, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -195,10 +195,13 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+  const { scope } = useLocalSearchParams<{ scope?: string }>();
+  const pgScope = scope === 'pg';
 
   const today = new Date().toISOString().split('T')[0];
 
   const [roomSheet, setRoomSheet] = useState(false);
+  const [propertySheet, setPropertySheet] = useState(false);
   const [userSheet, setUserSheet] = useState(false);
   const [bedSheet, setBedSheet] = useState(false);
 
@@ -206,6 +209,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
 
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
@@ -257,9 +261,23 @@ export const OwnerAddTenantScreen: React.FC = () => {
     }
   }, [selectedRoomId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Bed selection only matters for PG rooms; reset when room changes.
+  // Changing the property clears the previously chosen room (bed resets with it).
   useEffect(() => {
-    setSelectedBedId(null);
+    setSelectedRoomId(null);
+  }, [selectedPropertyId]);
+
+  // PG rooms: auto-select the first bookable bed when the room is chosen,
+  // and clear the selection when switching away from a PG room.
+  useEffect(() => {
+    const room = rooms.find(r => r._id === selectedRoomId);
+    if (room?.type === 'pg') {
+      const bookable = (room.beds ?? []).filter(b => b.status === 'available' || b.status === 'reserved');
+      const first = bookable.find(b => b.status === 'available') ?? bookable[0];
+      setSelectedBedId(first?._id ?? null);
+    } else {
+      setSelectedBedId(null);
+    }
+    // eslint-disable-line react-hooks/exhaustive-deps
   }, [selectedRoomId]);
 
   const sendOtpMutation = useMutation({
@@ -309,8 +327,37 @@ export const OwnerAddTenantScreen: React.FC = () => {
     onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || err?.message || t('owner.addTenant.alertErr')),
   });
 
+  const roomPropId = (r: Room) => (typeof r.propertyId === 'string' ? r.propertyId : r.propertyId?._id ?? '');
+  const roomPropName = (r: Room) => (typeof r.propertyId === 'string' ? 'Property' : r.propertyId?.name ?? 'Property');
+
+  const propertyOptions = useMemo(() => {
+    const map = new Map<string, { name: string; hasPg: boolean; hasRental: boolean }>();
+    for (const r of rooms) {
+      if (r.isActive === false) continue;
+      const pid = roomPropId(r);
+      if (!pid) continue;
+      const entry = map.get(pid) ?? { name: roomPropName(r), hasPg: false, hasRental: false };
+      if (r.type === 'pg') entry.hasPg = true;
+      else entry.hasRental = true;
+      map.set(pid, entry);
+    }
+    const scopeRooms = (pid: string) => rooms.filter(r => r.isActive !== false && roomPropId(r) === pid && (pgScope ? r.type === 'pg' : r.type !== 'pg'));
+    const tag = pgScope ? t('owner.addTenant.propertyTypePg') : t('owner.addTenant.propertyTypeRental');
+    return Array.from(map.entries())
+      .filter(([, e]) => (pgScope ? e.hasPg : e.hasRental))
+      .map(([pid, e]) => ({
+        key: pid,
+        label: e.name,
+        sub: `${tag} · ${t('owner.addTenant.roomsInProperty', { count: scopeRooms(pid).length })}`,
+        disabled: false,
+      }));
+  }, [rooms, pgScope, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectedProperty = propertyOptions.find(p => p.key === selectedPropertyId) ?? null;
+
   const roomOptions = rooms
-    .filter(r => r.isActive !== false)
+    .filter(r => r.isActive !== false && (pgScope ? r.type === 'pg' : r.type !== 'pg'))
+    .filter(r => (selectedPropertyId ? roomPropId(r) === selectedPropertyId : true))
     .map(r => {
       const isPg = r.type === 'pg';
       const full = !isPg && (r.currentOccupancy ?? 0) >= r.capacity;
@@ -414,6 +461,19 @@ export const OwnerAddTenantScreen: React.FC = () => {
           {/* Room */}
           <View style={[styles.section, { backgroundColor: colors.surface }, shadows.sm]}>
             <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('owner.addTenant.sectionRoom')}</Text>
+            <TouchableOpacity style={[styles.selectField, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => setPropertySheet(true)} activeOpacity={0.7}>
+              {selectedProperty ? (
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.selectValue, { color: colors.text.primary }]}>{selectedProperty.label}</Text>
+                  <Text style={[styles.selectHint, { color: colors.text.secondary }]}>
+                    {pgScope ? t('owner.addTenant.propertyTypePg') : t('owner.addTenant.propertyTypeRental')}
+                  </Text>
+                </View>
+              ) : (
+                 <Text style={[styles.selectPlaceholder, { color: colors.text.tertiary }]}>{t('owner.addTenant.selectPropertyPlaceholder')}</Text>
+              )}
+              <Ionicons name="chevron-down" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
             <TouchableOpacity style={[styles.selectField, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => setRoomSheet(true)} activeOpacity={0.7}>
               {selectedRoom ? (
                 <View style={{ flex: 1 }}>
@@ -595,6 +655,14 @@ export const OwnerAddTenantScreen: React.FC = () => {
         </View>
       </KeyboardAvoidingView>
 
+      <SelectSheet
+        visible={propertySheet}
+        title={t('owner.addTenant.selectPropertyTitle')}
+        options={propertyOptions}
+        selectedKey={selectedPropertyId}
+        onSelect={setSelectedPropertyId}
+        onClose={() => setPropertySheet(false)}
+      />
       <SelectSheet
         visible={roomSheet}
         title={t('owner.addTenant.selectRoomTitle')}

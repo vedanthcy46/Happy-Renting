@@ -122,7 +122,7 @@ export const PGResidentsScreen: React.FC = () => {
             <WorkspaceSwitcher variant="chip" />
           </View>
         </View>
-        <TouchableOpacity style={[styles.addBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]} onPress={() => router.push('/owner/add-tenant' as any)} activeOpacity={0.8}>
+        <TouchableOpacity style={[styles.addBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]} onPress={() => router.push('/owner/add-tenant?scope=pg' as any)} activeOpacity={0.8}>
           <Ionicons name="add" size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </LinearGradient>

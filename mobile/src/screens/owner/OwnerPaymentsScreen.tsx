@@ -13,7 +13,7 @@ import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import {
   getOwnerRentRecords, verifyTransaction, rejectTransaction,
-  getPaymentSummary, type OwnerRentRecord,
+  getOwnerTenants, getPaymentSummary, type OwnerRentRecord,
 } from '../../api/owner';
 import { KeyboardSafeModal } from '../../components';
 
@@ -247,13 +247,33 @@ export const OwnerPaymentsScreen: React.FC = () => {
     staleTime: 60 * 1000,
   });
 
+  const { data: tenantsData } = useQuery({
+    queryKey: ['ownerTenants'],
+    queryFn: () => getOwnerTenants(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: summaryData } = useQuery({
     queryKey: ['ownerPaymentSummary'],
     queryFn: () => getPaymentSummary(),
     staleTime: 2 * 60 * 1000,
   });
 
-  const records = data?.rentRecords ?? [];
+  const pgUserIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const tn of tenantsData?.tenants ?? []) {
+      if (tn.roomId?.type === 'pg') {
+        const uid = typeof tn.userId === 'string' ? tn.userId : tn.userId?._id;
+        if (uid) set.add(uid);
+      }
+    }
+    return set;
+  }, [tenantsData]);
+
+  const records = (data?.rentRecords ?? []).filter(r => {
+    const uid = typeof r.userId === 'string' ? r.userId : r.userId?._id;
+    return uid ? !pgUserIds.has(uid) : true;
+  });
   const metrics = summaryData?.metrics;
 
   const filtered = useMemo(() => {

@@ -200,6 +200,9 @@ const PgRoomFormModal: React.FC<PgRoomFormModalProps> = ({ visible, initial, pro
   );
 };
 
+const formatCurrency = (n?: number) =>
+  '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
 const statusBg = (s: BedStatus) => {
   switch (s) {
     case 'occupied': return '#16A34A';
@@ -405,8 +408,9 @@ export const PGRoomsScreen: React.FC = () => {
             <Ionicons name="bed-outline" size={48} color={colors.text.tertiary} />
             <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>{t('pg.rooms.emptyTitle')}</Text>
             <Text style={[styles.emptySub, { color: colors.text.tertiary }]}>{t('pg.rooms.emptySub')}</Text>
-            <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/(owner-tabs)/properties' as any)} activeOpacity={0.8}>
-              <Text style={styles.emptyBtnText}>{t('pg.rooms.goToProperties')}</Text>
+            <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: colors.primary }]} onPress={openAdd} activeOpacity={0.8}>
+              <Ionicons name="add" size={18} color="#FFFFFF" />
+              <Text style={styles.emptyBtnText}>{t('pg.rooms.saveAdd')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -419,13 +423,25 @@ export const PGRoomsScreen: React.FC = () => {
                   const occupied = beds.filter(b => b.status === 'occupied').length;
                   const total = room.totalBeds ?? beds.length;
                   const isFull = total > 0 && occupied >= total;
+                  const pct = total > 0 ? Math.round((occupied / total) * 100) : 0;
+                  const pillBg = isFull ? colors.successLight : occupied > 0 ? colors.warningLight : colors.borderLight;
+                  const pillFg = isFull ? colors.success : occupied > 0 ? colors.warning : colors.text.secondary;
+                  const pillLabel = isFull ? t('pg.rooms.full') : occupied > 0 ? t('pg.rooms.partial') : t('pg.rooms.vacant');
                   return (
                     <View key={room._id} style={[styles.roomCard, { backgroundColor: colors.surface }, shadows.sm]}>
                       <View style={styles.roomHeader}>
+                        <View style={[styles.roomIconWrap, { backgroundColor: colors.primaryLight }]}>
+                          <Ionicons name="bed" size={20} color={colors.primary} />
+                        </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.roomName, { color: colors.text.primary }]}>Room {room.roomNumber}</Text>
+                          <View style={styles.roomNameRow}>
+                            <Text style={[styles.roomName, { color: colors.text.primary }]}>Room {room.roomNumber}</Text>
+                            <View style={[styles.pill, { backgroundColor: pillBg }]}>
+                              <Text style={[styles.pillText, { color: pillFg }]}>{pillLabel}</Text>
+                            </View>
+                          </View>
                           <Text style={[styles.roomMeta, { color: colors.text.secondary }]}>
-                            {t('pg.rooms.occupancy', { occupied, total })}
+                            {room.floor ? `${room.floor} · ` : ''}{t('pg.rooms.occupancy', { occupied, total })}
                           </Text>
                         </View>
                         <View style={styles.roomActions}>
@@ -436,45 +452,47 @@ export const PGRoomsScreen: React.FC = () => {
                             <Ionicons name="trash-outline" size={19} color={colors.error} />
                           </TouchableOpacity>
                         </View>
-                        <View style={[styles.badge, { backgroundColor: isFull ? colors.successLight : occupied > 0 ? colors.warningLight : colors.borderLight }]}>
-                          <Text style={[styles.badgeText, { color: isFull ? colors.success : occupied > 0 ? colors.warning : colors.text.secondary }]}>
-                            {isFull ? t('pg.rooms.full') : occupied > 0 ? t('pg.rooms.partial') : t('pg.rooms.vacant')}
-                          </Text>
+                      </View>
+
+                      <View style={styles.occRow}>
+                        <View style={[styles.occTrack, { backgroundColor: colors.borderLight }]}>
+                          <View style={[styles.occFill, { backgroundColor: isFull ? colors.success : colors.primary, width: `${pct}%` }]} />
                         </View>
                       </View>
-                      <View style={[styles.cardDivider, { backgroundColor: colors.borderLight }]} />
-                      {beds.map(bed => {
-                        const c = statusBg(bed.status);
-                        const resident = residentByBedId.get(bed._id);
-                        const label = bed.status === 'occupied'
-                          ? (resident ?? t('pg.rooms.occupiedHint'))
-                          : bed.status === 'reserved'
-                            ? t('pg.rooms.markReserved')
-                            : bed.status === 'maintenance'
-                              ? t('pg.rooms.markMaintenance')
-                              : t('owner.rooms.bedStatusAvailable');
-                        return (
-                          <TouchableOpacity
-                            key={bed._id}
-                            style={styles.bedRow}
-                            onPress={() => onBedPress(room, bed)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={[styles.statusDot, { backgroundColor: c }]} />
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.bedNumber, { color: colors.text.primary }]}>{bed.bedNumber}</Text>
-                              <Text style={[styles.bedResident, { color: bed.status === 'occupied' ? colors.text.primary : colors.text.tertiary }]}>
+
+                      <View style={styles.bedGrid}>
+                        {beds.map(bed => {
+                          const c = statusBg(bed.status);
+                          const resident = residentByBedId.get(bed._id);
+                          const label = bed.status === 'occupied'
+                            ? (resident ?? t('pg.rooms.occupiedHint'))
+                            : bed.status === 'reserved'
+                              ? t('pg.rooms.markReserved')
+                              : bed.status === 'maintenance'
+                                ? t('pg.rooms.markMaintenance')
+                                : t('owner.rooms.bedStatusAvailable');
+                          const bedRent = bed.monthlyRent ?? room.monthlyRent;
+                          return (
+                            <TouchableOpacity
+                              key={bed._id}
+                              style={[styles.bedTile, { borderColor: c, backgroundColor: c + '14' }]}
+                              onPress={() => onBedPress(room, bed)}
+                              activeOpacity={0.75}
+                            >
+                              <View style={styles.bedTileTop}>
+                                <Text style={[styles.bedTileNumber, { color: colors.text.primary }]} numberOfLines={1}>{bed.bedNumber}</Text>
+                                {bed.status === 'occupied' && <View style={[styles.bedTileDot, { backgroundColor: c }]} />}
+                              </View>
+                              <Text style={[styles.bedTileLabel, { color: bed.status === 'occupied' ? c : colors.text.tertiary }]} numberOfLines={1}>
                                 {label}
                               </Text>
-                            </View>
-                            {bed.status === 'occupied' && (
-                              <View style={[styles.bedStatusChip, { backgroundColor: colors.successLight }]}>
-                                <Text style={[styles.bedStatusText, { color: colors.success }]}>{t('pg.rooms.bedOccupied')}</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
+                              <Text style={[styles.bedTileRent, { color: colors.text.tertiary }]}>
+                                {bedRent ? `${formatCurrency(bedRent)}/mo` : '—'}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
                   );
                 })}
@@ -514,23 +532,28 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: 48, paddingHorizontal: spacing.huge },
   emptyTitle: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
   emptySub: { fontSize: 13, textAlign: 'center' },
-  emptyBtn: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: radius.full, marginTop: spacing.sm },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 24, borderRadius: radius.full, marginTop: spacing.sm },
   emptyBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   floorLabel: { fontSize: 14, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: spacing.sm },
   roomCard: { borderRadius: radius.xl, padding: spacing.lg },
   roomHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  roomActions: { flexDirection: 'row', gap: spacing.md, marginRight: spacing.sm },
-  roomName: { fontSize: 15, fontWeight: '700' },
-  roomMeta: { fontSize: 12, marginTop: 1 },
-  badge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: radius.full },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  cardDivider: { height: 1, marginVertical: spacing.md },
-  bedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm + 2 },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
-  bedNumber: { fontSize: 14, fontWeight: '600' },
-  bedResident: { fontSize: 12, marginTop: 1 },
-  bedStatusChip: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: radius.full },
-  bedStatusText: { fontSize: 11, fontWeight: '600' },
+  roomIconWrap: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  roomNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  roomName: { fontSize: 16, fontWeight: '700' },
+  roomMeta: { fontSize: 12, marginTop: 2 },
+  pill: { paddingVertical: 3, paddingHorizontal: 9, borderRadius: radius.full },
+  pillText: { fontSize: 11, fontWeight: '700' },
+  roomActions: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+  occRow: { marginTop: spacing.md },
+  occTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  occFill: { height: '100%', borderRadius: 3 },
+  bedGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
+  bedTile: { flexBasis: '30%', flexGrow: 1, borderWidth: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, gap: 2 },
+  bedTileTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
+  bedTileNumber: { fontSize: 13, fontWeight: '700' },
+  bedTileDot: { width: 8, height: 8, borderRadius: 4 },
+  bedTileLabel: { fontSize: 11, fontWeight: '600', marginTop: 1 },
+  bedTileRent: { fontSize: 10 },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xxxl + spacing.xxl, maxHeight: '90%' },
@@ -540,6 +563,7 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: spacing.sm },
   input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, fontSize: 15 },
   inputMultiline: { height: 60, textAlignVertical: 'top', paddingTop: spacing.sm },
+  bedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderRadius: radius.md, padding: spacing.sm },
   bedNumberInput: { flex: 1.4 },
   bedMoneyInput: { flex: 1 },
   addBedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderRadius: radius.md, paddingVertical: spacing.sm, marginTop: spacing.sm },

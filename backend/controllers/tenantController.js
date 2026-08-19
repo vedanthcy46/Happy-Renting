@@ -162,7 +162,7 @@ const addTenant = async (req, res, next) => {
 
     const { 
       userId, roomId, propertyId, joinDate, moveInDate, advancePaid, securityDeposit, 
-      notes, phone, idProof, coOccupants, customBillingDay, isMigratedTenant 
+      notes, phone, idProof, coOccupants, customBillingDay, isMigratedTenant, bedId 
     } = req.body;
 
     // Resolve ownerId — always from authenticated session, never from body
@@ -174,7 +174,7 @@ const addTenant = async (req, res, next) => {
       { 
         userId, roomId, propertyId, ownerId, joinDate, moveInDate,
         advancePaid, securityDeposit, notes, phone, idProof, coOccupants,
-        customBillingDay, isMigratedTenant,
+        customBillingDay, isMigratedTenant, bedId,
         tempPassword: req.body.tempPassword || req.body.password 
       },
       req.user._id

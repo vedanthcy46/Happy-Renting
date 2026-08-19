@@ -160,9 +160,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, rooms, onEdit, on
   const { colors } = useTheme();
   const inactive = property.isActive === false;
   const propertyRooms = rooms.filter(r =>
-    typeof r.propertyId === 'string'
+    r.type !== 'pg' &&
+    (typeof r.propertyId === 'string'
       ? r.propertyId === property._id
-      : r.propertyId._id === property._id
+      : r.propertyId._id === property._id)
   );
   const totalRooms = propertyRooms.length;
   const occupiedRooms = propertyRooms.filter(r => r.currentOccupancy > 0).length;
