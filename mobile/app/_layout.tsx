@@ -266,6 +266,7 @@ function AppContent() {
       }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(owner-tabs)" />
+        <Stack.Screen name="(pg-tabs)" />
         <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="rentDetail/[id]" options={{ animation: 'slide_from_right' }} />
@@ -327,6 +328,7 @@ function AppContent() {
           onClose={() => {
             const { activeWorkspace: ws } = useAuthStore.getState();
             if (ws === 'owner') router.replace('/(owner-tabs)' as any);
+            else if (ws === 'pg') router.replace('/(pg-tabs)' as any);
             else router.replace('/(tabs)' as any);
           }}
         />

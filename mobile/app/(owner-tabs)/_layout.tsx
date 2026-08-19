@@ -107,6 +107,7 @@ export default function OwnerTabLayout() {
   const canUseOwnerWorkspace = userRoles.includes('owner') || userRoles.includes('superadmin');
   if (!canUseOwnerWorkspace) return <Redirect href="/(tabs)" />;
   // Workspace picker takes priority — don't redirect while it's showing.
+  if (!needsWorkspacePicker && activeWorkspace === 'pg') return <Redirect href={'/(pg-tabs)' as any} />;
   if (!needsWorkspacePicker && activeWorkspace !== 'owner') return <Redirect href="/(tabs)" />;
 
   return (

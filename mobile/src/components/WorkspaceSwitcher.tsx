@@ -27,10 +27,11 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const roles = user?.roles ?? (user?.role ? [user.role] : []);
   const hasOwner = roles.includes('owner');
   const hasTenant = roles.includes('tenant');
-  const canSwitch = hasOwner && hasTenant;
+  // Owner users can switch between the Owner (rental), PG Manager and (optionally) Tenant workspaces.
+  const canSwitch = hasOwner;
 
-  const label = activeWorkspace === 'owner' ? 'Owner' : 'Tenant';
-  const icon = activeWorkspace === 'owner' ? 'business' : 'home';
+  const label = activeWorkspace === 'owner' ? 'Owner' : activeWorkspace === 'pg' ? 'PG' : 'Tenant';
+  const icon = activeWorkspace === 'owner' ? 'business' : activeWorkspace === 'pg' ? 'bed' : 'home';
 
   return (
     <>
@@ -64,6 +65,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
           const { activeWorkspace: ws } = useAuthStore.getState();
           setTimeout(() => {
             if (ws === 'owner') router.replace('/(owner-tabs)' as any);
+            else if (ws === 'pg') router.replace('/(pg-tabs)' as any);
             else router.replace('/(tabs)' as any);
           }, 300);
         }}

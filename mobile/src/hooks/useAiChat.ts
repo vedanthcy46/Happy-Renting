@@ -12,6 +12,7 @@ import { getCurrentLanguage } from '../localization/i18n';
 const sessionCache: Record<Workspace, AiChatMessage[]> = {
   tenant: [],
   owner: [],
+  pg: [],
 };
 
 const MAX_SESSION_MESSAGES = 20;
@@ -48,7 +49,8 @@ export function useAiChat() {
 
     try {
       const history = sessionCache[ws].slice(-MAX_SESSION_MESSAGES);
-      const res = await sendAiMessage({ message: trimmed, workspace: ws, history, language: getCurrentLanguage() });
+      const apiWs: Workspace = ws === 'pg' ? 'owner' : ws;
+      const res = await sendAiMessage({ message: trimmed, workspace: apiWs, history, language: getCurrentLanguage() });
       if (!res.success) {
         throw new Error(res.message || t('ai.unreachable'));
       }

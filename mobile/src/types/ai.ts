@@ -1,4 +1,4 @@
-export type Workspace = 'tenant' | 'owner';
+export type Workspace = 'tenant' | 'owner' | 'pg';
 
 export interface AiChatMessage {
   role: 'user' | 'assistant';

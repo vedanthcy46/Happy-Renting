@@ -188,10 +188,10 @@ export const OwnerDashboardScreen: React.FC<OwnerDashboardScreenProps> = ({ onNa
   // â”€â”€ Derived values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const metrics: PaymentSummaryMetrics | undefined = summaryData?.metrics;
   const properties = propertiesData?.properties ?? [];
-  const activeTenants = tenantsData?.count ?? 0;
-  const rooms = roomsData?.rooms ?? [];
-  const totalRooms = rooms.length;
-  const occupiedRooms = rooms.filter(r => r.currentOccupancy > 0).length;
+  const activeTenants = (tenantsData?.tenants ?? []).filter(t => t.roomId?.type !== 'pg').length;
+  const rentalRooms = (roomsData?.rooms ?? []).filter(r => r.type !== 'pg');
+  const totalRooms = rentalRooms.length;
+  const occupiedRooms = rentalRooms.filter(r => r.currentOccupancy > 0).length;
   const occupancyPct =
     totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
 

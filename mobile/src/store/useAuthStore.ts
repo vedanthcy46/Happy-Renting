@@ -51,7 +51,9 @@ const deriveWorkspace = (roles: UserRole[]): Workspace => {
 
 /** Whether the user has access to multiple workspaces on mobile. */
 const isMultiRole = (roles: UserRole[]): boolean => {
-  return roles.includes('owner') && roles.includes('tenant');
+  // Any owner user now has at least two workspaces (Owner / PG Manager); a
+  // tenant-only user stays on the single tenant workspace.
+  return roles.includes('owner');
 };
 
 export const useAuthStore = create<AuthState>((set) => ({

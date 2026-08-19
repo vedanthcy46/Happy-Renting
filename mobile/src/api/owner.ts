@@ -19,6 +19,17 @@ export interface Property {
   updatedAt: string;
 }
 
+export type BedStatus = 'available' | 'occupied' | 'reserved' | 'maintenance';
+
+export interface Bed {
+  _id: string;
+  bedNumber: string;
+  status: BedStatus;
+  currentTenantId?: string | null;
+  deposit?: number;
+  monthlyRent?: number;
+}
+
 export interface Room {
   _id: string;
   roomNumber: string;
@@ -30,6 +41,12 @@ export interface Room {
   propertyId: string | { _id: string; name: string };
   ownerId: string;
   isActive: boolean;
+  type?: 'rental' | 'pg';
+  beds?: Bed[];
+  totalBeds?: number;
+  occupiedBeds?: number;
+  availableBeds?: number;
+  reservedBeds?: number;
 }
 
 export interface CoOccupant {
@@ -63,6 +80,7 @@ export interface OwnerTenant {
   refundHistory?: RefundSettlementHistory[];
   securityDeposit?: number;
   notes?: string;
+  bedId?: string | null;
   coOccupants?: CoOccupant[];
   userId: {
     _id: string;
@@ -77,6 +95,8 @@ export interface OwnerTenant {
     securityDeposit?: number;
     currentOccupancy: number;
     capacity: number;
+    type?: 'rental' | 'pg';
+    beds?: Bed[];
   };
   propertyId: {
     _id: string;
@@ -107,11 +127,11 @@ export interface OwnerAnalytics {
   collectionTrend: { month: string; expected: number; collected: number; pending: number }[];
   incomeTrend: { month: string; income: number }[];
   paidVsPending: { paid: number; pending: number };
-  occupancy: { totalRooms: number; occupiedRooms: number; vacantRooms: number; occupancyRate: number };
+  occupancy: { totalRooms: number; occupiedRooms: number; vacantRooms: number; occupancyRate: number; totalBeds?: number; occupiedBeds?: number; availableBeds?: number; bedOccupancyRate?: number };
   tenantPaymentStatus: { paid: number; partial: number; pending: number; overdue: number };
   paymentMethods: { method: string; amount: number; count: number }[];
   propertyCollection: { propertyId: string; name: string; expected: number; collected: number; pending: number }[];
-  propertyOccupancy: { propertyId: string; name: string; totalRooms: number; occupiedRooms: number; occupancyRate: number }[];
+  propertyOccupancy: { propertyId: string; name: string; totalRooms: number; occupiedRooms: number; occupancyRate: number; totalBeds?: number; occupiedBeds?: number; bedOccupancyRate?: number }[];
 }
 
 export const getOwnerAnalytics = async (params?: { month?: string; propertyId?: string }): Promise<OwnerAnalytics> => {
@@ -261,6 +281,8 @@ export const createRoom = async (payload: {
   monthlyRent?: number;
   securityDeposit?: number;
   description?: string;
+  type?: 'rental' | 'pg';
+  beds?: { bedNumber: string; status?: BedStatus; deposit?: number; monthlyRent?: number }[];
 }) => {
   const { data } = await client.post('/rooms', payload);
   return data;
@@ -273,8 +295,15 @@ export const updateRoom = async (id: string, payload: Partial<{
   monthlyRent: number;
   securityDeposit: number;
   description: string;
+  type: 'rental' | 'pg';
+  beds: { bedNumber: string; status?: BedStatus; deposit?: number; monthlyRent?: number }[];
 }>) => {
   const { data } = await client.patch(`/rooms/${id}`, payload);
+  return data;
+};
+
+export const updateBedStatus = async (roomId: string, bedId: string, status: Exclude<BedStatus, 'occupied'>) => {
+  const { data } = await client.patch(`/rooms/${roomId}/beds/${bedId}`, { status });
   return data;
 };
 
@@ -422,6 +451,7 @@ export const addTenant = async (payload: {
   notes?: string;
   phone: string;
   idProof?: string;
+  bedId?: string;
   coOccupants?: { name: string; phone?: string; idProof?: string }[];
   tempPassword?: string;
 }) => {

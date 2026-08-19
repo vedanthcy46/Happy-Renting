@@ -30,7 +30,61 @@ const roomValidation = [
     .optional().trim().isLength({ max: 10 }).escape(),
   body('description')
     .optional().trim().isLength({ max: 500 }).escape(),
+  body('type')
+    .optional().isIn(['rental', 'pg'])
+    .withMessage('Room type must be rental or pg'),
+  body('beds')
+    .optional().isArray({ min: 0, max: 20 })
+    .withMessage('beds must be an array of at most 20 beds'),
+  body('beds.*.bedNumber')
+    .optional().trim().isLength({ min: 1, max: 20 }).escape(),
+  body('beds.*.status')
+    .optional().isIn(['available', 'occupied', 'reserved', 'maintenance'])
+    .withMessage('Invalid bed status'),
+  body('beds.*.deposit')
+    .optional().isFloat({ min: 0 })
+    .withMessage('Bed deposit must be non-negative'),
+  body('beds.*.monthlyRent')
+    .optional().isFloat({ min: 0 })
+    .withMessage('Bed monthly rent must be non-negative'),
 ];
+
+const bedStatusValidation = [
+  param('id').isMongoId().withMessage('Valid room ID required'),
+  param('bedId').isMongoId().withMessage('Valid bed ID required'),
+  body('status')
+    .isIn(['available', 'reserved', 'maintenance'])
+    .withMessage('Status must be available, reserved or maintenance'),
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+// .lean() skips the toJSON transform, so derived fields are added here.
+const enrichRoom = (r) => {
+  const beds = Array.isArray(r.beds) ? r.beds : [];
+  return {
+    ...r,
+    isFull: r.currentOccupancy >= r.capacity,
+    totalBeds: beds.length,
+    occupiedBeds: beds.filter(b => b.status === 'occupied').length,
+    availableBeds: beds.filter(b => b.status === 'available').length,
+    reservedBeds: beds.filter(b => b.status === 'reserved').length,
+  };
+};
+
+// Normalizes client-supplied beds for create/update. 'occupied' can never be
+// sent by the owner directly — it is managed by tenantService on move-in.
+const normalizeBeds = (beds, fallbackCapacity) => {
+  if (Array.isArray(beds) && beds.length > 0) {
+    return beds.map((b, i) => ({
+      bedNumber: String(b.bedNumber || '').trim() || `Bed ${i + 1}`,
+      status: (b.status && b.status !== 'occupied') ? b.status : 'available',
+      deposit: Number(b.deposit) || 0,
+      monthlyRent: Number(b.monthlyRent) || 0,
+    }));
+  }
+  const cap = Number(fallbackCapacity) || 1;
+  return Array.from({ length: cap }, (_, i) => ({ bedNumber: `Bed ${i + 1}` }));
+};
 
 // ── GET /api/rooms ─────────────────────────────────────────────────────────
 // currentOccupancy is NOW a stored field — no aggregation needed.
@@ -57,11 +111,8 @@ const getRooms = async (req, res, next) => {
       .sort({ roomNumber: 1 })
       .lean({ virtuals: true, getters: true });
 
-    // Manually add isFull since .lean() skips toJSON transform
-    const enriched = rooms.map(r => ({
-      ...r,
-      isFull: r.currentOccupancy >= r.capacity,
-    }));
+    // Manual enrichment since .lean() skips toJSON transform
+    const enriched = rooms.map(enrichRoom);
 
     res.status(200).json({ success: true, count: enriched.length, rooms: enriched });
   } catch (err) {
@@ -91,7 +142,7 @@ const getRoom = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      room: { ...room, isFull: room.currentOccupancy >= room.capacity },
+      room: enrichRoom({ ...room, isFull: room.currentOccupancy >= room.capacity }),
     });
   } catch (err) {
     next(err);
@@ -101,7 +152,7 @@ const getRoom = async (req, res, next) => {
 // ── POST /api/rooms ────────────────────────────────────────────────────────
 const createRoom = async (req, res, next) => {
   try {
-    const { roomNumber, propertyId, capacity, floor, monthlyRent, securityDeposit, description } = req.body;
+    const { roomNumber, propertyId, capacity, floor, monthlyRent, securityDeposit, description, type, beds } = req.body;
 
     // ownerId always from session — never from body
     const ownerId = req.user.role === 'owner'
@@ -130,21 +181,34 @@ const createRoom = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Cannot add rooms to inactive property.' });
     }
 
+    const roomType = type === 'pg' ? 'pg' : 'rental';
+
+    // PG rooms: build the bed list (from request or auto-generate from capacity).
+    // For PG rooms capacity is ALWAYS derived from the number of beds.
+    let bedList = [];
+    let roomCapacity = Number(capacity) || 1;
+    if (roomType === 'pg') {
+      bedList = normalizeBeds(beds, capacity);
+      roomCapacity = bedList.length;
+    }
+
     const room = await Room.create({
       roomNumber,
       propertyId,
-      capacity,
+      capacity: roomCapacity,
       floor,
       monthlyRent,
       securityDeposit,
       description,
+      type: roomType,
+      beds: bedList,
       ownerId,
       currentOccupancy: 0,  // always starts at 0 — explicit for clarity
     });
 
-    logger.info(`[ROOM CREATED] room=${room._id} by=${req.user._id}`);
+    logger.info(`[ROOM CREATED] room=${room._id} by=${req.user._id} type=${roomType}`);
     await logActivity(req.user._id, 'ROOM_CREATED', room._id, 'Room', `Created Room ${roomNumber}`, req.ip);
-    res.status(201).json({ success: true, message: 'Room created.', room });
+    res.status(201).json({ success: true, message: 'Room created.', room: enrichRoom(room.toObject()) });
   } catch (err) {
     next(err);
   }
@@ -167,23 +231,67 @@ const updateRoom = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
-    const { roomNumber, capacity, floor, monthlyRent, securityDeposit, description } = req.body;
+    const { roomNumber, capacity, floor, monthlyRent, securityDeposit, description, type, beds } = req.body;
 
-    // Prevent reducing capacity below current occupancy
-    if (capacity !== undefined && Number(capacity) < room.currentOccupancy) {
+    // Prevent reducing capacity below current occupancy (only meaningful for
+    // rental rooms — PG rooms derive capacity from their bed list).
+    if (capacity !== undefined && beds === undefined && Number(capacity) < room.currentOccupancy) {
       return res.status(400).json({
         success: false,
         message: `Cannot reduce capacity to ${capacity} — room currently has ${room.currentOccupancy} active tenant(s).`,
       });
     }
 
+    // PG rooms: rebuild the bed list, preserving occupied beds. Any occupied
+    // bed that would be removed blocks the update.
+    if (beds !== undefined) {
+      const existing = room.beds || [];
+      const incoming = Array.isArray(beds) ? beds : [];
+      const usedNumbers = new Set();
+      const merged = [];
+      for (const b of incoming) {
+        const num = String(b.bedNumber || '').trim() || `Bed ${merged.length + 1}`;
+        usedNumbers.add(num);
+        const prev = existing.find(e => e.bedNumber === num && e.status === 'occupied' && e.currentTenantId);
+        if (prev) {
+          merged.push({
+            _id: prev._id,
+            bedNumber: num,
+            status: 'occupied',
+            currentTenantId: prev.currentTenantId,
+            deposit: prev.deposit,
+            monthlyRent: prev.monthlyRent,
+          });
+        } else {
+          merged.push({
+            bedNumber: num,
+            status: (b.status && b.status !== 'occupied') ? b.status : 'available',
+            currentTenantId: null,
+            deposit: Number(b.deposit) || 0,
+            monthlyRent: Number(b.monthlyRent) || 0,
+          });
+        }
+      }
+      const droppedOccupied = existing.filter(e => !usedNumbers.has(e.bedNumber) && e.status === 'occupied' && e.currentTenantId);
+      if (droppedOccupied.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot remove ${droppedOccupied.length} occupied bed(s) — move the resident(s) out first.`,
+        });
+      }
+      room.beds = merged;
+      room.capacity = merged.length;
+      room.type = 'pg';
+    }
+
     const oldMonthlyRent = room.monthlyRent;
     if (roomNumber  !== undefined) room.roomNumber  = roomNumber;
-    if (capacity    !== undefined) room.capacity    = capacity;
+    if (capacity    !== undefined && beds === undefined) room.capacity = capacity;
     if (floor       !== undefined) room.floor       = floor;
     if (monthlyRent !== undefined) room.monthlyRent = monthlyRent;
     if (securityDeposit !== undefined) room.securityDeposit = securityDeposit;
     if (description !== undefined) room.description = description;
+    if (type       !== undefined) room.type = type === 'pg' ? 'pg' : 'rental';
 
     // NOTE: currentOccupancy is NEVER updated here — only via tenantService transactions
     await room.save();
@@ -284,4 +392,51 @@ const deleteRoom = async (req, res, next) => {
   }
 };
 
-module.exports = { getRooms, getRoom, createRoom, updateRoom, deleteRoom, roomValidation };
+// ── PATCH /api/rooms/:id/beds/:bedId ──────────────────────────────────────
+// Owner-managed bed states only: available | reserved | maintenance.
+// 'occupied' is set exclusively by tenantService on move-in and freed on
+// move-out, so occupied beds cannot be changed through this endpoint.
+const updateBedStatus = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id) || !mongoose.Types.ObjectId.isValid(req.params.bedId)) {
+      return res.status(400).json({ success: false, message: 'Invalid room or bed ID.' });
+    }
+
+    const room = await Room.findById(req.params.id);
+    if (!room || !room.isActive) {
+      return res.status(404).json({ success: false, message: 'Room not found.' });
+    }
+
+    // ownerId isolation
+    if (req.user.role === 'owner' && String(room.ownerId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    if (room.type !== 'pg') {
+      return res.status(400).json({ success: false, message: 'Bed management is only available for PG rooms.' });
+    }
+
+    const bed = room.beds.id(req.params.bedId);
+    if (!bed) {
+      return res.status(404).json({ success: false, message: 'Bed not found.' });
+    }
+
+    if (bed.status === 'occupied' || bed.currentTenantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Occupied beds are managed automatically — the bed frees when the resident moves out.',
+      });
+    }
+
+    bed.status = req.body.status;
+    await room.save();
+
+    logger.info(`[BED STATUS] room=${room._id} bed=${req.params.bedId} status=${req.body.status} by=${req.user._id}`);
+    await logActivity(req.user._id, 'BED_STATUS_UPDATED', room._id, 'Room', `Bed ${bed.bedNumber} → ${req.body.status}`, req.ip);
+    res.status(200).json({ success: true, message: 'Bed status updated.', room: enrichRoom(room.toObject()) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getRooms, getRoom, createRoom, updateRoom, deleteRoom, updateBedStatus, roomValidation, bedStatusValidation };

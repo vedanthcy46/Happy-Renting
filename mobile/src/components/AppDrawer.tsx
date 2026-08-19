@@ -66,6 +66,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
   const [showWorkspacePicker, setShowWorkspacePicker] = useState(false);
 
   const isOwnerWorkspace = activeWorkspace === 'owner';
+  const isPgWorkspace = activeWorkspace === 'pg';
 
   // Pending count badges for the owner menu — only fetched while the drawer is open.
   const { data: approvalsData } = useQuery({
@@ -77,13 +78,13 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
   const { data: complaintsData } = useQuery({
     queryKey: ['ownerComplaints'],
     queryFn: cachedOwnerComplaints,
-    enabled: isOpen && isOwnerWorkspace,
+    enabled: isOpen && (isOwnerWorkspace || isPgWorkspace),
     staleTime: 30 * 1000,
   });
   const { data: notifData } = useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn: cachedNotificationsUnread,
-    enabled: isOpen && isOwnerWorkspace,
+    enabled: isOpen && (isOwnerWorkspace || isPgWorkspace),
     refetchInterval: 30 * 1000,
   });
 
@@ -195,7 +196,23 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
     { icon: 'document-text', label: t('drawer.termsOfService'), route: '/terms-of-service' },
   ];
 
-  const primaryItems = activeWorkspace === 'owner' ? ownerItems : tenantItems;
+  // ── PG-specific nav items ──────────────────────────────────────────────
+  const pgItems: DrawerItem[] = [
+    { icon: 'grid', label: t('pg.drawer.dashboard'), route: '/(pg-tabs)' },
+    { icon: 'bed', label: t('pg.drawer.roomsBeds'), route: '/(pg-tabs)/rooms', dividerAfter: true },
+    { icon: 'people', label: t('pg.drawer.residents'), route: '/(pg-tabs)/residents' },
+    { icon: 'person-add', label: t('pg.drawer.addResident'), route: '/owner/add-tenant' },
+    { icon: 'wallet', label: t('pg.drawer.collections'), route: '/(pg-tabs)/collections' },
+    { icon: 'construct', label: t('pg.drawer.complaints'), route: '/owner/complaints', badge: openComplaintsCount },
+    { icon: 'trending-up', label: t('pg.drawer.expenses'), route: '/owner/expenses', dividerAfter: true },
+    { icon: 'notifications', label: t('drawer.notifications'), route: '/notifications', badge: unreadCount, dividerAfter: true },
+  ];
+
+  const primaryItems = activeWorkspace === 'owner'
+    ? ownerItems
+    : activeWorkspace === 'pg'
+      ? pgItems
+      : tenantItems;
 
   if (!isOpen) return null;
 
@@ -259,12 +276,12 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
                 activeOpacity={isMultiRole ? 0.7 : 1}
               >
                 <Ionicons
-                  name={activeWorkspace === 'owner' ? 'business' : 'home'}
+                  name={activeWorkspace === 'owner' ? 'business' : activeWorkspace === 'pg' ? 'bed' : 'home'}
                   size={13}
                   color="rgba(255,255,255,0.9)"
                 />
                   <Text style={styles.workspaceBadgeText}>
-                  {activeWorkspace === 'owner' ? t('drawer.ownerWorkspace') : t('drawer.tenantWorkspace')}
+                  {activeWorkspace === 'owner' ? t('drawer.ownerWorkspace') : activeWorkspace === 'pg' ? t('pg.drawer.workspace') : t('drawer.tenantWorkspace')}
                 </Text>
                 {isMultiRole && (
                   <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.9)" />
@@ -351,6 +368,7 @@ export const AppDrawer: React.FC<DrawerProps> = ({ isOpen, onClose, translateX, 
           const { activeWorkspace: ws } = useAuthStore.getState();
           setTimeout(() => {
             if (ws === 'owner') router.replace('/(owner-tabs)' as any);
+            else if (ws === 'pg') router.replace('/(pg-tabs)' as any);
             else router.replace('/(tabs)' as any);
           }, 300);
         }}

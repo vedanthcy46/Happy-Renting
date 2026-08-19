@@ -16,6 +16,13 @@ import { KeyboardSafeModal } from '../../components';
 const formatCurrency = (n?: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
+interface BedDraft {
+  key: string;
+  bedNumber: string;
+  deposit: string;
+  monthlyRent: string;
+}
+
 interface RoomFormModalProps {
   visible: boolean;
   initial?: Room | null;
@@ -23,7 +30,7 @@ interface RoomFormModalProps {
   onClose: () => void;
   onSave: (payload: any) => void;
   saving: boolean;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, unknown>) => string;
 }
 
 const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propertyId, onClose, onSave, saving, t }) => {
@@ -64,6 +71,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
       monthlyRent: monthlyRent === '' ? undefined : rentNum,
       securityDeposit: securityDeposit === '' ? undefined : depositNum,
       description: description.trim() || undefined,
+      type: 'rental',
     });
   };
 
@@ -107,6 +115,7 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
                 <Text style={[styles.errText, { color: colors.error }]}>{t('owner.rooms.errCapacityMin', { min: initial.currentOccupancy })}</Text>
               )}
             </View>
+
             <View style={styles.formField}>
               <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.rooms.fieldMonthlyRent')}</Text>
               <TextInput style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]} value={monthlyRent} onChangeText={setMonthlyRent} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.text.tertiary} />
@@ -134,11 +143,11 @@ const RoomFormModal: React.FC<RoomFormModalProps> = ({ visible, initial, propert
   );
 };
 
-const RoomCard: React.FC<{ room: Room; onEdit: () => void; onDelete: () => void; t: (key: string) => string }> = ({ room, onEdit, onDelete, t }) => {
+const RoomCard: React.FC<{ room: Room; onEdit: () => void; onDelete: () => void; t: (key: string, params?: Record<string, unknown>) => string }> = ({ room, onEdit, onDelete, t }) => {
   const { colors } = useTheme();
   const occupancy = room.currentOccupancy ?? 0;
   const isFull = occupancy >= room.capacity;
-  const pct = Math.min(100, Math.round((occupancy / room.capacity) * 100));
+  const pct = Math.min(100, Math.round((room.capacity ? occupancy / room.capacity : 0) * 100));
 
   return (
     <View style={[styles.roomCard, { backgroundColor: colors.surface }, shadows.sm]}>
@@ -172,7 +181,9 @@ const RoomCard: React.FC<{ room: Room; onEdit: () => void; onDelete: () => void;
           <View style={[styles.badge, { backgroundColor: isFull ? colors.successLight : colors.warningLight }]}>
              <Text style={[styles.badgeText, { color: isFull ? colors.success : colors.warning }]}>{isFull ? t('owner.rooms.badgeFull') : t('owner.rooms.badgeAvailable')}</Text>
           </View>
-          <Text style={[styles.occCount, { color: colors.text.secondary }]}>{t('owner.rooms.occupiedCount', { occupied: occupancy, capacity: room.capacity })}</Text>
+          <Text style={[styles.occCount, { color: colors.text.secondary }]}>
+            {t('owner.rooms.occupiedCount', { occupied: occupancy, capacity: room.capacity })}
+          </Text>
         </View>
         <View style={[styles.occBar, { backgroundColor: colors.borderLight }]}>
           <View style={[styles.occFill, { backgroundColor: isFull ? colors.success : colors.primary, width: `${pct}%` }]} />
@@ -205,7 +216,7 @@ export const OwnerRoomsScreen: React.FC<{ propertyId: string }> = ({ propertyId 
   });
 
   const property = propData?.properties.find((p: any) => p._id === propertyId);
-  const rooms = roomsData?.rooms ?? [];
+  const rooms = (roomsData?.rooms ?? []).filter(r => r.type !== 'pg');
 
   const createMutation = useMutation({
     mutationFn: createRoom,
@@ -349,6 +360,19 @@ const styles = StyleSheet.create({
   occCount: { fontSize: 12 },
   occBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
   occFill: { height: '100%', borderRadius: 3 },
+  bedChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  bedChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: 10 },
+  bedChipNumber: { fontSize: 12, fontWeight: '700' },
+  bedChipStatus: { fontSize: 11, fontWeight: '500' },
+
+  typeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: 14 },
+  typeChipText: { fontSize: 13, fontWeight: '600' },
+  fieldHint: { fontSize: 12, marginTop: spacing.sm },
+  bedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderRadius: radius.md, padding: spacing.sm },
+  bedNumberInput: { flex: 1.4 },
+  bedMoneyInput: { flex: 1 },
+  addBedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderRadius: radius.md, paddingVertical: spacing.sm, marginTop: spacing.sm },
+  addBedText: { fontSize: 13, fontWeight: '600' },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xxxl + spacing.xxl, maxHeight: '90%' },

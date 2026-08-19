@@ -95,9 +95,10 @@ export default function TabLayout() {
 
   if (isLoading) return null;
   if (!token) return <Redirect href="/login" />;
-  // Owner workspace users must never land on the tenant portal.
+  // Owner / PG workspace users must never land on the tenant portal.
   // Workspace picker takes priority — don't redirect while it's showing.
   if (!needsWorkspacePicker && activeWorkspace === 'owner') return <Redirect href="/(owner-tabs)" />;
+  if (!needsWorkspacePicker && activeWorkspace === 'pg') return <Redirect href={'/(pg-tabs)' as any} />;
 
   return (
     <View style={{ flex: 1 }}>

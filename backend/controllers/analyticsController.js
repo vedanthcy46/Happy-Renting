@@ -222,6 +222,40 @@ exports.getOwnerAnalytics = async (req, res, next) => {
     const vacantRooms = Math.max(totalRooms - occupiedRooms, 0);
     const occupancyRate = totalRooms > 0 ? Number(((occupiedRooms / totalRooms) * 100).toFixed(1)) : 0;
 
+    // ── Bed-level occupancy (PG rooms only) ──
+    const bedAgg = propertyIds.length
+      ? await Room.aggregate([
+          { $match: { propertyId: { $in: propertyIds }, isActive: true, type: 'pg' } },
+          { $unwind: '$beds' },
+          {
+            $group: {
+              _id: null,
+              totalBeds: { $sum: 1 },
+              occupiedBeds: { $sum: { $cond: [{ $eq: ['$beds.status', 'occupied'] }, 1, 0] } },
+            },
+          },
+        ])
+      : [];
+    const totalBeds = bedAgg[0]?.totalBeds || 0;
+    const occupiedBeds = bedAgg[0]?.occupiedBeds || 0;
+    const availableBeds = Math.max(totalBeds - occupiedBeds, 0);
+    const bedOccupancyRate = totalBeds > 0 ? Number(((occupiedBeds / totalBeds) * 100).toFixed(1)) : 0;
+
+    // ── Property-wise bed occupancy (current) ──
+    const propBedAgg = propertyIds.length
+      ? await Room.aggregate([
+          { $match: { propertyId: { $in: propertyIds }, isActive: true, type: 'pg' } },
+          { $unwind: '$beds' },
+          {
+            $group: {
+              _id: '$propertyId',
+              totalBeds: { $sum: 1 },
+              occupiedBeds: { $sum: { $cond: [{ $eq: ['$beds.status', 'occupied'] }, 1, 0] } },
+            },
+          },
+        ])
+      : [];
+
     // ── Property-wise occupancy (current) ──
     const propOccupancyAgg = propertyIds.length
       ? await Room.aggregate([
@@ -241,12 +275,18 @@ exports.getOwnerAnalytics = async (req, res, next) => {
       const row = propOccupancyAgg.find((r) => String(r._id) === String(p._id));
       const pTotal = row?.totalRooms || 0;
       const pOccupied = Math.min(row?.occupiedRooms || 0, pTotal);
+      const bedRow = propBedAgg.find((r) => String(r._id) === String(p._id));
+      const pBeds = bedRow?.totalBeds || 0;
+      const pOccupiedBeds = bedRow?.occupiedBeds || 0;
       return {
         propertyId: p._id,
         name: p.name,
         totalRooms: pTotal,
         occupiedRooms: pOccupied,
         occupancyRate: pTotal > 0 ? Number(((pOccupied / pTotal) * 100).toFixed(1)) : 0,
+        totalBeds: pBeds,
+        occupiedBeds: pOccupiedBeds,
+        bedOccupancyRate: pBeds > 0 ? Number(((pOccupiedBeds / pBeds) * 100).toFixed(1)) : 0,
       };
     });
 
@@ -284,7 +324,10 @@ exports.getOwnerAnalytics = async (req, res, next) => {
       collectionTrend,
       incomeTrend,
       paidVsPending: { paid, pending },
-      occupancy: { totalRooms, occupiedRooms, vacantRooms, occupancyRate },
+      occupancy: {
+        totalRooms, occupiedRooms, vacantRooms, occupancyRate,
+        totalBeds, occupiedBeds, availableBeds, bedOccupancyRate,
+      },
       tenantPaymentStatus,
       paymentMethods,
       propertyCollection,

@@ -89,7 +89,7 @@ const getTenants = async (req, res, next) => {
 
     const tenants = await Tenant.find(filter)
       .populate('userId',     'name email')
-      .populate('roomId',     'roomNumber floor monthlyRent currentOccupancy capacity securityDeposit')
+      .populate('roomId',     'roomNumber floor monthlyRent currentOccupancy capacity securityDeposit type beds')
       .populate('propertyId', 'name address')
       .populate('coOccupants')
       .sort({ createdAt: -1 });
@@ -106,7 +106,7 @@ const getMyTenancy = async (req, res, next) => {
     const tenant = await Tenant.findOne({ userId: req.user._id })
       .sort({ createdAt: -1 })
       .populate('userId',     'name email')
-      .populate('roomId',     'roomNumber floor monthlyRent currentOccupancy capacity securityDeposit')
+      .populate('roomId',     'roomNumber floor monthlyRent currentOccupancy capacity securityDeposit type beds')
       .populate('propertyId', 'name address')
       .populate('ownerId',    'name qrCodeImage phone upiId upiNumber bankDetails')
       .populate('coOccupants');
@@ -122,7 +122,7 @@ const getTenant = async (req, res, next) => {
   try {
     const tenant = await Tenant.findById(req.params.id)
       .populate('userId',     'name email role')
-      .populate('roomId',     'roomNumber floor monthlyRent currentOccupancy capacity securityDeposit')
+      .populate('roomId',     'roomNumber floor monthlyRent currentOccupancy capacity securityDeposit type beds')
       .populate('propertyId', 'name address')
       .populate('coOccupants');
 

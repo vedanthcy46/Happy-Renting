@@ -1,7 +1,7 @@
 export type UserRole = 'superadmin' | 'owner' | 'tenant';
 
 // Which workspace is currently active in the app.
-export type Workspace = 'tenant' | 'owner';
+export type Workspace = 'tenant' | 'owner' | 'pg';
 
 export interface User {
   _id: string;

@@ -29,6 +29,12 @@ const WORKSPACES: { key: Workspace; label: string; subtitle: string; icon: keyof
     subtitle: 'Manage properties, tenants & collections',
     icon: 'business-outline',
   },
+  {
+    key: 'pg',
+    label: 'PG Manager',
+    subtitle: 'Manage beds, residents & PG operations',
+    icon: 'bed-outline',
+  },
 ];
 
 export const WorkspacePicker: React.FC<WorkspacePickerProps> = ({
@@ -45,7 +51,7 @@ export const WorkspacePicker: React.FC<WorkspacePickerProps> = ({
     if (!user) return false;
     const roles = user.roles ?? [user.role];
     // superadmin alone is not a mobile workspace — they must also have owner or tenant role
-    if (w.key === 'owner') return roles.includes('owner');
+    if (w.key === 'owner' || w.key === 'pg') return roles.includes('owner');
     return roles.includes('tenant');
   });
 

@@ -38,6 +38,15 @@ const toISO = (d: Date) =>
 
 // ─── Status badge ──────────────────────────────────────────────────────────
 
+const roomLabel = (tenant: OwnerTenant) => {
+  const base = `Room ${tenant.roomId.roomNumber}${tenant.roomId.floor ? ` · Floor ${tenant.roomId.floor}` : ''}`;
+  if (tenant.roomId.type === 'pg' && tenant.bedId) {
+    const bed = (tenant.roomId.beds ?? []).find(b => b._id === tenant.bedId);
+    if (bed) return `${base} · ${bed.bedNumber}`;
+  }
+  return base;
+};
+
 const StatusBadge: React.FC<{ status: OwnerTenant['status']; t: (key: string) => string }> = ({ status, t }) => {
   const { colors } = useTheme();
   const config = {
@@ -83,6 +92,10 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
     </View>
   );
 
+  const bedNumber = tenant.roomId.type === 'pg' && tenant.bedId
+    ? (tenant.roomId.beds ?? []).find(b => b._id === tenant.bedId)?.bedNumber ?? null
+    : null;
+
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <View style={styles.sheetOverlay}>
@@ -107,6 +120,7 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: spacing.sm }}>
             {row(t('owner.tenants.detailRoom'), `Room ${tenant.roomId.roomNumber}${tenant.roomId.floor ? ` · Floor ${tenant.roomId.floor}` : ''}`)}
+            {bedNumber && row(t('owner.tenants.detailBed'), bedNumber)}
             {row(t('owner.tenants.detailProperty'), tenant.propertyId.name)}
             {row(t('owner.tenants.detailMonthlyRent'), `₹${tenant.roomId.monthlyRent.toLocaleString('en-IN')}`)}
             {row(t('owner.tenants.detailMoveIn'), formatDate(tenant.moveInDate ?? tenant.joinDate))}
@@ -464,7 +478,7 @@ const MoveOutModal: React.FC<MoveOutModalProps> = ({
         <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.moveOutTitle')}</Text>
           <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
-            {tenant.userId.name} · Room {tenant.roomId.roomNumber}
+            {tenant.userId.name} · {roomLabel(tenant)}
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
@@ -607,7 +621,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
       <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
         <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.editTitle')}</Text>
         <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
-          {tenant.userId.name} · Room {tenant.roomId.roomNumber}
+          {tenant.userId.name} · {roomLabel(tenant)}
         </Text>
 
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
@@ -838,7 +852,7 @@ const RefundSettleModal: React.FC<RefundSettleModalProps> = ({
       <View style={[styles.moveOutSheet, { backgroundColor: colors.surface }]}>
         <Text style={[styles.moveOutTitle, { color: colors.text.primary }]}>{t('owner.tenants.settlementTitle')}</Text>
         <Text style={[styles.moveOutSub, { color: colors.text.secondary }]}>
-          {tenant.userId.name} · Room {tenant.roomId.roomNumber}
+          {tenant.userId.name} · {roomLabel(tenant)}
         </Text>
 
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
@@ -1183,7 +1197,7 @@ const TenantCard: React.FC<{ tenant: OwnerTenant; onPress: () => void; t: (key: 
           {tenant.userId.name}
         </Text>
         <Text style={[styles.tenantSub, { color: colors.text.secondary }]} numberOfLines={1}>
-          Room {tenant.roomId.roomNumber} · {tenant.propertyId.name}
+          {roomLabel(tenant)} · {tenant.propertyId.name}
         </Text>
         <Text style={[styles.tenantDate, { color: colors.text.tertiary }]}>
           {t('owner.tenants.since', { date: formatDate(tenant.moveInDate ?? tenant.joinDate) })}
@@ -1234,7 +1248,7 @@ export const OwnerTenantsScreen: React.FC = () => {
     staleTime: 2 * 60 * 1000,
   });
 
-  const tenants = data?.tenants ?? [];
+  const tenants = (data?.tenants ?? []).filter(t => t.roomId?.type !== 'pg');
 
   const filtered = useMemo(() => {
     if (!search.trim()) return tenants;

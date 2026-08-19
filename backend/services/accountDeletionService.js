@@ -301,6 +301,13 @@ const performDeletion = async (tenantRecord, request) => {
     await Room.findByIdAndUpdate(tenantRecord.roomId, {
       $inc: { currentOccupancy: -totalLeaving }
     });
+    // PG: free the resident's bed too
+    if (tenantRecord.bedId) {
+      await Room.updateOne(
+        { _id: tenantRecord.roomId, 'beds._id': tenantRecord.bedId },
+        { $set: { 'beds.$.status': 'available', 'beds.$.currentTenantId': null } }
+      );
+    }
   }
 
   const user = await User.findById(userId);

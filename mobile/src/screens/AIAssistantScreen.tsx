@@ -76,7 +76,7 @@ export const AIAssistantScreen = () => {
   const headerHeight = useRef(0);
   const lastAiLayout = useRef<{ y: number; height: number } | null>(null);
 
-  const isOwner = workspace === 'owner';
+  const isOwner = workspace === 'owner' || workspace === 'pg';
   const { data: planData } = useQuery({
     queryKey: ['planStatus', isOwner ? 'owner' : 'tenant'],
     queryFn: () => getAiEntitlement(isOwner ? 'owner' : 'tenant'),

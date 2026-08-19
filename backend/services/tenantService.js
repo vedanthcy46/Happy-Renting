@@ -106,13 +106,13 @@ const recomputeRentRecordTotals = async (rentRecordId, session) => {
 const moveIn = async (params, performedBy) => {
   const {
     userId, roomId, propertyId, ownerId, joinDate, moveInDate, advancePaid, securityDeposit, notes,
-    phone, idProof, coOccupants = [], customBillingDay, isMigratedTenant
+    phone, idProof, coOccupants = [], customBillingDay, isMigratedTenant, bedId
   } = params;
 
   // ── Pre-transaction checks ──
   const [user, room] = await Promise.all([
     User.findById(userId).select('name role isActive email emailVerified emailVerificationToken'),
-    Room.findById(roomId).select('roomNumber capacity currentOccupancy ownerId isActive propertyId'),
+    Room.findById(roomId).select('roomNumber capacity currentOccupancy ownerId isActive propertyId type beds'),
   ]);
 
   if (!user || !user.isActive) {
@@ -135,6 +135,27 @@ const moveIn = async (params, performedBy) => {
     const err = new Error('Room does not belong to your account.');
     err.statusCode = 403;
     throw err;
+  }
+
+  // ── PG bed validation (pre-transaction) ──
+  let allocatedBed = null;
+  if (room.type === 'pg') {
+    if (!bedId) {
+      const err = new Error('Please select a bed for this PG room.');
+      err.statusCode = 400;
+      throw err;
+    }
+    allocatedBed = room.beds.id(bedId);
+    if (!allocatedBed) {
+      const err = new Error('Bed not found in this room.');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (allocatedBed.status === 'occupied' || allocatedBed.currentTenantId) {
+      const err = new Error(`Bed ${allocatedBed.bedNumber} is already occupied.`);
+      err.statusCode = 409;
+      throw err;
+    }
   }
 
   // Calculate total occupants being added
@@ -167,35 +188,41 @@ const moveIn = async (params, performedBy) => {
       throw err;
     }
 
-    // 2) Ensure room has no active main tenant (One tenancy per room rule)
-    const roomOccupied = await Tenant.findOne({ roomId, status: 'active' }).session(session);
-    if (roomOccupied) {
-      const err = new Error('Already People are there, look for other room.');
-      err.statusCode = 409;
-      throw err;
+    // 2) Ensure room has no active main tenant (One tenancy per room rule).
+    //    Only enforced for rental rooms — PG rooms allow multiple active
+    //    tenants, each occupying their own bed.
+    if (room.type !== 'pg') {
+      const roomOccupied = await Tenant.findOne({ roomId, status: 'active' }).session(session);
+      if (roomOccupied) {
+        const err = new Error('Already People are there, look for other room.');
+        err.statusCode = 409;
+        throw err;
+      }
     }
 
-    // 3) Atomic capacity check + increment by totalOccupantsToAdd
-    const updatedRoom = await Room.findOneAndUpdate(
-      {
-        _id: roomId,
-        ownerId,
-        isActive: true,
-        currentOccupancy: { $lte: room.capacity - totalOccupantsToAdd },
-      },
-      { $inc: { currentOccupancy: totalOccupantsToAdd } },
-      { returnDocument: 'after', session }
-    );
-
-    if (!updatedRoom) {
-      const err = new Error(
-        `Room ${room.roomNumber} no longer has enough capacity. Another tenant may have just been assigned.`
+    // 3) Atomic capacity check + increment by totalOccupantsToAdd (rental rooms only)
+    if (room.type !== 'pg') {
+      const updatedRoom = await Room.findOneAndUpdate(
+        {
+          _id: roomId,
+          ownerId,
+          isActive: true,
+          currentOccupancy: { $lte: room.capacity - totalOccupantsToAdd },
+        },
+        { $inc: { currentOccupancy: totalOccupantsToAdd } },
+        { returnDocument: 'after', session }
       );
-      err.statusCode = 409;
-      throw err;
+
+      if (!updatedRoom) {
+        const err = new Error(
+          `Room ${room.roomNumber} no longer has enough capacity. Another tenant may have just been assigned.`
+        );
+        err.statusCode = 409;
+        throw err;
+      }
     }
 
-    // 3) Create primary tenant record
+    // 4) Create primary tenant record
     [tenant] = await Tenant.create(
       [
         {
@@ -211,6 +238,7 @@ const moveIn = async (params, performedBy) => {
           securityDeposit: securityDeposit || 0,
           notes,
           status: 'active',
+          bedId: room.type === 'pg' ? allocatedBed._id : undefined,
           customBillingDay: customBillingDay !== undefined ? customBillingDay : null,
           isMigratedTenant: !!isMigratedTenant,
         },
@@ -218,7 +246,29 @@ const moveIn = async (params, performedBy) => {
       { session, ordered: true }
     );
 
-    // 4) Create co-occupants
+    // 5) PG: atomically reserve the bed + bump room occupancy. The conditional
+    //    filter guards against two residents grabbing the same bed concurrently.
+    if (room.type === 'pg') {
+      const bedReserved = await Room.updateOne(
+        {
+          _id: roomId,
+          'beds._id': allocatedBed._id,
+          'beds.status': { $in: ['available', 'reserved'] },
+        },
+        {
+          $set: { 'beds.$.status': 'occupied', 'beds.$.currentTenantId': tenant._id },
+          $inc: { currentOccupancy: 1 },
+        },
+        { session }
+      );
+      if (bedReserved.modifiedCount !== 1) {
+        const err = new Error('This bed was just taken by another resident. Please choose a different bed.');
+        err.statusCode = 409;
+        throw err;
+      }
+    }
+
+    // 6) Create co-occupants
     if (coOccupants.length > 0) {
       const coOccupantDocs = coOccupants.map(co => ({
         tenantId: tenant._id,
@@ -293,7 +343,7 @@ const moveIn = async (params, performedBy) => {
 const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
   // ── Pre-transaction read ──
   const tenant = await Tenant.findById(tenantId).select(
-    'status ownerId roomId userId joinDate exitDate vacatedBy notes'
+    'status ownerId roomId userId joinDate exitDate vacatedBy notes bedId'
   );
 
   if (!tenant) {
@@ -357,6 +407,15 @@ const moveOut = async (tenantId, { exitDate, notes }, callerRole, callerId) => {
 
     // 2) Mark all co-occupants as inactive
     await CoOccupant.updateMany({ tenantId }, { $set: { status: 'inactive' } }, { session });
+
+    // 2b) PG: free the resident's bed (positional update by bed _id)
+    if (tenant.bedId) {
+      await Room.updateOne(
+        { _id: tenant.roomId, 'beds._id': tenant.bedId },
+        { $set: { 'beds.$.status': 'available', 'beds.$.currentTenantId': null } },
+        { session }
+      );
+    }
 
     // 3) Decrement room occupancy by totalOccupantsToRemove
     const roomUpdate = await Room.findOneAndUpdate(
@@ -540,7 +599,7 @@ const deleteCoOccupant = async (tenantId, coOccupantId, callerId, callerRole) =>
 
 const reverseMoveOut = async (tenantId, callerRole, callerId) => {
   const tenant = await Tenant.findById(tenantId).select(
-    'status ownerId roomId userId exitDate ' +
+    'status ownerId roomId userId exitDate bedId ' +
     'refundSettled refundSettledAt refundNote refundOriginalDeposit refundDeductions ' +
     'refundTotalDeductions refundAmount refundMethod refundReference refundDate advanceRefundAmount'
   );
@@ -572,18 +631,43 @@ const reverseMoveOut = async (tenantId, callerRole, callerId) => {
     throw err;
   }
 
-  const room = await Room.findById(tenant.roomId).select('capacity currentOccupancy ownerId isActive roomNumber');
+  const room = await Room.findById(tenant.roomId).select('capacity currentOccupancy ownerId isActive roomNumber type beds');
   if (!room || !room.isActive) {
     const err = new Error('The room no longer exists or is inactive.');
     err.statusCode = 400;
     throw err;
   }
 
-  const activeInRoom = await Tenant.findOne({ roomId: tenant.roomId, status: 'active', _id: { $ne: tenantId } });
-  if (activeInRoom) {
-    const err = new Error('Another tenant is already active in this room. Cannot reverse move-out.');
-    err.statusCode = 409;
-    throw err;
+  // One tenancy per room — only enforced for rental rooms. PG rooms allow
+  // multiple active tenants (each on their own bed).
+  if (room.type !== 'pg') {
+    const activeInRoom = await Tenant.findOne({ roomId: tenant.roomId, status: 'active', _id: { $ne: tenantId } });
+    if (activeInRoom) {
+      const err = new Error('Another tenant is already active in this room. Cannot reverse move-out.');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  // PG: the resident's bed must still exist and be free to restore the stay.
+  let restoredBed = null;
+  if (room.type === 'pg') {
+    if (!tenant.bedId) {
+      const err = new Error('This tenant has no assigned bed.');
+      err.statusCode = 400;
+      throw err;
+    }
+    restoredBed = room.beds.id(tenant.bedId);
+    if (!restoredBed) {
+      const err = new Error('The tenant\u2019s bed no longer exists in this room. Cannot reverse move-out.');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (restoredBed.status === 'occupied' && String(restoredBed.currentTenantId || '') !== String(tenantId)) {
+      const err = new Error(`Bed ${restoredBed.bedNumber} is now occupied by another resident. Cannot reverse move-out.`);
+      err.statusCode = 409;
+      throw err;
+    }
   }
 
   const coOccupantCount = await CoOccupant.countDocuments({ tenantId });
@@ -654,6 +738,15 @@ const reverseMoveOut = async (tenantId, callerRole, callerId) => {
       { $inc: { currentOccupancy: totalOccupantsToRestore } },
       { session }
     );
+
+    // PG: restore the resident's bed occupancy
+    if (room.type === 'pg' && restoredBed) {
+      await Room.updateOne(
+        { _id: tenant.roomId, 'beds._id': restoredBed._id },
+        { $set: { 'beds.$.status': 'occupied', 'beds.$.currentTenantId': tenantId } },
+        { session }
+      );
+    }
 
     // ── Revert the move-out settlement ledger ────────────────────────────────
     // Delete the prorated move-out rent record(s) generated on move-out, remove

@@ -14,7 +14,6 @@ import {
   getRooms, getAvailableUsers, getOwnerTenants, sendOtp, verifyOtp, registerTenantUser, addTenant,
   type Room,
 } from '../../api/owner';
-
 const formatCurrency = (n?: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
@@ -201,10 +200,12 @@ export const OwnerAddTenantScreen: React.FC = () => {
 
   const [roomSheet, setRoomSheet] = useState(false);
   const [userSheet, setUserSheet] = useState(false);
+  const [bedSheet, setBedSheet] = useState(false);
 
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
 
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
@@ -256,6 +257,11 @@ export const OwnerAddTenantScreen: React.FC = () => {
     }
   }, [selectedRoomId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Bed selection only matters for PG rooms; reset when room changes.
+  useEffect(() => {
+    setSelectedBedId(null);
+  }, [selectedRoomId]);
+
   const sendOtpMutation = useMutation({
     mutationFn: sendOtp,
     onSuccess: () => { setOtpSent(true); setOtpError(''); },
@@ -306,14 +312,36 @@ export const OwnerAddTenantScreen: React.FC = () => {
   const roomOptions = rooms
     .filter(r => r.isActive !== false)
     .map(r => {
-      const full = (r.currentOccupancy ?? 0) >= r.capacity;
+      const isPg = r.type === 'pg';
+      const full = !isPg && (r.currentOccupancy ?? 0) >= r.capacity;
       return {
         key: r._id,
-        label: `Room ${r.roomNumber}${r.floor ? ` · Floor ${r.floor}` : ''}`,
-        sub: `${formatCurrency(r.monthlyRent)}/mo · ${r.currentOccupancy ?? 0}/${r.capacity} occupied`,
+        label: `Room ${r.roomNumber}${r.floor ? ` · Floor ${r.floor}` : ''}${isPg ? ' · PG' : ''}`,
+        sub: isPg
+          ? `${formatCurrency(r.monthlyRent)}/mo · ${r.occupiedBeds ?? 0}/${r.totalBeds ?? r.beds?.length ?? 0} beds`
+          : `${formatCurrency(r.monthlyRent)}/mo · ${r.currentOccupancy ?? 0}/${r.capacity} occupied`,
         disabled: full,
       };
     });
+
+  const isPgRoom = selectedRoom?.type === 'pg';
+  const bookableBeds = useMemo(
+    () => (isPgRoom ? (selectedRoom?.beds ?? []).filter(b => b.status === 'available' || b.status === 'reserved') : []),
+    [selectedRoom, isPgRoom]
+  );
+  const selectedBed = useMemo(
+    () => (selectedRoom?.beds ?? []).find(b => b._id === selectedBedId) ?? null,
+    [selectedRoom, selectedBedId]
+  );
+
+  const bedOptions = bookableBeds.map(b => ({
+    key: b._id,
+    label: b.bedNumber,
+    sub: b.status === 'reserved'
+      ? `${t('owner.addTenant.bedStatusReserved')} · ${formatCurrency(b.monthlyRent ?? selectedRoom?.monthlyRent)}/mo`
+      : `${t('owner.addTenant.bedStatusAvailable')} · ${formatCurrency(b.monthlyRent ?? selectedRoom?.monthlyRent)}/mo`,
+    disabled: false,
+  }));
 
   const userOptions = users.map(u => {
     const alreadyActive = activeTenantUserIds.has(u._id);
@@ -330,7 +358,8 @@ export const OwnerAddTenantScreen: React.FC = () => {
 
   const canAdd = !!selectedRoom &&
     (mode === 'existing' ? !!selectedUserId : otpVerified) &&
-    phone.trim().length >= 7;
+    phone.trim().length >= 7 &&
+    (!isPgRoom || !!selectedBedId);
 
   const handleSendOtp = () => { if (canSendOtp) sendOtpMutation.mutate(newEmail.trim()); };
   const handleVerifyOtp = () => { if (otp.trim()) verifyOtpMutation.mutate({ email: newEmail.trim(), otp: otp.trim() }); };
@@ -353,6 +382,7 @@ export const OwnerAddTenantScreen: React.FC = () => {
       userId: selectedUserId,
       roomId: selectedRoom._id,
       propertyId: typeof selectedRoom.propertyId === 'string' ? selectedRoom.propertyId : selectedRoom.propertyId._id,
+      bedId: isPgRoom && selectedBedId ? selectedBedId : undefined,
       joinDate,
       advancePaid: advancePaid ? parseFloat(advancePaid) : undefined,
       securityDeposit: securityDeposit ? parseFloat(securityDeposit) : undefined,
@@ -389,7 +419,9 @@ export const OwnerAddTenantScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.selectValue, { color: colors.text.primary }]}>Room {selectedRoom.roomNumber}</Text>
                   <Text style={[styles.selectHint, { color: colors.text.secondary }]}>
-                    {formatCurrency(selectedRoom.monthlyRent)}/mo · {selectedRoom.currentOccupancy ?? 0}/{selectedRoom.capacity} occupied
+                    {isPgRoom
+                      ? `${formatCurrency(selectedRoom.monthlyRent)}/mo · ${selectedRoom.occupiedBeds ?? 0}/${selectedRoom.totalBeds ?? selectedRoom.beds?.length ?? 0} beds`
+                      : `${formatCurrency(selectedRoom.monthlyRent)}/mo · ${selectedRoom.currentOccupancy ?? 0}/${selectedRoom.capacity} occupied`}
                   </Text>
                 </View>
               ) : (
@@ -397,8 +429,31 @@ export const OwnerAddTenantScreen: React.FC = () => {
               )}
               <Ionicons name="chevron-down" size={18} color={colors.text.tertiary} />
             </TouchableOpacity>
-            {selectedRoom && (selectedRoom.currentOccupancy ?? 0) >= selectedRoom.capacity && (
+            {!isPgRoom && selectedRoom && (selectedRoom.currentOccupancy ?? 0) >= selectedRoom.capacity && (
                <Text style={[styles.errText, { color: colors.error }]}>{t('owner.addTenant.errRoomFull')}</Text>
+            )}
+
+            {isPgRoom && (
+              <>
+                <TouchableOpacity style={[styles.selectField, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => bookableBeds.length > 0 && setBedSheet(true)} activeOpacity={0.7}>
+                  {selectedBed ? (
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.selectValue, { color: colors.text.primary }]}>{selectedBed.bedNumber}</Text>
+                      <Text style={[styles.selectHint, { color: colors.text.secondary }]}>
+                        {selectedBed.status === 'reserved'
+                          ? `${t('owner.addTenant.bedStatusReserved')} · ${formatCurrency(selectedBed.monthlyRent ?? selectedRoom?.monthlyRent)}/mo`
+                          : `${t('owner.addTenant.bedStatusAvailable')} · ${formatCurrency(selectedBed.monthlyRent ?? selectedRoom?.monthlyRent)}/mo`}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.selectPlaceholder, { color: colors.text.tertiary }]}>{t('owner.addTenant.selectBedPlaceholder')}</Text>
+                  )}
+                  <Ionicons name="chevron-down" size={18} color={colors.text.tertiary} />
+                </TouchableOpacity>
+                {bookableBeds.length === 0 && (
+                  <Text style={[styles.errText, { color: colors.error }]}>{t('owner.addTenant.errNoBookableBed')}</Text>
+                )}
+              </>
             )}
           </View>
 
@@ -556,6 +611,16 @@ export const OwnerAddTenantScreen: React.FC = () => {
         onSelect={setSelectedUserId}
         onClose={() => setUserSheet(false)}
       />
+      {isPgRoom && (
+        <SelectSheet
+          visible={bedSheet}
+          title={t('owner.addTenant.selectBedTitle')}
+          options={bedOptions}
+          selectedKey={selectedBedId}
+          onSelect={setSelectedBedId}
+          onClose={() => setBedSheet(false)}
+        />
+      )}
 
       <CalendarModal
         visible={joinDatePickerVisible}

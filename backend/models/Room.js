@@ -55,6 +55,56 @@ const roomSchema = new mongoose.Schema(
       min    : [0, 'Security deposit cannot be negative'],
       default: 0,
     },
+
+    /**
+     * Property type: 'rental' = one tenant per room, 'pg' = bed-level
+     * management (multiple residents per room, each assigned a bed).
+     */
+    type: {
+      type: String,
+      enum: ['rental', 'pg'],
+      default: 'rental',
+    },
+
+    /**
+     * Bed-level management (PG). Each bed is an embedded subdocument with its
+     * own _id so tenants can reference a specific bed via `bedId`.
+     * - 'occupied' is ALWAYS set by tenantService on move-in (never by the
+     *   bed-status endpoint directly).
+     * - 'available' | 'reserved' | 'maintenance' are managed by the owner.
+     * For 'rental' rooms this array stays empty and currentOccupancy/capacity
+     * behave exactly as before.
+     */
+    beds: [
+      {
+        bedNumber: {
+          type     : String,
+          required : [true, 'Bed number is required'],
+          trim     : true,
+          maxlength: [20, 'Bed number cannot exceed 20 characters'],
+        },
+        status: {
+          type: String,
+          enum: ['available', 'occupied', 'reserved', 'maintenance'],
+          default: 'available',
+        },
+        currentTenantId: {
+          type    : mongoose.Schema.Types.ObjectId,
+          ref     : 'Tenant',
+          default : null,
+        },
+        deposit: {
+          type   : Number,
+          min    : [0, 'Bed deposit cannot be negative'],
+          default: 0,
+        },
+        monthlyRent: {
+          type   : Number,
+          min    : [0, 'Bed monthly rent cannot be negative'],
+          default: 0,
+        },
+      },
+    ],
     description: {
       type     : String,
       trim     : true,
@@ -73,6 +123,12 @@ const roomSchema = new mongoose.Schema(
         delete ret.__v;
         // Derived field — always computed from stored values
         ret.isFull = ret.currentOccupancy >= ret.capacity;
+        // Bed-level stats — only meaningful for PG rooms
+        const beds = Array.isArray(ret.beds) ? ret.beds : [];
+        ret.totalBeds = beds.length;
+        ret.occupiedBeds = beds.filter(b => b.status === 'occupied').length;
+        ret.availableBeds = beds.filter(b => b.status === 'available').length;
+        ret.reservedBeds = beds.filter(b => b.status === 'reserved').length;
         return ret;
       },
     },
@@ -80,6 +136,11 @@ const roomSchema = new mongoose.Schema(
       virtuals: true,
       transform(_doc, ret) {
         ret.isFull = ret.currentOccupancy >= ret.capacity;
+        const beds = Array.isArray(ret.beds) ? ret.beds : [];
+        ret.totalBeds = beds.length;
+        ret.occupiedBeds = beds.filter(b => b.status === 'occupied').length;
+        ret.availableBeds = beds.filter(b => b.status === 'available').length;
+        ret.reservedBeds = beds.filter(b => b.status === 'reserved').length;
         return ret;
       },
     },
