@@ -397,7 +397,7 @@ async function executor(toolName, args, ctx) {
       const records = await MonthlyRentRecord.find({ ownerId: oid, month: cur }).select('totalRent totalPaid remainingAmount status').lean();
       const pending = records.filter(function (r) { return r.remainingAmount > 0; });
       const collectedAgg = await PaymentTransaction.aggregate([
-        { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: startOfMonth() } } },
+        { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: startOfMonth() }, transactionType: { $ne: 'waiver' } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]);
       const propertyIds = await getPropertyIds(owner);
@@ -447,7 +447,7 @@ async function executor(toolName, args, ctx) {
       const rangeStart = new Date(y, m - 1, 1);
       const rangeEnd = new Date(y, m, 1);
       const agg = await PaymentTransaction.aggregate([
-        { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: rangeStart, $lt: rangeEnd } } },
+        { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: rangeStart, $lt: rangeEnd }, transactionType: { $ne: 'waiver' } } },
         { $group: { _id: '$propertyId', total: { $sum: '$amount' } } },
         { $sort: { total: -1 } },
       ]);
@@ -558,7 +558,7 @@ async function executor(toolName, args, ctx) {
         const start = new Date(d.getFullYear(), d.getMonth(), 1);
         const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
         const collectedAgg = await PaymentTransaction.aggregate([
-          { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end } } },
+          { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end }, transactionType: { $ne: 'waiver' } } },
           { $group: { _id: null, total: { $sum: '$amount' } } },
         ]);
         const pendingRecords = await MonthlyRentRecord.find({ ownerId: oid, month: mKey, remainingAmount: { $gt: 0 } })
@@ -582,7 +582,7 @@ async function executor(toolName, args, ctx) {
       const end = new Date(y, mo, 1);
 
       const incomeAgg = await PaymentTransaction.aggregate([
-        { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end } } },
+        { $match: { ownerId: oid, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end }, transactionType: { $ne: 'waiver' } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]);
       const income = incomeAgg[0] ? incomeAgg[0].total : 0;

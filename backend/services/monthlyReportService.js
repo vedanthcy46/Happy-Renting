@@ -46,7 +46,7 @@ async function collectReport(ownerId, m) {
   const end = new Date(y, mo, 1);
 
   const incomeAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: ownerId, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end } } },
+    { $match: { ownerId: ownerId, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end }, transactionType: { $ne: 'waiver' } } },
     { $group: { _id: null, total: { $sum: '$amount' } } },
   ]);
   const income = incomeAgg[0] ? incomeAgg[0].total : 0;
@@ -77,7 +77,7 @@ async function collectReport(ownerId, m) {
   const openComplaints = complaints.filter(function (c) { return c.status !== 'resolved' && c.status !== 'rejected'; }).length;
 
   const propIncomeAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: ownerId, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end } } },
+    { $match: { ownerId: ownerId, status: 'completed', amount: { $gt: 0 }, paymentDate: { $gte: start, $lt: end }, transactionType: { $ne: 'waiver' } } },
     { $group: { _id: '$propertyId', total: { $sum: '$amount' } } },
     { $sort: { total: -1 } },
   ]);

@@ -20,7 +20,7 @@ const expenseValidation = [
 ];
 
 // Excluded transaction types are internal reclassifications, not new cash received
-const NON_CASH_TRANSACTION_TYPES = ['advance_applied', 'advance_deducted'];
+const NON_CASH_TRANSACTION_TYPES = ['advance_applied', 'advance_deducted', 'waiver'];
 
 const monthRange = (month) => {
   const [y, m] = month.split('-').map(Number);

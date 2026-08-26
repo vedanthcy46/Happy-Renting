@@ -557,7 +557,7 @@ const getSummaryMetrics = async (ownerId, filters = {}) => {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const txQuery = { status: 'completed', paymentDate: { $gte: todayStart, $lte: todayEnd } };
+    const txQuery = { status: 'completed', paymentDate: { $gte: todayStart, $lte: todayEnd }, transactionType: { $ne: 'waiver' } };
     if (ownerId) txQuery.ownerId = ownerId;
     if (filters.propertyId) txQuery.propertyId = filters.propertyId;
     txQuery.amount = { $gt: 0 };

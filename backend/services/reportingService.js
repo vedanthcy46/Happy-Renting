@@ -89,13 +89,13 @@ const getOwnerCollectionMetrics = async (ownerId, targetDate) => {
 
   // Collections Today (completed + verifying payments, exclude negative advance deductions)
   const todayAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 }, transactionType: { $ne: 'waiver' } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
   // Collections This Month (only positive collections)
   const monthAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfMonth, $lt: endOfDay }, amount: { $gt: 0 } } },
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfMonth, $lt: endOfDay }, amount: { $gt: 0 }, transactionType: { $ne: 'waiver' } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 

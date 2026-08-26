@@ -19,7 +19,7 @@ const entitlementService = require('../services/entitlementService');
 const { getPlan, isUnlimited } = require('../config/plans');
 
 // Internal reclassifications, not new cash received (mirrors expenseController)
-const NON_CASH_TRANSACTION_TYPES = ['advance_applied', 'advance_deducted'];
+const NON_CASH_TRANSACTION_TYPES = ['advance_applied', 'advance_deducted', 'waiver'];
 
 const currentMonthKey = () => {
   const now = new Date();
