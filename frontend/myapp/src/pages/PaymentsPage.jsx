@@ -46,7 +46,7 @@ const PaymentsPage = () => {
   // Waive charge state
   const [showWaiveModal, setShowWaiveModal] = useState(false);
   const [selectedRecordForWaive, setSelectedRecordForWaive] = useState(null);
-  const [waiveForm, setWaiveForm] = useState({ type: 'full', amount: '', reason: 'tenant_hardship', notes: '' });
+  const [waiveForm, setWaiveForm] = useState({ type: 'full', amount: '', reason: 'owner_concession', notes: '' });
 
   // Fetch properties on mount if owner
   useEffect(() => {
@@ -171,7 +171,7 @@ const PaymentsPage = () => {
 
   const handleWaiveClick = (record) => {
     setSelectedRecordForWaive(record);
-    setWaiveForm({ type: 'full', amount: '', reason: 'tenant_hardship', notes: '' });
+    setWaiveForm({ type: 'full', amount: '', reason: 'owner_concession', notes: '' });
     setShowWaiveModal(true);
   };
 
@@ -790,11 +790,10 @@ const PaymentsPage = () => {
                 <label className="form-label">Reason *</label>
                 <select className="form-select" value={waiveForm.reason}
                   onChange={e => setWaiveForm(f => ({ ...f, reason: e.target.value }))}>
-                  <option value="tenant_hardship">Tenant Hardship</option>
-                  <option value="maintenance_issue">Maintenance Issue</option>
-                  <option value="late_fee_waiver">Late Fee Waiver</option>
-                  <option value="goodwill">Goodwill Gesture</option>
-                  <option value="rent_adjustment">Rent Adjustment</option>
+                  <option value="owner_concession">Owner Concession</option>
+                  <option value="free_month">Free Month</option>
+                  <option value="promotional">Promotional</option>
+                  <option value="maintenance_adjustment">Maintenance Adjustment</option>
                   <option value="other">Other</option>
                 </select>
               </div>
