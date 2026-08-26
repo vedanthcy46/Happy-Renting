@@ -43,6 +43,11 @@ const PaymentsPage = () => {
   const [filterProperty, setFilterProperty] = useState('');
   const [properties, setProperties] = useState([]);
 
+  // Waive charge state
+  const [showWaiveModal, setShowWaiveModal] = useState(false);
+  const [selectedRecordForWaive, setSelectedRecordForWaive] = useState(null);
+  const [waiveForm, setWaiveForm] = useState({ type: 'full', amount: '', reason: 'tenant_hardship', notes: '' });
+
   // Fetch properties on mount if owner
   useEffect(() => {
     if (isOwner) {
@@ -164,6 +169,46 @@ const PaymentsPage = () => {
     }
   };
 
+  const handleWaiveClick = (record) => {
+    setSelectedRecordForWaive(record);
+    setWaiveForm({ type: 'full', amount: '', reason: 'tenant_hardship', notes: '' });
+    setShowWaiveModal(true);
+  };
+
+  const handleWaiveSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+    const record = selectedRecordForWaive;
+    const waiveAmount = waiveForm.type === 'full'
+      ? Math.max(0, record.remainingAmount || 0)
+      : Number(waiveForm.amount);
+    if (!waiveAmount || waiveAmount <= 0) {
+      return toast.error('Please enter a valid amount');
+    }
+    if (waiveAmount > (record.remainingAmount || 0)) {
+      return toast.error('Waiver amount cannot exceed the remaining balance');
+    }
+    setSubmitting(true);
+    try {
+      await api.post(`/v2/payments/${record._id}/waive`, {
+        waiveAmount,
+        reason: waiveForm.reason,
+        notes: waiveForm.notes
+      });
+      toast.success('Charge waived successfully!');
+      setShowWaiveModal(false);
+      fetchPayments();
+      if (showHistoryModal && selectedRecordHistory?._id === record._id) {
+        const { data } = await api.get(`/v2/payments/${record._id}`);
+        setHistoryTransactions(data.transactions || []);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to waive charge');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleViewHistory = async (record) => {
     setSelectedRecordHistory(record);
     setShowHistoryModal(true);
@@ -243,7 +288,7 @@ const PaymentsPage = () => {
   };
 
   const getStatusColor = (status) => {
-    const colors = { paid: 'bg-green-500', partial: 'bg-blue-500', pending: 'bg-gray-500', overdue: 'bg-red-500' };
+    const colors = { paid: 'bg-green-500', partial: 'bg-blue-500', pending: 'bg-gray-500', overdue: 'bg-red-500', waived: 'bg-emerald-400' };
     return colors[status] || 'bg-gray-500';
   };
 
@@ -385,6 +430,7 @@ const PaymentsPage = () => {
           <option value="partial">Partial</option>
           <option value="pending">Pending</option>
           <option value="overdue">Overdue</option>
+          <option value="waived">Waived</option>
         </select>
         
         {/* Reset Filters button */}
@@ -472,6 +518,11 @@ const PaymentsPage = () => {
                     </td>
                     <td>
                       <StatusBadge status={record.status} />
+                      {record.waivedAmount > 0 && (
+                        <div className="mt-1 flex text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 max-w-max">
+                          ₹{record.waivedAmount.toLocaleString()} Waived
+                        </div>
+                      )}
                       {record.advanceBalance > 0 && (
                         <div className="mt-1 flex text-[9px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 rounded px-1.5 py-0.5 max-w-max">
                           +₹{record.advanceBalance.toLocaleString()} Floating
@@ -481,13 +532,21 @@ const PaymentsPage = () => {
                     
                     <td className="text-right">
                       <div className="flex flex-col items-end gap-2">
-                        {isOwner && (
-                          <button
-                            onClick={() => handleAddTransactionClick(record)}
-                            className="btn btn-sm btn-primary bg-brand-600 hover:bg-brand-500 text-[10px] uppercase font-bold px-2 py-1"
-                          >
-                            Add Txn
-                          </button>
+                        {isOwner && record.status !== 'paid' && record.status !== 'waived' && (
+                          <>
+                            <button
+                              onClick={() => handleAddTransactionClick(record)}
+                              className="btn btn-sm btn-primary bg-brand-600 hover:bg-brand-500 text-[10px] uppercase font-bold px-2 py-1"
+                            >
+                              Add Txn
+                            </button>
+                            <button
+                              onClick={() => handleWaiveClick(record)}
+                              className="btn btn-sm bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-2 py-1"
+                            >
+                              Waive
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleViewHistory(record)}
@@ -669,6 +728,93 @@ const PaymentsPage = () => {
               </div>
             ))}
           </div>
+        )}
+      </Modal>
+
+      {/* Waive Charge Modal */}
+      <Modal isOpen={showWaiveModal} onClose={() => setShowWaiveModal(false)} title="Waive Charge" size="md">
+        {selectedRecordForWaive && (
+          <>
+            <div className="mb-4 p-3 bg-surface border border-surface-border rounded-lg">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-slate-400">Total Rent</span>
+                <span className="font-bold text-white">₹{selectedRecordForWaive.totalRent?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-slate-400">Already Paid</span>
+                <span className="font-bold text-green-400">₹{selectedRecordForWaive.totalPaid?.toLocaleString()}</span>
+              </div>
+              {selectedRecordForWaive.waivedAmount > 0 && (
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-slate-400">Previously Waived</span>
+                  <span className="font-bold text-emerald-400">₹{selectedRecordForWaive.waivedAmount.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-1 border-t border-surface-border">
+                <span className="text-xs font-bold text-slate-300">Remaining</span>
+                <span className="font-bold text-brand-400">₹{selectedRecordForWaive.remainingAmount?.toLocaleString()}</span>
+              </div>
+            </div>
+            <form onSubmit={handleWaiveSubmit} className="space-y-4">
+              <div>
+                <label className="form-label">Waiver Type *</label>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setWaiveForm(f => ({ ...f, type: 'full' }))}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition ${
+                      waiveForm.type === 'full'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                        : 'bg-surface border-surface-border text-slate-400 hover:border-slate-500'
+                    }`}>
+                    Full Waiver (₹{Math.max(0, selectedRecordForWaive.remainingAmount || 0).toLocaleString()})
+                  </button>
+                  <button type="button" onClick={() => setWaiveForm(f => ({ ...f, type: 'partial' }))}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition ${
+                      waiveForm.type === 'partial'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                        : 'bg-surface border-surface-border text-slate-400 hover:border-slate-500'
+                    }`}>
+                    Partial Waiver
+                  </button>
+                </div>
+              </div>
+              {waiveForm.type === 'partial' && (
+                <div>
+                  <label className="form-label">Waiver Amount (₹) *</label>
+                  <input type="number" min="1" max={selectedRecordForWaive.remainingAmount || 0}
+                    className="form-input" value={waiveForm.amount}
+                    onChange={e => setWaiveForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="0" />
+                </div>
+              )}
+              <div>
+                <label className="form-label">Reason *</label>
+                <select className="form-select" value={waiveForm.reason}
+                  onChange={e => setWaiveForm(f => ({ ...f, reason: e.target.value }))}>
+                  <option value="tenant_hardship">Tenant Hardship</option>
+                  <option value="maintenance_issue">Maintenance Issue</option>
+                  <option value="late_fee_waiver">Late Fee Waiver</option>
+                  <option value="goodwill">Goodwill Gesture</option>
+                  <option value="rent_adjustment">Rent Adjustment</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Notes</label>
+                <textarea className="form-input resize-none" rows={2} maxLength={500}
+                  value={waiveForm.notes} onChange={e => setWaiveForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Explain why this charge is being waived…" />
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                <p className="text-xs text-amber-300 font-bold">⚠️ This action will be recorded permanently in the ledger and cannot be undone.</p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowWaiveModal(false)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={submitting} className="flex-1 py-2 px-4 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition disabled:opacity-50">
+                  {submitting ? <LoadingSpinner size="sm" label="" /> : 'Confirm Waiver'}
+                </button>
+              </div>
+            </form>
+          </>
         )}
       </Modal>
     </div>
