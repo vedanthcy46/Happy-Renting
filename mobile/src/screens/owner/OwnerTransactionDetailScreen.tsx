@@ -13,6 +13,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { ImageLightbox, KeyboardSafeModal, CalendarPicker } from '../../components';
 import { getPaymentDetail, reverseTransaction, addTransaction, verifyTransaction, rejectTransaction, type OwnerTransaction } from '../../api/owner';
+import { waiveCharge } from '../../api/payment';
 
 const formatCurrency = (n?: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -171,6 +172,13 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
   const [addPaymentVisible, setAddPaymentVisible] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
+  // Waive charge state
+  const [waiveVisible, setWaiveVisible] = useState(false);
+  const [waiveMode, setWaiveMode] = useState<'full' | 'partial'>('full');
+  const [waiveAmountInput, setWaiveAmountInput] = useState('');
+  const [waiveReason, setWaiveReason] = useState('owner_concession');
+  const [waiveNotes, setWaiveNotes] = useState('');
+
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['ownerPaymentDetail', rentRecordId],
     queryFn: () => getPaymentDetail(rentRecordId),
@@ -240,6 +248,44 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
       ]);
   };
 
+  const waiveMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { waiveAmount?: number; reason?: string; notes?: string } }) =>
+      waiveCharge(id, payload),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
+      qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
+      setWaiveVisible(false);
+      resetWaiveForm();
+      Alert.alert(t('owner.transactions.waiveSuccessTitle'), res.message || t('owner.transactions.waiveSuccessMsg'));
+    },
+    onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.response?.data?.message || t('owner.transactions.waiveErr')),
+  });
+
+  const resetWaiveForm = () => {
+    setWaiveMode('full');
+    setWaiveAmountInput('');
+    setWaiveReason('owner_concession');
+    setWaiveNotes('');
+  };
+
+  const handleWaiveSubmit = () => {
+    if (!rentRecord) return;
+    const payload: { waiveAmount?: number; reason?: string; notes?: string } = {
+      reason: waiveReason,
+      notes: waiveNotes || undefined,
+    };
+    if (waiveMode === 'partial') {
+      const amt = Number(waiveAmountInput);
+      if (isNaN(amt) || amt <= 0) {
+        Alert.alert(t('owner.commonOwner.error'), t('owner.transactions.waiveInvalidAmount'));
+        return;
+      }
+      payload.waiveAmount = amt;
+    }
+    waiveMutation.mutate({ id: rentRecordId, payload });
+  };
+
   const txnStatus = TXN_STATUS(colors, t);
   const isAdvanceTx = (t: OwnerTransaction) =>
     t.transactionType === 'advance_applied' || t.transactionType === 'advance_deducted';
@@ -276,6 +322,14 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
           <>
             {/* Summary */}
             <View style={[styles.summaryCard, { backgroundColor: colors.surface }, shadows.sm]}>
+              {rentRecord?.status === 'waived' && (rentRecord.waivedAmount ?? 0) > 0 && (
+                <View style={[styles.waivedBanner, { backgroundColor: '#ECFDF5' }]}>
+                  <Ionicons name="checkmark-circle" size={16} color="#059669" />
+                  <Text style={[styles.waivedBannerText, { color: '#059669' }]}>
+                    {t('owner.transactions.waivedAmount', { amount: formatCurrency(rentRecord.waivedAmount ?? 0) })}
+                  </Text>
+                </View>
+              )}
               <Text style={[styles.summaryTotal, { color: colors.text.primary }]}>{formatCurrency(totalPaid)}</Text>
               <Text style={[styles.summaryLabel, { color: colors.text.tertiary }]}>{t('owner.transactions.totalCollected')}</Text>
               {floatingBalance > 0 && (
@@ -380,6 +434,17 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
               <Ionicons name="add" size={20} color="#FFF" />
               <Text style={styles.addBtnText}>{t('owner.transactions.btnRecord')}</Text>
             </TouchableOpacity>
+
+            {rentRecord && (rentRecord.remainingAmount ?? 0) > 0 && rentRecord.status !== 'waived' && (
+              <TouchableOpacity
+                style={[styles.waiveBtn, { borderColor: '#059669', backgroundColor: '#ECFDF5' }]}
+                onPress={() => { resetWaiveForm(); setWaiveVisible(true); }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="shield-checkmark-outline" size={18} color="#059669" />
+                <Text style={[styles.waiveBtnText, { color: '#059669' }]}>{t('owner.transactions.btnWaive')}</Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
       </ScrollView>
@@ -395,6 +460,111 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
         }}
         t={t}
       />
+
+      {/* Waive Charge Modal */}
+      <KeyboardSafeModal
+        visible={waiveVisible}
+        animationType="slide"
+        overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
+        onRequestClose={() => setWaiveVisible(false)}
+      >
+        <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>{t('owner.transactions.waiveTitle')}</Text>
+            <TouchableOpacity onPress={() => setWaiveVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={24} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={[styles.waiveInfoBox, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+              <Text style={[styles.waiveInfoText, { color: colors.text.secondary }]}>
+                {t('owner.transactions.waiveInfo', {
+                  month: rentRecord?.month || '',
+                  amount: formatCurrency(rentRecord?.totalRent || 0),
+                })}
+              </Text>
+            </View>
+
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.waiveMode')}</Text>
+            <View style={styles.methodRow}>
+              {(['full', 'partial'] as const).map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.methodChip, { backgroundColor: waiveMode === m ? colors.primary : colors.background, borderColor: waiveMode === m ? colors.primary : colors.border }]}
+                  onPress={() => setWaiveMode(m)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.methodText, { color: waiveMode === m ? '#FFFFFF' : colors.text.secondary }]}>
+                    {m === 'full' ? t('owner.transactions.waiveFull') : t('owner.transactions.waivePartial')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {waiveMode === 'partial' && (
+              <>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.waiveAmountLabel')}</Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+                  value={waiveAmountInput}
+                  onChangeText={setWaiveAmountInput}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.text.tertiary}
+                />
+              </>
+            )}
+
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.waiveReason')}</Text>
+            <View style={styles.methodRow}>
+              {([
+                { key: 'owner_concession', label: t('owner.transactions.reasonConcession') },
+                { key: 'free_month', label: t('owner.transactions.reasonFreeMonth') },
+                { key: 'promotional', label: t('owner.transactions.reasonPromotional') },
+                { key: 'maintenance_adjustment', label: t('owner.transactions.reasonMaintenance') },
+                { key: 'other', label: t('owner.transactions.reasonOther') },
+              ] as const).map((r) => (
+                <TouchableOpacity
+                  key={r.key}
+                  style={[styles.methodChip, { backgroundColor: waiveReason === r.key ? colors.primary : colors.background, borderColor: waiveReason === r.key ? colors.primary : colors.border }]}
+                  onPress={() => setWaiveReason(r.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.methodText, { color: waiveReason === r.key ? '#FFFFFF' : colors.text.secondary }]}>
+                    {r.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.transactions.waiveNotesOptional')}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={waiveNotes}
+              onChangeText={setWaiveNotes}
+              placeholder={t('owner.transactions.waiveNotesPlaceholder')}
+              placeholderTextColor={colors.text.tertiary}
+              maxLength={300}
+            />
+          </ScrollView>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => setWaiveVisible(false)} activeOpacity={0.7}>
+              <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.transactions.btnCancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: !waiveMutation.isPending ? '#059669' : colors.border }]}
+              onPress={handleWaiveSubmit}
+              disabled={waiveMutation.isPending}
+              activeOpacity={0.8}
+            >
+              {waiveMutation.isPending ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={[styles.modalBtnSaveText, { color: '#FFF' }]}>{t('owner.transactions.btnConfirmWaive')}</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardSafeModal>
 
       {/* Reverse modal */}
       <KeyboardSafeModal
@@ -484,6 +654,12 @@ const styles = StyleSheet.create({
   reverseText: { fontSize: 14, fontWeight: '600' },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 50, borderRadius: radius.lg },
   addBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  waiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 46, borderRadius: radius.lg, borderWidth: 1.5, marginTop: spacing.sm },
+  waiveBtnText: { fontSize: 14, fontWeight: '600' },
+  waivedBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, marginBottom: spacing.sm },
+  waivedBannerText: { fontSize: 13, fontWeight: '600' },
+  waiveInfoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.xl },
+  waiveInfoText: { flex: 1, fontSize: 13, lineHeight: 19 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xxxl + spacing.xxl, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },

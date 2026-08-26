@@ -5,9 +5,13 @@ export interface RentRecord {
   totalPaid: number;
   remainingAmount: number;
   advanceBalance?: number;
-  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'overpaid';
+  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'overpaid' | 'waived';
   dueDate: string;
   updatedAt?: string;
+  waivedAmount?: number;
+  waivedAt?: string;
+  waiverReason?: string;
+  waiverNotes?: string;
   ownerId?: {
     name?: string;
     email?: string;
@@ -24,10 +28,12 @@ export interface PaymentTransaction {
   rentRecordId: string;
   amount: number;
   paymentMethod: 'cash' | 'upi' | 'bank_transfer' | 'cheque' | 'other';
+  transactionType?: string;
   paymentDate: string;
   status: 'pending' | 'verified' | 'rejected' | 'reversed' | 'verifying' | 'completed';
   referenceId?: string;
   queued?: boolean;
+  note?: string;
 }
 
 export interface RentRecordsResponse {

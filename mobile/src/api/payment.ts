@@ -133,3 +133,11 @@ export const getTransactionHistory = async (updatedAfter?: string): Promise<Tran
   });
   return data;
 };
+
+export const waiveCharge = async (
+  rentRecordId: string,
+  payload: { waiveAmount?: number; reason?: string; notes?: string }
+): Promise<{ success: boolean; message: string; transaction: PaymentTransaction; rentRecord: any }> => {
+  const { data } = await client.post(`/v2/payments/${rentRecordId}/waive`, payload);
+  return data;
+};

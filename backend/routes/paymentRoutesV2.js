@@ -16,6 +16,7 @@ const {
   reversePaymentTransaction,
   verifyPaymentTransaction,
   rejectPaymentTransaction,
+  waiveCharge,
   getPaymentSummary,
   getTransactionHistory,
   exportTransactionsCSV,
@@ -69,6 +70,7 @@ router.post(
 router.post('/transactions/:transactionId/reverse', authorize('superadmin', 'owner'), reversePaymentTransaction);
 router.post('/transactions/:transactionId/verify', authorize('superadmin', 'owner'), verifyPaymentTransaction);
 router.post('/transactions/:transactionId/reject', authorize('superadmin', 'owner'), rejectPaymentTransaction);
+router.post('/:rentRecordId/waive', authorize('superadmin', 'owner'), waiveCharge);
 
 // ─────────────────────────────────────────────────────────────────────────
 // SUMMARIES & DASHBOARDS

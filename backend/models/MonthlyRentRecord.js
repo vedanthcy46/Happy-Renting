@@ -75,7 +75,7 @@ const monthlyRentRecordSchema = new mongoose.Schema(
     // ─────────────────────────────────────────────────────────────────────
     status: {
       type    : String,
-      enum    : ['pending', 'partial', 'paid', 'overdue', 'overpaid'],
+      enum    : ['pending', 'partial', 'paid', 'overdue', 'overpaid', 'waived'],
       default : 'pending',
     },
     dueDate: {
@@ -84,6 +84,34 @@ const monthlyRentRecordSchema = new mongoose.Schema(
     },
     paidOnDate: {
       type: Date, // When was it fully paid?
+      default: null,
+    },
+    // ─────────────────────────────────────────────────────────────────────
+    // WAIVER TRACKING
+    // ─────────────────────────────────────────────────────────────────────
+    waivedAmount: {
+      type: Number,
+      default: 0,
+      min: [0, 'Waived amount cannot be negative'],
+    },
+    waivedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    waivedAt: {
+      type: Date,
+      default: null,
+    },
+    waiverReason: {
+      type: String,
+      enum: ['owner_concession', 'free_month', 'promotional', 'maintenance_adjustment', 'other'],
+      default: null,
+    },
+    waiverNotes: {
+      type: String,
+      trim: true,
+      maxlength: [300, 'Waiver notes cannot exceed 300 characters'],
       default: null,
     },
     // ─────────────────────────────────────────────────────────────────────
@@ -220,18 +248,25 @@ monthlyRentRecordSchema.pre('save', function() {
     }
   }
 
-  // Ensure remaining is correct
-  this.remainingAmount = Math.max(0, this.totalRent - this.totalPaid);
+  // Ensure remaining is correct (account for waived amount)
+  const effectiveOwed = Math.max(0, this.totalRent - (this.waivedAmount || 0));
+  this.remainingAmount = Math.max(0, effectiveOwed - this.totalPaid);
   
-  // Auto-calculate advanceBalance based on totalPaid vs totalRent
-  if (this.totalPaid > this.totalRent) {
-    this.advanceBalance = this.totalPaid - this.totalRent;
+  // Auto-calculate advanceBalance based on totalPaid vs effective owed
+  if (this.totalPaid > effectiveOwed) {
+    this.advanceBalance = this.totalPaid - effectiveOwed;
   } else {
     this.advanceBalance = 0;
   }
   
-  // Auto-calculate status based on amounts
-  if (this.totalPaid > this.totalRent) {
+  // Auto-calculate status based on amounts (waived takes priority)
+  if ((this.waivedAmount || 0) >= this.totalRent) {
+    // Fully waived — regardless of any partial payments, mark as waived
+    this.status = 'waived';
+    if (!this.paidOnDate && this.totalPaid > 0) {
+      this.paidOnDate = new Date();
+    }
+  } else if (this.totalPaid > effectiveOwed) {
     this.status = 'overpaid';
     if (!this.paidOnDate) {
       this.paidOnDate = new Date();

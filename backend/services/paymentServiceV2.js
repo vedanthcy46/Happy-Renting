@@ -506,8 +506,8 @@ const updateMonthlyRentRecord = async (rentRecordId, updateData, caller) => {
     rentRecord.totalRent = totalRent;
   }
   if (status !== undefined) {
-    if (!['pending', 'partial', 'paid', 'overdue'].includes(status)) {
-      const err = new Error('Invalid status value. Must be pending, partial, paid, or overdue.');
+    if (!['pending', 'partial', 'paid', 'overdue', 'waived'].includes(status)) {
+      const err = new Error('Invalid status value. Must be pending, partial, paid, overdue, or waived.');
       err.statusCode = 400;
       throw err;
     }
@@ -1099,6 +1099,155 @@ const rejectTransaction = async (transactionId, reason, caller) => {
   return transaction;
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// ACTION: Waive charge (full or partial)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * waiveCharge(rentRecordId, params, caller)
+ * Creates an auditable waiver record on a rent record.
+ * The original record is preserved; status transitions to 'waived' (full)
+ * or adjusts remaining for partial waivers.
+ */
+const waiveCharge = async (rentRecordId, params, caller) => {
+  const { waiveAmount, reason, notes } = params;
+
+  // Only owners and superadmins can waive
+  if (!['owner', 'superadmin'].includes(caller.role)) {
+    const err = new Error('Only owners can waive charges');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const rentRecord = await MonthlyRentRecord.findById(rentRecordId);
+  if (!rentRecord) {
+    const err = new Error('Rent record not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Security: owner isolation
+  if (caller.role === 'owner' && String(rentRecord.ownerId) !== String(caller.id)) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // Cannot waive already waived or fully paid records
+  if (rentRecord.status === 'waived') {
+    const err = new Error('This record is already fully waived');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Calculate the outstanding amount (totalRent - already waived - already paid)
+  const alreadyWaived = rentRecord.waivedAmount || 0;
+  const outstanding = rentRecord.totalRent - alreadyWaived - rentRecord.totalPaid;
+
+  if (outstanding <= 0) {
+    const err = new Error('Nothing left to waive on this record');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Determine waiver amount
+  const amountToWaive = waiveAmount ? Number(waiveAmount) : outstanding;
+
+  if (isNaN(amountToWaive) || amountToWaive <= 0) {
+    const err = new Error('Invalid waiver amount');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (amountToWaive > outstanding) {
+    const err = new Error(`Cannot waive ₹${amountToWaive}. Only ₹${outstanding} is outstanding.`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const validReasons = ['owner_concession', 'free_month', 'promotional', 'maintenance_adjustment', 'other'];
+  if (reason && !validReasons.includes(reason)) {
+    const err = new Error('Invalid waiver reason');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Create audit trail — a waiver transaction with negative amount (credit to tenant)
+  const transaction = await PaymentTransaction.create({
+    rentRecordId: rentRecord._id,
+    tenantId: rentRecord.tenantId,
+    ownerId: rentRecord.ownerId,
+    propertyId: rentRecord.propertyId,
+    amount: amountToWaive,
+    paymentMethod: 'other',
+    transactionType: 'waiver',
+    note: notes || `Charge waived: ${reason || 'Not specified'}`,
+    recordedBy: caller.id,
+    createdBy: caller.id,
+    createdByRole: caller.role === 'superadmin' ? 'admin' : 'owner',
+    entrySource: 'owner_manual',
+    status: 'completed',
+  });
+
+  // Update rent record with waiver info
+  rentRecord.waivedAmount = alreadyWaived + amountToWaive;
+  rentRecord.waivedBy = caller.id;
+  rentRecord.waivedAt = new Date();
+  if (reason) rentRecord.waiverReason = reason;
+  if (notes) rentRecord.waiverNotes = notes;
+
+  await rentRecord.save(); // pre-save hook recalculates remainingAmount and status
+
+  logger.info(
+    `[WAIVER] rentRecordId=${rentRecordId} amount=₹${amountToWaive} totalWaived=₹${rentRecord.waivedAmount} by=${caller.id}`
+  );
+
+  await logActivity(
+    caller.id,
+    'CHARGE_WAIVED',
+    transaction._id,
+    'PaymentTransaction',
+    `Waived ₹${amountToWaive} for month ${rentRecord.month}. Reason: ${reason || 'Not specified'}`
+  ).catch(err => logger.error(`Failed to log activity: ${err.message}`));
+
+  // Notify tenant
+  try {
+    const populated = await rentRecord.populate('userId propertyId roomId ownerId');
+    if (populated.userId && populated.userId.email) {
+      await emailService.sendChargeWaivedNotification(
+        populated.userId,
+        rentRecord,
+        populated.propertyId,
+        populated.roomId,
+        populated.ownerId,
+        { amount: amountToWaive, reason, notes }
+      ).catch(err => logger.error(`[EMAIL] Waiver notification failed: ${err.message}`));
+    }
+
+    notificationService.sendPushNotification({
+      userId: populated.userId._id,
+      title: 'Charge Waived',
+      body: `₹${amountToWaive} of your ${formatMonth(rentRecord.month)} rent has been waived by the owner.`,
+      type: 'charge_waived',
+      data: { rentRecordId: rentRecord._id }
+    }).catch(err => logger.error(`[Push] Failed: ${err.message}`));
+  } catch (err) {
+    logger.error(`[WAIVER] Notification error: ${err.message}`);
+  }
+
+  return { transaction, rentRecord };
+};
+
+/**
+ * Helper to format month string (YYYY-MM) to display format
+ */
+const formatMonth = (month) => {
+  if (!month) return '';
+  const [year, m] = month.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[parseInt(m, 10) - 1]} ${year}`;
+};
+
 module.exports = {
   ensureMonthlyRentRecord,
   addPaymentTransaction,
@@ -1111,4 +1260,5 @@ module.exports = {
   applyAdvanceBalance,
   verifyTransaction,
   rejectTransaction,
+  waiveCharge,
 };
