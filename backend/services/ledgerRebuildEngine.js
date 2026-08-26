@@ -63,11 +63,12 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
     let totalPaidActual = 0;
 
     for (const record of rentRecords) {
-      const manualTxForMonth = allValidTx.filter(t => t.entrySource !== 'system_generated' && String(t.rentRecordId) === String(record._id));
+      const manualTxForMonth = allValidTx.filter(t => t.entrySource !== 'system_generated' && t.transactionType !== 'waiver' && String(t.rentRecordId) === String(record._id));
       const manualPaidForMonth = manualTxForMonth.reduce((sum, t) => sum + t.amount, 0);
 
+      const effectiveOwed = Math.max(0, record.totalRent - (record.waivedAmount || 0));
       let recordTotalPaid = manualPaidForMonth;
-      let remaining = Math.max(0, record.totalRent - manualPaidForMonth);
+      let remaining = Math.max(0, effectiveOwed - manualPaidForMonth);
 
       if (remaining > 0 && currentAdvance > 0) {
         const applied = Math.min(remaining, currentAdvance);
@@ -96,7 +97,7 @@ const recalculateTenantLedger = async (tenantId, jobId, triggerSource, affectedM
         currentAdvance -= applied;
       }
 
-      const overpaid = Math.max(0, manualPaidForMonth - record.totalRent);
+      const overpaid = Math.max(0, manualPaidForMonth - effectiveOwed);
       currentAdvance += overpaid;
 
       record.totalPaid = recordTotalPaid;
