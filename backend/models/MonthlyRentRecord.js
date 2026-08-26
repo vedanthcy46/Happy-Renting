@@ -253,7 +253,10 @@ monthlyRentRecordSchema.pre('save', function() {
   this.remainingAmount = Math.max(0, effectiveOwed - this.totalPaid);
   
   // Auto-calculate advanceBalance based on totalPaid vs effective owed
-  if (this.totalPaid > effectiveOwed) {
+  if ((this.waivedAmount || 0) >= this.totalRent) {
+    // Fully waived — no advance balance
+    this.advanceBalance = 0;
+  } else if (this.totalPaid > effectiveOwed) {
     this.advanceBalance = this.totalPaid - effectiveOwed;
   } else {
     this.advanceBalance = 0;
