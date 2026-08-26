@@ -796,7 +796,7 @@ const reverseTransaction = async (transactionId, reason, caller) => {
   // Update rent records: when reversing an overpaid payment, first unwind any
   // auto-applied advance it spawned, then adjust the source month's totalPaid.
   const rented = await MonthlyRentRecord.findById(transaction.rentRecordId);
-  if (isReversing && rented) {
+  if (isReversing && rented && transaction.transactionType !== 'waiver') {
     await unwindAdvanceDistribution(transaction, rented).catch(err =>
       logger.error(`Failed to unwind advance distribution: ${err.message}`)
     );
@@ -815,6 +815,14 @@ const reverseTransaction = async (transactionId, reason, caller) => {
       if (transaction.transactionType === 'waiver') {
         if (isReversing) {
           rented.waivedAmount = Math.max(0, (rented.waivedAmount || 0) - transaction.amount);
+          // Clean up waiver metadata when no waivers remain
+          if (rented.waivedAmount <= 0) {
+            rented.waivedAmount = 0;
+            rented.waivedBy = undefined;
+            rented.waivedAt = undefined;
+            rented.waiverReason = undefined;
+            rented.waiverNotes = undefined;
+          }
         } else {
           rented.waivedAmount = (rented.waivedAmount || 0) + transaction.amount;
         }

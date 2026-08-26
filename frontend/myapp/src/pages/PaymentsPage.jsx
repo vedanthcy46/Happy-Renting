@@ -518,7 +518,7 @@ const PaymentsPage = () => {
                     </td>
                     <td>
                       <StatusBadge status={record.status} />
-                      {record.waivedAmount > 0 && (
+                      {record.waivedAmount > 0 && record.status === 'waived' && (
                         <div className="mt-1 flex text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 max-w-max">
                           ₹{record.waivedAmount.toLocaleString()} Waived
                         </div>
