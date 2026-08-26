@@ -811,17 +811,26 @@ const reverseTransaction = async (transactionId, reason, caller) => {
     });
   } else {
     if (rented) {
-      if (isReversing) {
-        rented.totalPaid = Math.max(0, rented.totalPaid - transaction.amount);
+      // Waiver transactions affect waivedAmount, not totalPaid
+      if (transaction.transactionType === 'waiver') {
+        if (isReversing) {
+          rented.waivedAmount = Math.max(0, (rented.waivedAmount || 0) - transaction.amount);
+        } else {
+          rented.waivedAmount = (rented.waivedAmount || 0) + transaction.amount;
+        }
       } else {
-        // Undo: re-add the payment first, then re-activate the auto-adjusted
-        // advance rows that were unwound on reversal so every other month the
-        // overpayment had adjusted regains its credit. Order matters: the
-        // re-applied deductions are subtracted against a positive balance.
-        rented.totalPaid += transaction.amount;
-        await reapplyAdvanceDistribution(transaction, rented).catch(err =>
-          logger.error(`Failed to reapply advance distribution: ${err.message}`)
-        );
+        if (isReversing) {
+          rented.totalPaid = Math.max(0, rented.totalPaid - transaction.amount);
+        } else {
+          // Undo: re-add the payment first, then re-activate the auto-adjusted
+          // advance rows that were unwound on reversal so every other month the
+          // overpayment had adjusted regains its credit. Order matters: the
+          // re-applied deductions are subtracted against a positive balance.
+          rented.totalPaid += transaction.amount;
+          await reapplyAdvanceDistribution(transaction, rented).catch(err =>
+            logger.error(`Failed to reapply advance distribution: ${err.message}`)
+          );
+        }
       }
       await rented.save();
     }
