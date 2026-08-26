@@ -320,6 +320,12 @@ const TenantPaymentPage = () => {
                 <span className="text-slate-400">Paid So Far</span>
                 <span className="text-green-400 font-bold">₹{rentRecord.totalPaid?.toLocaleString()}</span>
               </div>
+              {rentRecord.waivedAmount > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Waived</span>
+                  <span className="text-emerald-400 font-bold">₹{rentRecord.waivedAmount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-lg border-t border-slate-700 pt-4">
                 <span className="text-slate-300 font-bold">Remaining Due</span>
                 <span className="text-brand-400 font-bold text-xl">₹{rentRecord.remainingAmount?.toLocaleString()}</span>

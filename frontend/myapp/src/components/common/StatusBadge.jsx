@@ -14,6 +14,7 @@ const variants = {
   superadmin:'bg-purple-500/20 text-purple-400 border-purple-500/30',
   overdue   : 'bg-danger/20 text-danger border-danger/40 animate-pulse',
   verification_pending: 'bg-brand-500/20 text-brand-400 border-brand-500/30',
+  waived  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
 };
 
 const dots = {
@@ -30,6 +31,7 @@ const dots = {
   superadmin:'bg-purple-400',
   overdue   : 'bg-danger',
   verification_pending: 'bg-brand-400',
+  waived  : 'bg-emerald-400',
 };
 
 const labels = {
@@ -46,6 +48,7 @@ const labels = {
   superadmin: 'Super Admin',
   overdue   : 'Overdue',
   verification_pending: 'Verifying',
+  waived  : 'Waived',
 };
 
 const StatusBadge = ({ status, className = '' }) => {
