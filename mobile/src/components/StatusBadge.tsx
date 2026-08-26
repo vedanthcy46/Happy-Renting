@@ -29,6 +29,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     overdue: { bg: colors.errorLight, text: colors.error, label: 'Overdue' },
     partial: { bg: colors.warningLight, text: '#D97706', label: 'Partial' },
     overpaid: { bg: colors.infoLight, text: colors.info, label: 'Overpaid' },
+    waived: { bg: '#ECFDF5', text: '#059669', label: 'Waived' },
     verifying: { bg: colors.warningLight, text: '#D97706', label: 'Verifying' },
     rejected: { bg: colors.errorLight, text: colors.error, label: 'Rejected' },
     reversed: { bg: colors.borderLight, text: colors.text.secondary, label: 'Reversed' },

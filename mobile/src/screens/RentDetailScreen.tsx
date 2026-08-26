@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment } from '../api/payment';
+import { createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment, waiveCharge } from '../api/payment';
 import { cachedRentRecordDetail } from '../repositories';
 import { PaymentTransaction } from '../types/payment';
 import { AppCard, AppButton, AppInput, StatusBadge, GradientCard, KeyboardSafeModal } from '../components';
@@ -29,6 +29,7 @@ import { typography, spacing, radius, shadows } from '../theme';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatCurrency, formatMonth, formatDate, generateAndShareReceipt } from '../utils';
 import { maybeRequestRating } from '../utils/rateApp';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface RentDetailScreenProps {
   rentRecordId: string;
@@ -44,6 +45,8 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { activeWorkspace } = useAuthStore();
+  const isOwner = activeWorkspace === 'owner';
 
   const [refreshing, setRefreshing] = useState(false);
   const [polling, setPolling] = useState(false);
@@ -56,6 +59,13 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
     note: '',
   });
   const [proofImage, setProofImage] = useState<string | null>(null);
+
+  // Waive charge modal state
+  const [showWaiveModal, setShowWaiveModal] = useState(false);
+  const [waiveMode, setWaiveMode] = useState<'full' | 'partial'>('full');
+  const [waiveAmount, setWaiveAmount] = useState('');
+  const [waiveReason, setWaiveReason] = useState<string>('owner_concession');
+  const [waiveNotes, setWaiveNotes] = useState('');
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['rentRecordDetail', rentRecordId],
@@ -90,9 +100,46 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
     onError: (error: any) => Alert.alert(t('common.error'), error.response?.data?.message || t('rentDetail.submitFailed')),
   });
 
+  const mutationWaive = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { waiveAmount?: number; reason?: string; notes?: string } }) =>
+      waiveCharge(id, payload),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['rentRecordDetail', rentRecordId] });
+      queryClient.invalidateQueries({ queryKey: ['rentRecords'] });
+      setShowWaiveModal(false);
+      resetWaiveForm();
+      Alert.alert(t('common.success'), res.message || t('rentDetail.waiveSuccess'));
+    },
+    onError: (error: any) => Alert.alert(t('common.error'), error.response?.data?.message || t('rentDetail.waiveFailed')),
+  });
+
   const resetManualForm = () => {
     setManualForm({ amount: '', paymentMethod: 'upi', transactionId: '', note: '' });
     setProofImage(null);
+  };
+
+  const resetWaiveForm = () => {
+    setWaiveMode('full');
+    setWaiveAmount('');
+    setWaiveReason('owner_concession');
+    setWaiveNotes('');
+  };
+
+  const handleWaiveSubmit = () => {
+    if (!record) return;
+    const payload: { waiveAmount?: number; reason?: string; notes?: string } = {
+      reason: waiveReason,
+      notes: waiveNotes || undefined,
+    };
+    if (waiveMode === 'partial') {
+      const amt = Number(waiveAmount);
+      if (isNaN(amt) || amt <= 0) {
+        Alert.alert(t('common.error'), t('rentDetail.invalidWaiveAmount'));
+        return;
+      }
+      payload.waiveAmount = amt;
+    }
+    mutationWaive.mutate({ id: rentRecordId, payload });
   };
 
   const pickImage = async () => {
@@ -253,7 +300,7 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
 
   const record = data?.rentRecord;
   const transactions = data?.transactions || [];
-  const isPaid = record?.status === 'paid' || record?.status === 'overpaid';
+  const isPaid = record?.status === 'paid' || record?.status === 'overpaid' || record?.status === 'waived';
 
   if (!record) {
     return (
@@ -314,9 +361,17 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                   <Text style={styles.floatingBadgeText}>{t('rentDetail.floatingBalance', { amount: formatCurrency(record.advanceBalance || 0) })}</Text>
                 </View>
               )}
+              {(record.waivedAmount || 0) > 0 && (
+                <View style={[styles.floatingBadge, { marginTop: spacing.xs }]}>
+                  <Ionicons name="checkmark-circle" size={12} color="#A7F3D0" />
+                  <Text style={[styles.floatingBadgeText, { color: '#A7F3D0' }]}>
+                    {t('rentDetail.waivedAmount', { amount: formatCurrency(record.waivedAmount || 0) })}
+                  </Text>
+                </View>
+              )}
             </View>
 
-            <View style={styles.summaryDetails}>
+              <View style={styles.summaryDetails}>
               <View style={styles.summaryDetailItem}>
                 <Text style={styles.summaryDetailLabel}>{t('rent.dueDate')}</Text>
                 <Text style={styles.summaryDetailValue}>{formatDate(record.dueDate)}</Text>
@@ -325,6 +380,18 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
                 <Text style={styles.summaryDetailLabel}>{t('rent.month')}</Text>
                 <Text style={styles.summaryDetailValue}>{formatMonth(record.month)}</Text>
               </View>
+              {record.status === 'waived' && record.waiverReason && (
+                <View style={styles.summaryDetailItem}>
+                  <Text style={styles.summaryDetailLabel}>{t('rentDetail.waiverReason')}</Text>
+                  <Text style={styles.summaryDetailValue}>
+                    {record.waiverReason === 'owner_concession' ? t('rentDetail.reasonConcession')
+                      : record.waiverReason === 'free_month' ? t('rentDetail.reasonFreeMonth')
+                      : record.waiverReason === 'promotional' ? t('rentDetail.reasonPromotional')
+                      : record.waiverReason === 'maintenance_adjustment' ? t('rentDetail.reasonMaintenance')
+                      : t('rentDetail.reasonOther')}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </GradientCard>
@@ -367,6 +434,19 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               <Text style={styles.gatewayNotice}>
                 {t('rentDetail.gatewayNotice')}
               </Text>
+            )}
+            {isOwner && (
+              <TouchableOpacity
+                style={styles.waiveButton}
+                onPress={() => {
+                  resetWaiveForm();
+                  setShowWaiveModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="shield-checkmark-outline" size={18} color={colors.success} />
+                <Text style={styles.waiveButtonText}>{t('rentDetail.waiveCharge')}</Text>
+              </TouchableOpacity>
             )}
           </View>
         ) : (
@@ -522,6 +602,101 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
               </View>
             </ScrollView>
           </View>
+      </KeyboardSafeModal>
+
+      {/* ── Waive Charge Modal ───────────────────────────────────── */}
+      <KeyboardSafeModal
+        visible={showWaiveModal}
+        animationType="slide"
+        overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
+        onRequestClose={() => setShowWaiveModal(false)}
+      >
+        <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
+          <View style={styles.modalHandle} />
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('rentDetail.waiveChargeTitle')}</Text>
+            <TouchableOpacity onPress={() => setShowWaiveModal(false)}>
+              <Ionicons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={styles.waiveInfoBox}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+              <Text style={styles.waiveInfoText}>
+                {t('rentDetail.waiveInfo', {
+                  month: formatMonth(record?.month || ''),
+                  amount: formatCurrency(record?.totalRent || 0),
+                })}
+              </Text>
+            </View>
+
+            <Text style={styles.fieldLabel}>{t('rentDetail.waiveMode')}</Text>
+            <View style={styles.methodRow}>
+              {(['full', 'partial'] as const).map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.methodChip, waiveMode === m && styles.methodChipActive]}
+                  onPress={() => setWaiveMode(m)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.methodChipText, waiveMode === m && styles.methodChipTextActive]}>
+                    {m === 'full' ? t('rentDetail.waiveFull') : t('rentDetail.waivePartial')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {waiveMode === 'partial' && (
+              <AppInput
+                label={t('rentDetail.waiveAmountLabel')}
+                placeholder={t('rentDetail.waiveAmountPlaceholder')}
+                value={waiveAmount}
+                onChangeText={setWaiveAmount}
+                keyboardType="numeric"
+              />
+            )}
+
+            <Text style={styles.fieldLabel}>{t('rentDetail.waiveReason')}</Text>
+            <View style={styles.methodRow}>
+              {([
+                { key: 'owner_concession', label: t('rentDetail.reasonConcession') },
+                { key: 'free_month', label: t('rentDetail.reasonFreeMonth') },
+                { key: 'promotional', label: t('rentDetail.reasonPromotional') },
+                { key: 'maintenance_adjustment', label: t('rentDetail.reasonMaintenance') },
+                { key: 'other', label: t('rentDetail.reasonOther') },
+              ] as const).map((r) => (
+                <TouchableOpacity
+                  key={r.key}
+                  style={[styles.methodChip, waiveReason === r.key && styles.methodChipActive]}
+                  onPress={() => setWaiveReason(r.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.methodChipText, waiveReason === r.key && styles.methodChipTextActive]}>
+                    {r.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <AppInput
+              label={t('rentDetail.waiveNotesOptional')}
+              placeholder={t('rentDetail.waiveNotesPlaceholder')}
+              value={waiveNotes}
+              onChangeText={setWaiveNotes}
+            />
+
+            <View style={styles.manualButtons}>
+              <AppButton title={t('common.cancel')} onPress={() => setShowWaiveModal(false)} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
+              <AppButton
+                title={t('rentDetail.confirmWaiver')}
+                onPress={handleWaiveSubmit}
+                loading={mutationWaive.isPending}
+                style={{ flex: 1, marginLeft: spacing.sm, backgroundColor: colors.success }}
+              />
+            </View>
+          </ScrollView>
+        </View>
       </KeyboardSafeModal>
 
       {paying && (
@@ -750,6 +925,37 @@ const makeStyles = (colors: any) => StyleSheet.create({
     textAlign: 'center',
     color: colors.warning,
     paddingHorizontal: spacing.md,
+  },
+  waiveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md + 2,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.success,
+    backgroundColor: colors.successLight,
+    gap: spacing.sm,
+  },
+  waiveButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.success,
+  },
+  waiveInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  waiveInfoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.text.secondary,
   },
   sectionTitle: {
     fontSize: 13,

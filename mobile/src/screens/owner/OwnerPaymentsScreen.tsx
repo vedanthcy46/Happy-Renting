@@ -29,7 +29,7 @@ const formatDate = (iso?: string) => {
   });
 };
 
-type FilterStatus = 'all' | 'pending' | 'partial' | 'overdue' | 'paid';
+type FilterStatus = 'all' | 'pending' | 'partial' | 'overdue' | 'paid' | 'waived';
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }> = {};
 
@@ -38,6 +38,7 @@ const getStatusConfig = (status: string, colors: any, t: any) => ({
   partial: { bg: colors.infoLight, text: colors.info, label: t('owner.payments.statusPartial') },
   overdue: { bg: colors.errorLight, text: colors.error, label: t('owner.payments.statusOverdue') },
   paid: { bg: colors.successLight, text: colors.success, label: t('owner.payments.statusPaid') },
+  waived: { bg: '#ECFDF5', text: '#059669', label: t('owner.payments.statusWaived') },
 }[status] ?? { bg: colors.borderLight, text: colors.text.secondary, label: status });
 
 
@@ -220,14 +221,14 @@ export const OwnerPaymentsScreen: React.FC = () => {
   const routeParams = useLocalSearchParams<{ status?: string }>();
 
   // Deep-link support: charts/notifications can open this tab pre-filtered, e.g. ?status=overdue
-  const initialStatus: FilterStatus = ['pending', 'partial', 'overdue', 'paid'].includes(routeParams.status ?? '')
+  const initialStatus: FilterStatus = ['pending', 'partial', 'overdue', 'paid', 'waived'].includes(routeParams.status ?? '')
     ? (routeParams.status as FilterStatus)
     : 'all';
   const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialStatus);
 
   // If already mounted and re-navigated with a new status param, sync the filter.
   useEffect(() => {
-    if (routeParams.status && ['pending', 'partial', 'overdue', 'paid'].includes(routeParams.status)) {
+    if (routeParams.status && ['pending', 'partial', 'overdue', 'paid', 'waived'].includes(routeParams.status)) {
       setFilterStatus(routeParams.status as FilterStatus);
     }
   }, [routeParams.status]);
@@ -316,6 +317,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
     { key: 'pending', label: t('owner.payments.tabPending'), count: metrics?.pendingCount },
     { key: 'partial', label: t('owner.payments.tabPartial'), count: metrics?.partialCount },
     { key: 'paid', label: t('owner.payments.tabPaid'), count: metrics?.paidCount },
+    { key: 'waived', label: t('owner.payments.tabWaived') },
   ];
 
 

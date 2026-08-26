@@ -513,6 +513,10 @@ export interface OwnerRentRecordMeta {
   remainingAmount: number;
   advanceBalance: number;
   status?: string;
+  waivedAmount?: number;
+  waivedAt?: string;
+  waiverReason?: string;
+  waiverNotes?: string;
 }
 
 export interface OwnerTransaction {

@@ -401,6 +401,35 @@ const rejectPaymentTransaction = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────
+// POST: Waive charge (full or partial)
+// ─────────────────────────────────────────────────────────────────────────
+
+const waiveCharge = async (req, res, next) => {
+  try {
+    const { rentRecordId } = req.params;
+    const { waiveAmount, reason, notes } = req.body;
+
+    const { transaction, rentRecord } = await paymentServiceV2.waiveCharge(
+      rentRecordId,
+      { waiveAmount, reason, notes },
+      { id: req.user._id, role: req.user.role }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: waiveAmount ? `₹${waiveAmount} waived successfully` : 'Full charge waived successfully',
+      transaction,
+      rentRecord
+    });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────
 // GET: Payment summary (dashboard metrics)
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -633,6 +662,7 @@ module.exports = {
   reversePaymentTransaction,
   verifyPaymentTransaction,
   rejectPaymentTransaction,
+  waiveCharge,
   getPaymentSummary,
   getTransactionHistory,
   exportTransactionsCSV,

@@ -1268,6 +1268,7 @@ module.exports = {
   sendRequestOTPEmail,
   sendEmailChangeOtpEmail,
   sendEmail, // Exported for custom queue processors like dailyDigestService
+  sendChargeWaivedNotification,
 };
 
 // ── Background Queue Processor ──────────────────────────────────────────────
@@ -1322,6 +1323,40 @@ const processNotificationQueue = async () => {
     }
   } catch (err) {
     logger.error(`[QUEUE PROCESSOR ERROR] ${err.message}`);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// CHARGE WAIVED NOTIFICATION
+// ─────────────────────────────────────────────────────────────────────────
+
+const sendChargeWaivedNotification = async (tenantUser, rentRecord, property, room, owner, waiver) => {
+  try {
+    if (!tenantUser?.email) return;
+    const tenantName = tenantUser.name || 'Tenant';
+    const propertyName = property?.name || 'Your property';
+    const monthDisplay = rentRecord?.month || '';
+    const amount = waiver?.amount || 0;
+    const reason = waiver?.reason || 'Not specified';
+
+    const subject = `Charge Waived — ${propertyName} (${monthDisplay})`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+        <h2 style="color: #059669;">Charge Waived</h2>
+        <p>Hi ${tenantName},</p>
+        <p>The owner has waived <strong>₹${amount}</strong> of your rent for <strong>${monthDisplay}</strong>.</p>
+        <p><strong>Reason:</strong> ${reason}</p>
+        ${waiver?.notes ? `<p><strong>Note:</strong> ${waiver.notes}</p>` : ''}
+        <p>No payment is required for the waived portion.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #6b7280;">This is an automated notification from ${propertyName}.</p>
+      </div>
+    `;
+
+    await sendEmail(tenantUser.email, subject, html);
+    logger.info(`[EMAIL] Charge waived notification sent to ${tenantUser.email}`);
+  } catch (err) {
+    logger.error(`[EMAIL] sendChargeWaivedNotification failed: ${err.message}`);
   }
 };
 
