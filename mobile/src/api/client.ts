@@ -5,9 +5,14 @@ import { appEvents, SESSION_EXPIRED_EVENT } from '../utils/events';
 // Lazy accessor to avoid circular dependency: client ← useAuthStore ← syncEngine ← client
 const getAuthStore = () => require('../store/useAuthStore').useAuthStore;
 
+const PRIMARY_URL = Constants.expoConfig?.extra?.apiUrl || 'https://happy-renting.onrender.com/api';
+const BACKUP_URL = 'https://happy-renting-izbf.onrender.com';
+
+let currentBaseURL = PRIMARY_URL;
+let isUsingBackup = false;
+
 const getBaseUrl = () => {
-  const configApiUrl = Constants.expoConfig?.extra?.apiUrl;
-  let url = configApiUrl || 'https://happy-renting.onrender.com/api';
+  let url = PRIMARY_URL;
 
   if (__DEV__) {
     const useLocal = Constants.expoConfig?.extra?.USE_LOCAL_API === true;
@@ -15,10 +20,11 @@ const getBaseUrl = () => {
       const debuggerHost = Constants.expoConfig?.hostUri;
       const localhost = debuggerHost ? debuggerHost.split(':')[0] : 'localhost';
       url = `http://${localhost}:5000/api`;
+      currentBaseURL = url;
     }
   }
 
-  return url;
+  return currentBaseURL;
 };
 
 const client = axios.create({
@@ -39,6 +45,8 @@ client.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    config.baseURL = currentBaseURL;
+
     return config;
   },
   (error) => {
@@ -55,6 +63,18 @@ client.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+
+    const isNetworkError = !error.response;
+    const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+
+    if ((isNetworkError || isTimeout) && !originalRequest._retry && BACKUP_URL && currentBaseURL !== BACKUP_URL) {
+      originalRequest._retry = true;
+      console.warn('[FAILOVER] Primary server unreachable. Switching to Backup API...');
+      currentBaseURL = BACKUP_URL;
+      isUsingBackup = true;
+      originalRequest.baseURL = currentBaseURL;
+      return client(originalRequest);
+    }
 
     // Handle unauthorized errors
     // Skip auto-logout for the login endpoint itself.
