@@ -86,17 +86,20 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
           endYear--;
         }
 
-        // Move-Out Settlement Exception:
-        // If the tenant has officially vacated, generate their final settlement bill
-        // immediately for the month they exited, even if it is the current month.
-        if (tenant.status === 'vacated' && tenant.exitDate) {
-          const exitDate = new Date(tenant.exitDate);
-          const exitYear = exitDate.getFullYear();
-          const exitMonth = exitDate.getMonth();
-          
-          if (!isNaN(exitYear) && !isNaN(exitMonth)) {
-            // Force the loop to include the exit month if it's ahead of the default endMonthIndex
-            if (exitYear > endYear || (exitYear === endYear && exitMonth > endMonthIndex)) {
+        if (['deleted', 'pending_deletion', 'deletion_requested'].includes(tenant.status)) {
+          logger.info(`[BILLING SKIPPED] Tenant ${tenant._id} has status ${tenant.status}`);
+          continue;
+        }
+
+        // Move-Out / Vacated / Exit Date Settlement Exception:
+        // Cap billing strictly to the month of exitDate. Do not generate bills for months after exitDate.
+        if (tenant.status === 'vacated' || tenant.exitDate) {
+          if (tenant.exitDate) {
+            const exitDate = new Date(tenant.exitDate);
+            const exitYear = exitDate.getFullYear();
+            const exitMonth = exitDate.getMonth();
+            
+            if (!isNaN(exitYear) && !isNaN(exitMonth)) {
               endYear = exitYear;
               endMonthIndex = exitMonth;
             }

@@ -40,10 +40,26 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
     throw err;
   }
 
+  if (['deleted', 'pending_deletion', 'deletion_requested'].includes(tenant.status)) {
+    const err = new Error(`Cannot create rent record for tenant with status ${tenant.status}`);
+    err.statusCode = 400;
+    throw err;
+  }
+
   if (tenant.status === 'vacated' && !options.allowVacated) {
     const err = new Error('Cannot create rent record for vacated tenant');
     err.statusCode = 400;
     throw err;
+  }
+
+  if (tenant.exitDate) {
+    const exitDate = new Date(tenant.exitDate);
+    const exitMonthStr = exitDate.toISOString().slice(0, 7);
+    if (month > exitMonthStr) {
+      const err = new Error(`Cannot create rent record for month ${month} after tenant exit date ${exitMonthStr}`);
+      err.statusCode = 400;
+      throw err;
+    }
   }
 
   // Pre-calculate Proration Math using Strict Calculation Service

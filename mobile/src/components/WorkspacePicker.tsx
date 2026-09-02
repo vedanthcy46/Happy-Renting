@@ -29,12 +29,7 @@ const WORKSPACES: { key: Workspace; label: string; subtitle: string; icon: keyof
     subtitle: 'Manage properties, tenants & collections',
     icon: 'business-outline',
   },
-  {
-    key: 'pg',
-    label: 'PG Manager',
-    subtitle: 'Manage beds, residents & PG operations',
-    icon: 'bed-outline',
-  },
+  // PG option removed for now as requested
 ];
 
 export const WorkspacePicker: React.FC<WorkspacePickerProps> = ({
