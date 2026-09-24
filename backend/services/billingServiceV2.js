@@ -32,12 +32,9 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
     logger.info(`[CRON-V2] IST Date: ${today.toISOString()}`);
     const billingResults = { created: 0, skipped: 0, errors: 0 };
 
-    // Query stays that are active or vacated
+    // Query stays that are billable (exclude deleted / deletion-requested)
     const activeQuery = {
-      $or: [
-        { status: 'active' },
-        { status: 'vacated' }
-      ]
+      status: { $in: ['active', 'vacated'] }
     };
     if (ownerId) activeQuery.ownerId = ownerId;
     if (tenantId) activeQuery._id = tenantId;

@@ -3,90 +3,123 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Happy Renting Daily Summary</title>
+  <title>Happy Renting Summary</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #334155; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
     .header { background-color: #2563eb; color: #ffffff; padding: 24px; text-align: center; }
-    .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
-    .header p { margin: 8px 0 0 0; opacity: 0.9; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 600; }
+    .header .period-badge { display: inline-block; margin-top: 8px; background: rgba(255,255,255,0.2); border-radius: 20px; padding: 4px 14px; font-size: 13px; font-weight: 600; letter-spacing: 0.03em; }
+    .header .date-range { margin: 6px 0 0 0; opacity: 0.85; font-size: 13px; }
     .content { padding: 32px; }
-    .greeting { font-size: 18px; margin-bottom: 24px; }
-    .section-title { font-size: 16px; font-weight: 600; color: #1e293b; margin: 24px 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .card { background: #f1f5f9; padding: 16px; border-radius: 8px; }
-    .card-label { font-size: 13px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .card-value { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
+    .greeting { font-size: 17px; margin-bottom: 24px; color: #1e293b; }
+    .section-title { font-size: 15px; font-weight: 700; color: #1e293b; margin: 28px 0 14px 0; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card { background: #f1f5f9; padding: 16px; border-radius: 10px; }
+    .card-label { font-size: 12px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+    .card-value { font-size: 22px; font-weight: 700; color: #0f172a; margin: 0; }
+    .card-sub { font-size: 11px; color: #94a3b8; margin-top: 3px; }
     .value-green { color: #16a34a; }
     .value-red { color: #dc2626; }
     .value-orange { color: #ea580c; }
-    .cta-container { text-align: center; margin-top: 40px; }
-    .btn { display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-weight: 600; }
-    .footer { text-align: center; padding: 24px; color: #94a3b8; font-size: 13px; background: #f8fafc; }
+    .alert-list { margin: 0; padding: 0; list-style: none; }
+    .alert-list li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #334155; line-height: 1.5; }
+    .alert-list li:last-child { border-bottom: none; }
+    .alert-badge { min-width: 32px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 13px; font-weight: 700; padding: 0 6px; }
+    .badge-red { background: #fee2e2; color: #dc2626; }
+    .badge-orange { background: #fff7ed; color: #ea580c; }
+    .badge-blue { background: #dbeafe; color: #2563eb; }
+    .badge-neutral { background: #f1f5f9; color: #475569; }
+    .cta-container { text-align: center; margin-top: 36px; }
+    .btn { display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 13px 28px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+    .footer { text-align: center; padding: 24px; color: #94a3b8; font-size: 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; line-height: 1.6; }
     @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Daily Summary</h1>
-      <p>{{date}}</p>
+      <h1>🏠 Happy Renting Summary</h1>
+      <div class="period-badge">{{periodLabel}}</div>
+      <div class="date-range">{{dateRange}}</div>
     </div>
-    
-    <div class="content">
-      <div class="greeting">Hello {{ownerName}}, here is your daily digest:</div>
 
-      <div class="section-title">Financial Summary</div>
+    <div class="content">
+      <div class="greeting">Hello <strong>{{ownerName}}</strong>, here's your property summary for the last {{periodDays}} days.</div>
+
+      <div class="section-title">💰 Financial Overview</div>
       <div class="grid">
         <div class="card">
-          <div class="card-label">Collected Today</div>
+          <div class="card-label">Collections</div>
           <div class="card-value value-green">₹{{collectedToday}}</div>
+          <div class="card-sub">Past {{periodDays}} days</div>
         </div>
         <div class="card">
           <div class="card-label">Pending Rent</div>
           <div class="card-value value-orange">₹{{pendingRent}}</div>
+          <div class="card-sub">Total outstanding</div>
         </div>
         <div class="card">
           <div class="card-label">Wallet Balance</div>
           <div class="card-value">₹{{walletBalance}}</div>
+          <div class="card-sub">Current balance</div>
         </div>
         <div class="card">
           <div class="card-label">Withdrawable</div>
           <div class="card-value value-green">₹{{withdrawableAmount}}</div>
+          <div class="card-sub">Available to withdraw</div>
         </div>
       </div>
 
-      <div class="section-title">Property Operations</div>
+      <div class="section-title">🏢 Property Status</div>
       <div class="grid">
         <div class="card">
           <div class="card-label">Vacant Rooms</div>
           <div class="card-value">{{vacantRooms}}</div>
+          <div class="card-sub">of {{totalRooms}} total</div>
         </div>
         <div class="card">
           <div class="card-label">Occupancy Rate</div>
           <div class="card-value">{{occupancyRate}}%</div>
+          <div class="card-sub">{{occupiedRooms}} rooms occupied</div>
         </div>
         <div class="card">
           <div class="card-label">Open Complaints</div>
           <div class="card-value {{openComplaintsStyle}}">{{openComplaints}}</div>
+          <div class="card-sub">Needs attention</div>
+        </div>
+        <div class="card">
+          <div class="card-label">New Tenants</div>
+          <div class="card-value value-green">{{newTenants}}</div>
+          <div class="card-sub">Added in {{periodDays}} days</div>
         </div>
       </div>
 
-      <div class="section-title">Alerts & Attention</div>
-      <ul style="margin: 0; padding-left: 20px; color: #334155; line-height: 1.6;">
-        <li><strong class="value-red">{{overdueTenants}}</strong> tenants are currently overdue.</li>
-        <li><strong class="value-orange">{{unverifiedPayments}}</strong> manual payments waiting for your verification.</li>
-        <li><strong>{{upcomingMoveOuts}}</strong> tenants moving out in the next 30 days.</li>
+      <div class="section-title">🔔 Alerts &amp; Attention</div>
+      <ul class="alert-list">
+        <li>
+          <span class="alert-badge badge-red">{{overdueTenants}}</span>
+          tenants have overdue rent — follow up needed.
+        </li>
+        <li>
+          <span class="alert-badge badge-orange">{{unverifiedPayments}}</span>
+          manual payment(s) waiting for your verification.
+        </li>
+        <li>
+          <span class="alert-badge badge-blue">{{upcomingMoveOuts}}</span>
+          tenant(s) moving out in the next 30 days.
+        </li>
       </ul>
 
       <div class="cta-container">
         <a href="{{dashboardUrl}}" class="btn">Open Dashboard</a>
       </div>
     </div>
-    
+
     <div class="footer">
-      You are receiving this email because you have Daily Digest emails enabled.<br>
-      To manage preferences, visit your Happy Renting account settings.
+      This is your <strong>{{periodLabel}}</strong> summary ({{dateRange}}).<br>
+      You are receiving this because Daily Digest emails are enabled for your account.<br>
+      To manage your preferences, visit your Happy Renting account settings.
     </div>
   </div>
 </body>

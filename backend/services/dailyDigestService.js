@@ -29,6 +29,8 @@ const normalizeOwnerDigestMetrics = (metrics = {}) => ({
   occupiedRooms: Number(metrics.occupiedRooms) || 0,
   vacantRooms: Number(metrics.vacantRooms) || 0,
   occupancyRate: Number(metrics.occupancyRate) || 0,
+  newTenants: Number(metrics.newTenants) || 0,
+  periodDays: Number(metrics.periodDays) || parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10),
 });
 
 const normalizeAdminDigestMetrics = (metrics = {}) => {
@@ -43,6 +45,7 @@ const normalizeAdminDigestMetrics = (metrics = {}) => {
     queueBacklog: Number(metrics.queueBacklog) || 0,
     deadLetterJobs: Number(metrics.deadLetterJobs) || 0,
     workerHealth: metrics.workerHealth || 'Healthy',
+    periodDays: Number(metrics.periodDays) || parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10),
   };
 
   normalized.workerHealthStyle = normalized.workerHealth === 'Healthy' ? 'border-green' : 'border-red';
@@ -58,9 +61,10 @@ const normalizeAdminDigestMetrics = (metrics = {}) => {
 const generateOwnerDigests = async () => {
   const dateStr = new Date().toISOString().split('T')[0];
   const batchSize = parseInt(process.env.DIGEST_QUEUE_BATCH_SIZE || '50', 10);
+  const periodDays = parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
   let skip = 0;
   
-  logger.info(`[OWNER DIGEST] Starting generation for ${dateStr}`);
+  logger.info(`[OWNER DIGEST] Starting generation for ${dateStr} (period: last ${periodDays} days)`);
 
   while (true) {
     const owners = await User.find({ 
@@ -80,16 +84,16 @@ const generateOwnerDigests = async () => {
     for (const owner of owners) {
       if (owner.notificationPreferences?.dailyDigestEmails === false) continue;
 
-      // Collect metrics
+      // Collect metrics — pass periodDays so window covers the whole digest period
       const [financial, occupancy, collection, complaint, alerts] = await Promise.all([
         reportingService.getOwnerFinancialMetrics(owner._id),
         reportingService.getOwnerOccupancyMetrics(owner._id),
-        reportingService.getOwnerCollectionMetrics(owner._id, dateStr),
+        reportingService.getOwnerCollectionMetrics(owner._id, dateStr, periodDays),
         reportingService.getOwnerComplaintMetrics(owner._id),
-        reportingService.getOwnerAlerts(owner._id, dateStr)
+        reportingService.getOwnerAlerts(owner._id, dateStr, periodDays)
       ]);
 
-      const metrics = normalizeOwnerDigestMetrics({ ...financial, ...occupancy, ...collection, ...complaint, ...alerts });
+      const metrics = normalizeOwnerDigestMetrics({ ...financial, ...occupancy, ...collection, ...complaint, ...alerts, periodDays });
 
       snapshotOps.push({
         updateOne: {
@@ -126,18 +130,19 @@ const generateOwnerDigests = async () => {
 
 const generateAdminDigests = async () => {
   const dateStr = new Date().toISOString().split('T')[0];
+  const periodDays = parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
   
-  logger.info(`[ADMIN DIGEST] Starting generation for ${dateStr}`);
+  logger.info(`[ADMIN DIGEST] Starting generation for ${dateStr} (period: last ${periodDays} days)`);
 
   const superadmins = await User.find({ role: 'superadmin', isActive: true }).lean();
   if (superadmins.length === 0) return;
 
   const [platform, system] = await Promise.all([
-    reportingService.getAdminPlatformMetrics(dateStr),
+    reportingService.getAdminPlatformMetrics(dateStr, periodDays),
     reportingService.getAdminSystemMetrics()
   ]);
 
-  const metrics = normalizeAdminDigestMetrics({ ...platform, ...system });
+  const metrics = normalizeAdminDigestMetrics({ ...platform, ...system, periodDays });
 
   // Cache platform snapshot
   await DailyMetricsSnapshot.updateOne(
@@ -211,9 +216,34 @@ const processDigestQueue = async () => {
       }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const periodDays = snapshot.metrics?.periodDays || parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
+
+      // Build a human-readable date range for the period
+      const endDate = new Date(job.digestDate);
+      const startDate = new Date(endDate.getTime() - (periodDays - 1) * 24 * 60 * 60 * 1000);
+      const fmtDate = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const dateRange = periodDays === 1
+        ? fmtDate(endDate)
+        : `${fmtDate(startDate)} – ${fmtDate(endDate)}`;
+      const periodLabel = periodDays === 1 ? 'Today' : `Last ${periodDays} days`;
+
       const data = job.digestType === 'owner_daily'
-        ? { ...normalizeOwnerDigestMetrics(snapshot.metrics), date: job.digestDate, ownerName: job.userId.name }
-        : { ...normalizeAdminDigestMetrics(snapshot.metrics), date: job.digestDate, ownerName: job.userId.name };
+        ? {
+            ...normalizeOwnerDigestMetrics(snapshot.metrics),
+            date: job.digestDate,
+            dateRange,
+            periodLabel,
+            periodDays,
+            ownerName: job.userId.name,
+          }
+        : {
+            ...normalizeAdminDigestMetrics(snapshot.metrics),
+            date: job.digestDate,
+            dateRange,
+            periodLabel,
+            periodDays,
+            ownerName: job.userId.name,
+          };
 
       let html = '';
       let subject = '';
@@ -222,13 +252,13 @@ const processDigestQueue = async () => {
         data.dashboardUrl = `${frontendUrl}/login`;
         data.openComplaintsStyle = data.openComplaints > 0 ? 'value-red' : 'value-green';
         html = renderTemplate(OWNER_TEMPLATE, data);
-        subject = `🏠 Happy Renting Daily Summary - ${job.digestDate}`;
+        subject = `🏠 Happy Renting Summary — ${data.dateRange}`;
       } else if (job.digestType === 'admin_daily') {
         data.adminDashboardUrl = `${frontendUrl}/login`;
         data.workerHealthStyle = data.workerHealth === 'Healthy' ? 'border-green' : 'border-red';
         data.deadLetterStyle = data.deadLetterJobs > 0 ? 'border-red' : 'border-green';
         html = renderTemplate(ADMIN_TEMPLATE, data);
-        subject = `📊 Happy Renting Platform Report - ${job.digestDate}`;
+        subject = `📊 Happy Renting Platform Report — ${data.dateRange}`;
       } else {
         throw new Error('Unsupported digest type');
       }
