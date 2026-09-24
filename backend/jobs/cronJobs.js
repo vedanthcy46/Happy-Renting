@@ -181,8 +181,17 @@ const startCronJobs = () => {
     }
   });
 
-  // Daily Digest Publishers (sent in the evening so "today" collections are meaningful)
-  const ownerCron = process.env.OWNER_DIGEST_CRON || '0 21 * * *';
+  // Digest Publishers — fires every DIGEST_INTERVAL_DAYS days (default 15)
+  // OWNER_DIGEST_CRON / ADMIN_DIGEST_CRON override the full cron expression if needed.
+  const digestIntervalDays = parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
+  // Build a "every N days" cron: fire at 21:00 IST on days 1, 1+N, 1+2N, ... of the month.
+  // Simplest portable approach: use */N in day-of-month field, but clamp to valid cron syntax.
+  const digestDayExpr = digestIntervalDays >= 1 && digestIntervalDays <= 28
+    ? `*/${digestIntervalDays}`
+    : `*/${15}`; // Fallback to 15
+  const defaultDigestCron = `0 21 ${digestDayExpr} * *`;
+
+  const ownerCron = process.env.OWNER_DIGEST_CRON || defaultDigestCron;
   cron.schedule(ownerCron, async () => {
     try {
       await dailyDigestService.generateOwnerDigests();
@@ -190,8 +199,9 @@ const startCronJobs = () => {
       logger.error(`[CRON ERROR] generateOwnerDigests failed: ${err.message}`);
     }
   }, { timezone: 'Asia/Kolkata' });
+  logger.info(`[CRON] Owner digest scheduled: "${ownerCron}" (period: ${digestIntervalDays} days)`);
 
-  const adminCron = process.env.ADMIN_DIGEST_CRON || '0 21 * * *';
+  const adminCron = process.env.ADMIN_DIGEST_CRON || defaultDigestCron;
   cron.schedule(adminCron, async () => {
     try {
       await dailyDigestService.generateAdminDigests();
@@ -199,6 +209,7 @@ const startCronJobs = () => {
       logger.error(`[CRON ERROR] generateAdminDigests failed: ${err.message}`);
     }
   }, { timezone: 'Asia/Kolkata' });
+  logger.info(`[CRON] Admin digest scheduled: "${adminCron}" (period: ${digestIntervalDays} days)`);
 
   // Scheduled Account Deletion Processing (Every 6 hours)
   const accountDeletionService = require('../services/accountDeletionService');
