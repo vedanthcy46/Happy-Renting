@@ -80,37 +80,29 @@ const getOwnerOccupancyMetrics = async (ownerId) => {
   return calculateOccupancyMetrics({ totalRooms, occupiedRooms });
 };
 
-/**
- * getOwnerCollectionMetrics
- * @param {string} ownerId
- * @param {string} targetDate  - ISO date string of the END of the period (today)
- * @param {number} periodDays  - number of days to look back (default 1 = today only)
- */
-const getOwnerCollectionMetrics = async (ownerId, targetDate, periodDays = 1) => {
+const getOwnerCollectionMetrics = async (ownerId, targetDate) => {
   const tDate = new Date(targetDate);
-  // End of target day
+  const startOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
-  // Start of period = endOfDay minus periodDays
-  const startOfPeriod = new Date(endOfDay.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
-  const periodAgg = await PaymentTransaction.aggregate([
-    {
-      $match: {
-        ownerId: new mongoose.Types.ObjectId(ownerId),
-        status: { $in: ['completed', 'verifying'] },
-        paymentDate: { $gte: startOfPeriod, $lt: endOfDay },
-        amount: { $gt: 0 },
-        transactionType: { $ne: 'waiver' }
-      }
-    },
+  const startOfMonth = new Date(tDate.getFullYear(), tDate.getMonth(), 1);
+
+  // Collections Today (completed + verifying payments, exclude negative advance deductions)
+  const todayAgg = await PaymentTransaction.aggregate([
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 }, transactionType: { $ne: 'waiver' } } },
+    { $group: { _id: null, amount: { $sum: '$amount' } } }
+  ]);
+
+  // Collections This Month (only positive collections)
+  const monthAgg = await PaymentTransaction.aggregate([
+    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfMonth, $lt: endOfDay }, amount: { $gt: 0 }, transactionType: { $ne: 'waiver' } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
   return {
-    // Keep backward-compatible keys
-    collectedToday: periodAgg[0]?.amount || 0,
-    collectionsToday: periodAgg[0]?.amount || 0,
-    collectedThisMonth: periodAgg[0]?.amount || 0,
+    collectedToday: todayAgg[0]?.amount || 0,
+    collectionsToday: todayAgg[0]?.amount || 0,
+    collectedThisMonth: monthAgg[0]?.amount || 0,
   };
 };
 
@@ -129,16 +121,9 @@ const getOwnerComplaintMetrics = async (ownerId) => {
   };
 };
 
-/**
- * getOwnerAlerts
- * @param {string} ownerId
- * @param {string} targetDate  - ISO date string
- * @param {number} periodDays  - number of days to look back for payment events (default 1)
- */
-const getOwnerAlerts = async (ownerId, targetDate, periodDays = 1) => {
+const getOwnerAlerts = async (ownerId, targetDate) => {
   const tDate = new Date(targetDate);
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
-  const startOfPeriod = new Date(endOfDay.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
   // Overdue tenants (distinct tenants, not records)
   const overdueAgg = await MonthlyRentRecord.aggregate([
@@ -158,59 +143,41 @@ const getOwnerAlerts = async (ownerId, targetDate, periodDays = 1) => {
     exitDate: { $gte: endOfDay, $lte: next30Days }
   });
 
-  // Failed payments in the period
+  // Failed payments today
   const failedPayments = await PaymentTransaction.countDocuments({
     ownerId,
     status: 'failed',
-    paymentDate: { $gte: startOfPeriod, $lt: endOfDay }
+    paymentDate: { $gte: tDate, $lt: endOfDay }
   });
 
-  // Unverified payments (manual) — always total pending, not time-bound
+  // Unverified payments (manual)
   const unverifiedPayments = await PaymentTransaction.countDocuments({
     ownerId,
     status: 'verifying'
-  });
-
-  // New tenants added in the period
-  const newTenants = await Tenant.countDocuments({
-    ownerId,
-    createdAt: { $gte: startOfPeriod, $lt: endOfDay }
   });
 
   return {
     overdueTenants,
     upcomingMoveOuts,
     failedPayments,
-    unverifiedPayments,
-    newTenants,
+    unverifiedPayments
   };
 };
 
-/**
- * getAdminPlatformMetrics
- * @param {string} targetDate  - ISO date string
- * @param {number} periodDays  - number of days to look back (default 1)
- */
-const getAdminPlatformMetrics = async (targetDate, periodDays = 1) => {
+const getAdminPlatformMetrics = async (targetDate) => {
   const tDate = new Date(targetDate);
+  const startOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
-  const startOfPeriod = new Date(endOfDay.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
   const totalCollectionsAgg = await PaymentTransaction.aggregate([
-    {
-      $match: {
-        status: { $in: ['completed', 'verifying'] },
-        paymentDate: { $gte: startOfPeriod, $lt: endOfDay },
-        amount: { $gt: 0 }
-      }
-    },
+    { $match: { status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
   const activeOwners = await User.countDocuments({ role: 'owner', isActive: true });
   const activeTenants = await Tenant.countDocuments({ status: 'active' });
-  const newRegistrations = await User.countDocuments({ createdAt: { $gte: startOfPeriod, $lt: endOfDay } });
-  const failedPayments = await PaymentTransaction.countDocuments({ status: 'failed', paymentDate: { $gte: startOfPeriod, $lt: endOfDay } });
+  const newRegistrations = await User.countDocuments({ createdAt: { $gte: startOfDay, $lt: endOfDay } });
+  const failedPayments = await PaymentTransaction.countDocuments({ status: 'failed', paymentDate: { $gte: startOfDay, $lt: endOfDay } });
   const pendingWithdrawals = await WithdrawalRequest.countDocuments({ status: 'pending' });
 
   return {
@@ -244,4 +211,3 @@ module.exports = {
   getAdminPlatformMetrics,
   getAdminSystemMetrics
 };
-
