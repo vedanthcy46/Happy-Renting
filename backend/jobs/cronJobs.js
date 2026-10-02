@@ -181,17 +181,12 @@ const startCronJobs = () => {
     }
   });
 
-  // Digest Publishers — fires every DIGEST_INTERVAL_DAYS days (default 15)
-  // OWNER_DIGEST_CRON / ADMIN_DIGEST_CRON override the full cron expression if needed.
+  // Periodic Digest Evaluator — runs daily at 21:00 IST to check and send digests once every DIGEST_INTERVAL_DAYS (default 15)
+  // An email is only generated and sent to an owner/admin if at least DIGEST_INTERVAL_DAYS have elapsed since their last digest.
   const digestIntervalDays = parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
-  // Build a "every N days" cron: fire at 21:00 IST on days 1, 1+N, 1+2N, ... of the month.
-  // Simplest portable approach: use */N in day-of-month field, but clamp to valid cron syntax.
-  const digestDayExpr = digestIntervalDays >= 1 && digestIntervalDays <= 28
-    ? `*/${digestIntervalDays}`
-    : `*/${15}`; // Fallback to 15
-  const defaultDigestCron = `0 21 ${digestDayExpr} * *`;
+  const defaultEvaluatorCron = '0 21 * * *';
 
-  const ownerCron = process.env.OWNER_DIGEST_CRON || defaultDigestCron;
+  const ownerCron = process.env.OWNER_DIGEST_CRON || defaultEvaluatorCron;
   cron.schedule(ownerCron, async () => {
     try {
       await dailyDigestService.generateOwnerDigests();
@@ -199,9 +194,9 @@ const startCronJobs = () => {
       logger.error(`[CRON ERROR] generateOwnerDigests failed: ${err.message}`);
     }
   }, { timezone: 'Asia/Kolkata' });
-  logger.info(`[CRON] Owner digest scheduled: "${ownerCron}" (period: ${digestIntervalDays} days)`);
+  logger.info(`[CRON] Owner digest evaluator scheduled: "${ownerCron}" (delivery interval: once every ${digestIntervalDays} days)`);
 
-  const adminCron = process.env.ADMIN_DIGEST_CRON || defaultDigestCron;
+  const adminCron = process.env.ADMIN_DIGEST_CRON || defaultEvaluatorCron;
   cron.schedule(adminCron, async () => {
     try {
       await dailyDigestService.generateAdminDigests();
@@ -209,7 +204,7 @@ const startCronJobs = () => {
       logger.error(`[CRON ERROR] generateAdminDigests failed: ${err.message}`);
     }
   }, { timezone: 'Asia/Kolkata' });
-  logger.info(`[CRON] Admin digest scheduled: "${adminCron}" (period: ${digestIntervalDays} days)`);
+  logger.info(`[CRON] Admin digest evaluator scheduled: "${adminCron}" (delivery interval: once every ${digestIntervalDays} days)`);
 
   // Scheduled Account Deletion Processing (Every 6 hours)
   const accountDeletionService = require('../services/accountDeletionService');

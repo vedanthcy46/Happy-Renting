@@ -10,7 +10,7 @@ const Tenant = require('../models/Tenant');
 const User = require('../models/User');
 const LedgerJob = require('../models/LedgerJob');
 const WithdrawalRequest = require('../models/WithdrawalRequest');
-const SystemHealth = require('../models/SystemHealth'); // Assuming this exists or similar
+const SystemHealth = require('../models/SystemHealth');
 
 const getOwnerFinancialMetrics = async (ownerId) => {
   // Pending rent
@@ -80,28 +80,53 @@ const getOwnerOccupancyMetrics = async (ownerId) => {
   return calculateOccupancyMetrics({ totalRooms, occupiedRooms });
 };
 
-const getOwnerCollectionMetrics = async (ownerId, targetDate) => {
+/**
+ * getOwnerCollectionMetrics
+ * @param {string} ownerId
+ * @param {string} targetDate - ISO date string of target day (end of period)
+ * @param {number} periodDays - number of days to look back (default 1)
+ */
+const getOwnerCollectionMetrics = async (ownerId, targetDate, periodDays = 1) => {
   const tDate = new Date(targetDate);
-  const startOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
+  const startOfPeriod = new Date(endOfDay.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
   const startOfMonth = new Date(tDate.getFullYear(), tDate.getMonth(), 1);
 
-  // Collections Today (completed + verifying payments, exclude negative advance deductions)
-  const todayAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 }, transactionType: { $ne: 'waiver' } } },
+  // Collections in the period (completed + verifying payments, exclude negative advance deductions)
+  const periodAgg = await PaymentTransaction.aggregate([
+    {
+      $match: {
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: { $in: ['completed', 'verifying'] },
+        paymentDate: { $gte: startOfPeriod, $lt: endOfDay },
+        amount: { $gt: 0 },
+        transactionType: { $ne: 'waiver' }
+      }
+    },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
-  // Collections This Month (only positive collections)
+  // Collections This Month
   const monthAgg = await PaymentTransaction.aggregate([
-    { $match: { ownerId: new mongoose.Types.ObjectId(ownerId), status: 'completed', paymentDate: { $gte: startOfMonth, $lt: endOfDay }, amount: { $gt: 0 }, transactionType: { $ne: 'waiver' } } },
+    {
+      $match: {
+        ownerId: new mongoose.Types.ObjectId(ownerId),
+        status: 'completed',
+        paymentDate: { $gte: startOfMonth, $lt: endOfDay },
+        amount: { $gt: 0 },
+        transactionType: { $ne: 'waiver' }
+      }
+    },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
+
+  const periodAmount = periodAgg[0]?.amount || 0;
 
   return {
-    collectedToday: todayAgg[0]?.amount || 0,
-    collectionsToday: todayAgg[0]?.amount || 0,
+    collectedPeriod: periodAmount,
+    collectedToday: periodAmount, // Backward-compatible alias
+    collectionsToday: periodAmount, // Backward-compatible alias
     collectedThisMonth: monthAgg[0]?.amount || 0,
   };
 };
@@ -121,9 +146,16 @@ const getOwnerComplaintMetrics = async (ownerId) => {
   };
 };
 
-const getOwnerAlerts = async (ownerId, targetDate) => {
+/**
+ * getOwnerAlerts
+ * @param {string} ownerId
+ * @param {string} targetDate - ISO date string
+ * @param {number} periodDays - number of days to look back for period events (default 1)
+ */
+const getOwnerAlerts = async (ownerId, targetDate, periodDays = 1) => {
   const tDate = new Date(targetDate);
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
+  const startOfPeriod = new Date(endOfDay.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
   // Overdue tenants (distinct tenants, not records)
   const overdueAgg = await MonthlyRentRecord.aggregate([
@@ -143,11 +175,11 @@ const getOwnerAlerts = async (ownerId, targetDate) => {
     exitDate: { $gte: endOfDay, $lte: next30Days }
   });
 
-  // Failed payments today
+  // Failed payments in the period
   const failedPayments = await PaymentTransaction.countDocuments({
     ownerId,
     status: 'failed',
-    paymentDate: { $gte: tDate, $lt: endOfDay }
+    paymentDate: { $gte: startOfPeriod, $lt: endOfDay }
   });
 
   // Unverified payments (manual)
@@ -156,43 +188,67 @@ const getOwnerAlerts = async (ownerId, targetDate) => {
     status: 'verifying'
   });
 
+  // New tenants onboarded in the period
+  const newTenants = await Tenant.countDocuments({
+    ownerId,
+    createdAt: { $gte: startOfPeriod, $lt: endOfDay }
+  });
+
   return {
     overdueTenants,
     upcomingMoveOuts,
     failedPayments,
-    unverifiedPayments
+    unverifiedPayments,
+    newTenants,
   };
 };
 
-const getAdminPlatformMetrics = async (targetDate) => {
+/**
+ * getAdminPlatformMetrics
+ * @param {string} targetDate - ISO date string
+ * @param {number} periodDays - number of days to look back (default 1)
+ */
+const getAdminPlatformMetrics = async (targetDate, periodDays = 1) => {
   const tDate = new Date(targetDate);
-  const startOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
   const endOfDay = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate() + 1);
+  const startOfPeriod = new Date(endOfDay.getTime() - periodDays * 24 * 60 * 60 * 1000);
 
   const totalCollectionsAgg = await PaymentTransaction.aggregate([
-    { $match: { status: { $in: ['completed', 'verifying'] }, paymentDate: { $gte: startOfDay, $lt: endOfDay }, amount: { $gt: 0 } } },
+    {
+      $match: {
+        status: { $in: ['completed', 'verifying'] },
+        paymentDate: { $gte: startOfPeriod, $lt: endOfDay },
+        amount: { $gt: 0 }
+      }
+    },
     { $group: { _id: null, amount: { $sum: '$amount' } } }
   ]);
 
   const activeOwners = await User.countDocuments({ role: 'owner', isActive: true });
   const activeTenants = await Tenant.countDocuments({ status: 'active' });
-  const newRegistrations = await User.countDocuments({ createdAt: { $gte: startOfDay, $lt: endOfDay } });
-  const failedPayments = await PaymentTransaction.countDocuments({ status: 'failed', paymentDate: { $gte: startOfDay, $lt: endOfDay } });
+  const newRegistrations = await User.countDocuments({ createdAt: { $gte: startOfPeriod, $lt: endOfDay } });
+  const failedPayments = await PaymentTransaction.countDocuments({ status: 'failed', paymentDate: { $gte: startOfPeriod, $lt: endOfDay } });
   const pendingWithdrawals = await WithdrawalRequest.countDocuments({ status: 'pending' });
 
+  const amount = totalCollectionsAgg[0]?.amount || 0;
+
   return {
-    totalCollectionsToday: totalCollectionsAgg[0]?.amount || 0,
+    totalCollectionsPeriod: amount,
+    totalCollectionsToday: amount,
+    totalCollections: amount,
     activeOwners,
     activeTenants,
     newRegistrationsToday: newRegistrations,
+    newRegistrations,
     failedPaymentsToday: failedPayments,
+    failedPayments,
     pendingWithdrawals
   };
 };
 
 const getAdminSystemMetrics = async () => {
   const queueBacklog = await LedgerJob.countDocuments({ status: 'pending' });
-  const deadLetterJobs = await LedgerJob.countDocuments({ status: 'failed' }); // using failed for dead letter in ledger
+  const deadLetterJobs = await LedgerJob.countDocuments({ status: 'failed' });
 
   return {
     queueBacklog,

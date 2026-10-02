@@ -13,36 +13,53 @@ const emailService = require('./emailService');
 const OWNER_TEMPLATE = fs.readFileSync(path.join(__dirname, '../templates/email/ownerDailyDigest.html'), 'utf8');
 const ADMIN_TEMPLATE = fs.readFileSync(path.join(__dirname, '../templates/email/adminDailyDigest.html'), 'utf8');
 
-const TEMPLATE_VERSION = 'v1';
+const TEMPLATE_VERSION = 'v2';
 
-const normalizeOwnerDigestMetrics = (metrics = {}) => ({
-  pendingRent: Number(metrics.pendingRent) || 0,
-  overdueTenants: Number(metrics.overdueTenants) || 0,
-  unverifiedPayments: Number(metrics.unverifiedPayments) || 0,
-  upcomingMoveOuts: Number(metrics.upcomingMoveOuts) || 0,
-  openComplaints: Number(metrics.openComplaints) || 0,
-  collectedToday: Number(metrics.collectedToday || metrics.collectionsToday) || 0,
-  collectionsToday: Number(metrics.collectionsToday || metrics.collectedToday) || 0,
-  walletBalance: Number(metrics.walletBalance) || 0,
-  withdrawableAmount: Number(metrics.withdrawableAmount) || 0,
-  totalRooms: Number(metrics.totalRooms) || 0,
-  occupiedRooms: Number(metrics.occupiedRooms) || 0,
-  vacantRooms: Number(metrics.vacantRooms) || 0,
-  occupancyRate: Number(metrics.occupancyRate) || 0,
-});
+const normalizeOwnerDigestMetrics = (metrics = {}) => {
+  const periodDays = Number(metrics.periodDays) || parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
+  const collectedPeriod = Number(metrics.collectedPeriod || metrics.collectedToday || metrics.collectionsToday) || 0;
+
+  return {
+    pendingRent: Number(metrics.pendingRent) || 0,
+    overdueTenants: Number(metrics.overdueTenants) || 0,
+    unverifiedPayments: Number(metrics.unverifiedPayments) || 0,
+    upcomingMoveOuts: Number(metrics.upcomingMoveOuts) || 0,
+    openComplaints: Number(metrics.openComplaints) || 0,
+    collectedPeriod,
+    collectedToday: collectedPeriod, // Backward-compatible alias
+    collectionsToday: collectedPeriod, // Backward-compatible alias
+    walletBalance: Number(metrics.walletBalance) || 0,
+    withdrawableAmount: Number(metrics.withdrawableAmount) || 0,
+    totalRooms: Number(metrics.totalRooms) || 0,
+    occupiedRooms: Number(metrics.occupiedRooms) || 0,
+    vacantRooms: Number(metrics.vacantRooms) || 0,
+    occupancyRate: Number(metrics.occupancyRate) || 0,
+    newTenants: Number(metrics.newTenants) || 0,
+    failedPayments: Number(metrics.failedPayments) || 0,
+    periodDays,
+  };
+};
 
 const normalizeAdminDigestMetrics = (metrics = {}) => {
+  const periodDays = Number(metrics.periodDays) || parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
+  const totalCollections = Number(metrics.totalCollections || metrics.totalCollectionsPeriod || metrics.totalCollectionsToday || metrics.collectionsToday) || 0;
+  const newRegistrations = Number(metrics.newRegistrations || metrics.newRegistrationsToday) || 0;
+  const failedPayments = Number(metrics.failedPayments || metrics.failedPaymentsToday) || 0;
+
   const normalized = {
-    totalCollectionsToday: Number(metrics.totalCollectionsToday || metrics.collectionsToday) || 0,
-    collectionsToday: Number(metrics.collectionsToday || metrics.totalCollectionsToday) || 0,
+    totalCollections,
+    totalCollectionsToday: totalCollections,
     activeOwners: Number(metrics.activeOwners) || 0,
     activeTenants: Number(metrics.activeTenants) || 0,
-    newRegistrationsToday: Number(metrics.newRegistrationsToday) || 0,
-    failedPaymentsToday: Number(metrics.failedPaymentsToday) || 0,
+    newRegistrations,
+    newRegistrationsToday: newRegistrations,
+    failedPayments,
+    failedPaymentsToday: failedPayments,
     pendingWithdrawals: Number(metrics.pendingWithdrawals) || 0,
     queueBacklog: Number(metrics.queueBacklog) || 0,
     deadLetterJobs: Number(metrics.deadLetterJobs) || 0,
     workerHealth: metrics.workerHealth || 'Healthy',
+    periodDays,
   };
 
   normalized.workerHealthStyle = normalized.workerHealth === 'Healthy' ? 'border-green' : 'border-red';
@@ -58,9 +75,15 @@ const normalizeAdminDigestMetrics = (metrics = {}) => {
 const generateOwnerDigests = async () => {
   const dateStr = new Date().toISOString().split('T')[0];
   const batchSize = parseInt(process.env.DIGEST_QUEUE_BATCH_SIZE || '50', 10);
+  const periodDays = parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
+
+  // Interval check cutoff: skip owner if a digest was created/queued within the last N days
+  // Grace margin of 1 hour to prevent minor cron time drift issues
+  const cutoffTime = Date.now() - (periodDays * 24 * 60 * 60 * 1000 - 60 * 60 * 1000);
+  const cutoffDate = new Date(cutoffTime);
   let skip = 0;
   
-  logger.info(`[OWNER DIGEST] Starting generation for ${dateStr}`);
+  logger.info(`[OWNER DIGEST] Evaluating digest generation for ${dateStr} (interval: ${periodDays} days)`);
 
   while (true) {
     const owners = await User.find({ 
@@ -80,16 +103,35 @@ const generateOwnerDigests = async () => {
     for (const owner of owners) {
       if (owner.notificationPreferences?.dailyDigestEmails === false) continue;
 
-      // Collect current-state metrics
+      // INTERVAL GUARD: Check if a digest was already created for this owner within the last periodDays
+      const recentDigest = await DailyDigestLog.findOne({
+        userId: owner._id,
+        digestType: 'owner_daily',
+        createdAt: { $gte: cutoffDate }
+      }).select('_id createdAt').lean();
+
+      if (recentDigest) {
+        // Owner has already received/queued a digest within the last N days. Do not send daily!
+        continue;
+      }
+
+      // Collect metrics covering the entire periodDays interval
       const [financial, occupancy, collection, complaint, alerts] = await Promise.all([
         reportingService.getOwnerFinancialMetrics(owner._id),
         reportingService.getOwnerOccupancyMetrics(owner._id),
-        reportingService.getOwnerCollectionMetrics(owner._id, dateStr),
+        reportingService.getOwnerCollectionMetrics(owner._id, dateStr, periodDays),
         reportingService.getOwnerComplaintMetrics(owner._id),
-        reportingService.getOwnerAlerts(owner._id, dateStr)
+        reportingService.getOwnerAlerts(owner._id, dateStr, periodDays)
       ]);
 
-      const metrics = normalizeOwnerDigestMetrics({ ...financial, ...occupancy, ...collection, ...complaint, ...alerts });
+      const metrics = normalizeOwnerDigestMetrics({
+        ...financial,
+        ...occupancy,
+        ...collection,
+        ...complaint,
+        ...alerts,
+        periodDays
+      });
 
       snapshotOps.push({
         updateOne: {
@@ -119,25 +161,40 @@ const generateOwnerDigests = async () => {
     if (snapshotOps.length > 0) await DailyMetricsSnapshot.bulkWrite(snapshotOps);
     if (logOps.length > 0) await DailyDigestLog.bulkWrite(logOps);
 
-    logger.info(`[OWNER DIGEST] Queued ${logOps.length} owners in this batch.`);
+    logger.info(`[OWNER DIGEST] Queued ${logOps.length} owners in this batch (skipped owners within ${periodDays}-day window).`);
     skip += batchSize;
   }
 };
 
 const generateAdminDigests = async () => {
   const dateStr = new Date().toISOString().split('T')[0];
+  const periodDays = parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
+  const cutoffTime = Date.now() - (periodDays * 24 * 60 * 60 * 1000 - 60 * 60 * 1000);
+  const cutoffDate = new Date(cutoffTime);
   
-  logger.info(`[ADMIN DIGEST] Starting generation for ${dateStr}`);
+  logger.info(`[ADMIN DIGEST] Evaluating admin digest for ${dateStr} (interval: ${periodDays} days)`);
 
   const superadmins = await User.find({ role: 'superadmin', isActive: true }).lean();
   if (superadmins.length === 0) return;
 
+  // INTERVAL GUARD: Check if an admin digest was already created within the last periodDays
+  const recentAdminDigest = await DailyDigestLog.findOne({
+    role: 'superadmin',
+    digestType: 'admin_daily',
+    createdAt: { $gte: cutoffDate }
+  }).select('_id createdAt').lean();
+
+  if (recentAdminDigest) {
+    logger.info(`[ADMIN DIGEST] Skipping admin digest: already sent within last ${periodDays} days.`);
+    return;
+  }
+
   const [platform, system] = await Promise.all([
-    reportingService.getAdminPlatformMetrics(dateStr),
+    reportingService.getAdminPlatformMetrics(dateStr, periodDays),
     reportingService.getAdminSystemMetrics()
   ]);
 
-  const metrics = normalizeAdminDigestMetrics({ ...platform, ...system });
+  const metrics = normalizeAdminDigestMetrics({ ...platform, ...system, periodDays });
 
   // Cache platform snapshot
   await DailyMetricsSnapshot.updateOne(
@@ -165,8 +222,6 @@ const generateAdminDigests = async () => {
   await DailyDigestLog.bulkWrite(logOps);
   logger.info(`[ADMIN DIGEST] Queued ${logOps.length} admins.`);
 };
-
-
 
 /**
  * ── CONSUMER ───────────────────────────────────────────────────────────────
@@ -213,9 +268,34 @@ const processDigestQueue = async () => {
       }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const periodDays = snapshot.metrics?.periodDays || parseInt(process.env.DIGEST_INTERVAL_DAYS || '15', 10);
+
+      // Compute date range for display
+      const endDate = new Date(job.digestDate);
+      const startDate = new Date(endDate.getTime() - (periodDays - 1) * 24 * 60 * 60 * 1000);
+      const fmtDate = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const dateRange = periodDays === 1
+        ? fmtDate(endDate)
+        : `${fmtDate(startDate)} – ${fmtDate(endDate)}`;
+      const periodLabel = periodDays === 1 ? 'Daily' : `${periodDays}-Day`;
+
       const data = job.digestType === 'owner_daily'
-        ? { ...normalizeOwnerDigestMetrics(snapshot.metrics), date: job.digestDate, ownerName: job.userId.name }
-        : { ...normalizeAdminDigestMetrics(snapshot.metrics), date: job.digestDate, ownerName: job.userId.name };
+        ? {
+            ...normalizeOwnerDigestMetrics(snapshot.metrics),
+            date: job.digestDate,
+            dateRange,
+            periodLabel: `${periodLabel} Summary`,
+            periodDays,
+            ownerName: job.userId.name
+          }
+        : {
+            ...normalizeAdminDigestMetrics(snapshot.metrics),
+            date: job.digestDate,
+            dateRange,
+            periodLabel: `${periodLabel} Report`,
+            periodDays,
+            ownerName: job.userId.name
+          };
 
       let html = '';
       let subject = '';
@@ -224,13 +304,13 @@ const processDigestQueue = async () => {
         data.dashboardUrl = `${frontendUrl}/login`;
         data.openComplaintsStyle = data.openComplaints > 0 ? 'value-red' : 'value-green';
         html = renderTemplate(OWNER_TEMPLATE, data);
-        subject = `🏠 Happy Renting Summary - ${job.digestDate}`;
+        subject = `🏠 Happy Renting ${periodLabel} Summary (${dateRange})`;
       } else if (job.digestType === 'admin_daily') {
         data.adminDashboardUrl = `${frontendUrl}/login`;
         data.workerHealthStyle = data.workerHealth === 'Healthy' ? 'border-green' : 'border-red';
         data.deadLetterStyle = data.deadLetterJobs > 0 ? 'border-red' : 'border-green';
         html = renderTemplate(ADMIN_TEMPLATE, data);
-        subject = `📊 Happy Renting Platform Report - ${job.digestDate}`;
+        subject = `📊 Happy Renting Platform Report (${dateRange})`;
       } else {
         throw new Error('Unsupported digest type');
       }
@@ -243,18 +323,18 @@ const processDigestQueue = async () => {
       job.processingStartedAt = null;
       await job.save();
 
-      logger.info(`[DAILY DIGEST] Sent ${job.digestType} to ${job.userId.email}`);
+      logger.info(`[PERIODIC DIGEST] Sent ${job.digestType} (${periodLabel}) to ${job.userId.email}`);
     } catch (err) {
       job.lastError = err.message;
       if (job.attempts >= job.maxAttempts) {
         job.status = 'dead_letter';
       } else {
-        job.status = 'failed'; // We can let cron pick up failed/pending later, or revert to pending
+        job.status = 'failed';
       }
       job.workerId = null;
       job.processingStartedAt = null;
       await job.save();
-      logger.error(`[DAILY DIGEST] Failed sending ${job.digestType} for user ${job.userId._id}: ${err.message}`);
+      logger.error(`[PERIODIC DIGEST] Failed sending ${job.digestType} for user ${job.userId._id}: ${err.message}`);
     }
   }
 };
@@ -283,7 +363,7 @@ const runDigestWatchdog = async () => {
     logger.warn(`[DAILY DIGEST WATCHDOG] Reset ${result.modifiedCount} stuck digest jobs to pending.`);
   }
   
-  // Also pick up 'failed' jobs that haven't maxed out attempts
+  // Re-queue failed jobs that haven't maxed out attempts
   const failedResult = await DailyDigestLog.updateMany(
     { status: 'failed', $expr: { $lt: ["$attempts", "$maxAttempts"] } },
     { $set: { status: 'pending' } }
