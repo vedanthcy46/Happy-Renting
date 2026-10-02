@@ -100,6 +100,14 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
               endYear = exitYear;
               endMonthIndex = exitMonth;
             }
+          } else if (tenant.status === 'vacated') {
+            const vacDate = new Date(tenant.updatedAt || tenant.createdAt || Date.now());
+            const vacYear = vacDate.getFullYear();
+            const vacMonth = vacDate.getMonth();
+            if (!isNaN(vacYear) && !isNaN(vacMonth)) {
+              endYear = vacYear;
+              endMonthIndex = vacMonth;
+            }
           }
         }
 
@@ -431,8 +439,8 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
           notificationService.sendPushNotification({
             userId: record.userId._id || record.userId,
             i18nKey: 'reminder.dueToday.title',
-            i18nBodyKey: 'reminder.dueTomorrow.body',
-            i18nVars: { amount: record.totalAmount || record.totalRent, month: record.month },
+            i18nBodyKey: 'reminder.dueToday.body',
+            i18nVars: { amount: record.remainingAmount || record.totalRent, month: record.month },
             type: 'rent_reminder',
             data: { rentRecordId: record._id }
           }).catch(() => null);
@@ -443,7 +451,7 @@ const updateOverduePayments = async (ownerId, forceReminders = false, tenantId) 
             userId: record.userId._id || record.userId,
             i18nKey: 'reminder.overdue.title',
             i18nBodyKey: 'reminder.overdue.body',
-            i18nVars: { amount: record.totalAmount || record.totalRent, month: record.month },
+            i18nVars: { amount: record.remainingAmount || record.totalRent, month: record.month },
             type: 'rent_overdue',
             data: { rentRecordId: record._id }
           }).catch(() => null);

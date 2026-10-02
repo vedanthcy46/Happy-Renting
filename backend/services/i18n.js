@@ -44,6 +44,14 @@ const DICTIONARY = {
     te: 'ఈరోజు అద్దె చెల్లించాలి',
     ml: 'ഇന്ന് വാടക നൽകണം',
   },
+  'reminder.dueToday.body': {
+    en: 'Rent of ₹{{amount}} for {{month}} is due today.',
+    kn: '{{month}} ತಿಂಗಳ ಬಾಡಿಗೆ ₹{{amount}} ಇಂದು ಗಡುವು.',
+    hi: '{{month}} का ₹{{amount}} किराया आज देय है।',
+    ta: '{{month}} மாத வாடகை ₹{{amount}} இன்று செலுத்த வேண்டும்.',
+    te: '{{month}} నెల అద్దె ₹{{amount}} ಈరోజు చెల్లించాలి.',
+    ml: '{{month}} മാസത്തെ ₹{{amount}} വാടക ഇന്ന് നൽകണം.',
+  },
   'reminder.overdue.title': {
     en: 'Rent Overdue',
     kn: 'ಬಾಡಿಗೆ ವಿಳಂಬವಾಗಿದೆ',

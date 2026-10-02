@@ -21,41 +21,67 @@ function monthKey(date) {
 }
 
 /**
- * Send rent reminders to every tenant with pending rent for the current month.
+ * Send rent reminders to tenants with pending or overdue rent.
  * Uses the existing push/notification service so reminders appear in-app AND
  * as push notifications.
  * @param {object} [opts]
  * @param {string} [opts.ownerId] - if provided, only remind tenants of this owner.
+ * @param {string} [opts.month]   - if provided, filter by specific occupancy month.
  */
 async function sendRentReminders(opts) {
   opts = opts || {};
-  const cur = monthKey();
-  const filter = { month: cur, remainingAmount: { $gt: 0 } };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Match all records with pending/partial/overdue rent
+  const filter = {
+    status: { $in: ['pending', 'partial', 'overdue'] },
+    remainingAmount: { $gt: 0 }
+  };
+  if (opts.month) filter.month = opts.month;
   if (opts.ownerId) filter.ownerId = opts.ownerId;
 
   const records = await MonthlyRentRecord.find(filter)
     .populate({ path: 'tenantId', select: 'userId' })
-    .lean();
+    .populate({ path: 'userId', select: 'name email preferredLanguage' });
 
   let sent = 0;
   for (const r of records) {
-    const tenantUserId = r.tenantId && r.tenantId.userId;
-    if (!tenantUserId) continue;
+    const tenantUser = r.userId || (r.tenantId && r.tenantId.userId);
+    if (!tenantUser) continue;
+
+    // Do not spam: skip if reminder was already sent today
+    if (r.reminderSentAt) {
+      const lastSent = new Date(r.reminderSentAt);
+      lastSent.setHours(0, 0, 0, 0);
+      if (lastSent.getTime() === today.getTime()) continue;
+    }
+
     try {
+      const targetUserId = tenantUser._id || tenantUser;
+      const isOverdue = r.status === 'overdue';
+
       await NotificationService.sendPushNotification({
-        userId: tenantUserId,
-        i18nKey: 'reminder.rentReminder.title',
-        i18nBodyKey: 'reminder.rentReminder.body',
+        userId: targetUserId,
+        i18nKey: isOverdue ? 'reminder.overdue.title' : 'reminder.rentReminder.title',
+        i18nBodyKey: isOverdue ? 'reminder.overdue.body' : 'reminder.rentReminder.body',
         i18nVars: { amount: r.remainingAmount, month: r.month },
-        type: 'rent_reminder',
+        type: isOverdue ? 'rent_overdue' : 'rent_reminder',
         data: { rentRecordId: String(r._id), month: r.month },
       });
+
+      await MonthlyRentRecord.updateOne(
+        { _id: r._id },
+        { $set: { reminderSent: true, reminderSentAt: new Date() } }
+      );
+
       sent++;
     } catch (err) {
-      // Already logged by the notification service; continue with the rest.
+      logger.error(`[AUTOMATION] Failed to send reminder for record ${r._id}: ${err.message}`);
     }
   }
-  return { month: cur, sent, totalFound: records.length };
+
+  return { sent, totalFound: records.length };
 }
 
 /**

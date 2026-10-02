@@ -294,10 +294,10 @@ const sendOverdueAlert = async (tenantUser, payment, property, room, owner) => {
       <p>Your rent for <strong>${payment.month}</strong> is now <strong>OVERDUE</strong>.</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
       <p><strong>Amount:</strong> ₹${(payment.remainingAmount ?? payment.totalRent ?? 0).toLocaleString()}</p>
-      <p><strong>Property:</strong> ${property.name}</p>
-      <p><strong>Room:</strong> ${room.roomNumber}</p>
+      <p><strong>Property:</strong> ${property?.name || 'Your Property'}</p>
+      <p><strong>Room:</strong> ${room?.roomNumber || 'Assigned Room'}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      ${getButton('Clear Overdue Rent')}
+      ${getButton('Clear Overdue Rent', `${WEBSITE_URL}/payments`)}
       ${getFooter()}
     </div>
   `;
@@ -542,7 +542,7 @@ const sendTenantWelcome = async (tenant, tempPassword, property, room, ownerName
         </div>
       ` : `
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${WEBSITE_URL}login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+          <a href="${WEBSITE_URL}/login" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
             Login to Happy Renting
           </a>
         </div>
@@ -829,13 +829,13 @@ const sendDueTodayReminderEmail = async (user, rentRecord, property, room) => {
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #f59e0b;">
       <h2 style="color: #f59e0b;">${t('reminder.dueToday.title', null, lang)}</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
-      <p>${t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang)}</p>
-      ${getButton('Pay Now', `${WEBSITE_URL}payments`)}
+      <p>${t('reminder.dueToday.body', { amount: (rentRecord.remainingAmount || rentRecord.totalRent)?.toLocaleString('en-IN'), month: rentRecord.month }, lang)}</p>
+      ${getButton('Pay Now', `${WEBSITE_URL}/payments`)}
       ${getFooter()}
     </div>
   `;
   await queueEmail(user.email, subject, html, 'reminder');
-  await Notification.create({ userId: user._id, title: t('reminder.dueToday.title', null, lang), message: t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang), type: 'billing' }).catch(() => null);
+  await Notification.create({ userId: user._id, title: t('reminder.dueToday.title', null, lang), message: t('reminder.dueToday.body', { amount: (rentRecord.remainingAmount || rentRecord.totalRent)?.toLocaleString('en-IN'), month: rentRecord.month }, lang), type: 'billing' }).catch(() => null);
 };
 
 const sendDueSoonReminderEmail = async (user, rentRecord, property, room) => {
@@ -845,14 +845,14 @@ const sendDueSoonReminderEmail = async (user, rentRecord, property, room) => {
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px; border-top: 4px solid #3b82f6;">
       <h2 style="color: #3b82f6;">${t('reminder.dueTomorrow.title', null, lang)}</h2>
       <p>Hello <strong>${user.name}</strong>,</p>
-      <p>${t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang)}</p>
+      <p>${t('reminder.dueTomorrow.body', { amount: (rentRecord.remainingAmount || rentRecord.totalRent)?.toLocaleString('en-IN'), month: rentRecord.month }, lang)}</p>
       <hr style="border: 0; border-top: 1px solid #eee;" />
-      ${getButton('Pay Now', `${WEBSITE_URL}payments`)}
+      ${getButton('Pay Now', `${WEBSITE_URL}/payments`)}
       ${getFooter()}
     </div>
   `;
   await queueEmail(user.email, subject, html, 'reminder');
-  await Notification.create({ userId: user._id, title: t('reminder.dueTomorrow.title', null, lang), message: t('reminder.dueTomorrow.body', { amount: rentRecord.remainingAmount?.toLocaleString('en-IN'), month: rentRecord.month }, lang), type: 'billing' }).catch(() => null);
+  await Notification.create({ userId: user._id, title: t('reminder.dueTomorrow.title', null, lang), message: t('reminder.dueTomorrow.body', { amount: (rentRecord.remainingAmount || rentRecord.totalRent)?.toLocaleString('en-IN'), month: rentRecord.month }, lang), type: 'billing' }).catch(() => null);
 };
 
 const sendTransactionReversalEmail = async (user, transaction, rentRecord, owner) => {
