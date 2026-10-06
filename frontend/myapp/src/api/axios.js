@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 const PRIMARY_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-const BACKUP_URL  = process.env.REACT_APP_BACKUP_API_URL;
+let BACKUP_URL  = process.env.REACT_APP_BACKUP_API_URL;
+// Ensure backup URL correctly ends with /api to prevent 404 Route Not Found errors on failover
+if (BACKUP_URL && !BACKUP_URL.endsWith('/api')) {
+  BACKUP_URL = BACKUP_URL.replace(/\/$/, '') + '/api';
+}
 
 // Keep track of which URL is currently being used
 let currentBaseURL = PRIMARY_URL;
