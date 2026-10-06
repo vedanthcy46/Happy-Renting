@@ -140,7 +140,7 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
       logger.info(`[RENT RECORD] Created rentRecordId=${rentRecord._id} for tenant=${tenantId} month=${month} type=${billingType} amount=${finalRent}`);
       
       // Send Mobile Push Notification
-      if (tenant.userId) {
+      if (tenant.userId && !options.suppressNotifications) {
         notificationService.sendPushNotification({
           userId: tenant.userId,
           title: 'New Rent Bill Generated 📄',

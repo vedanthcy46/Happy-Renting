@@ -20,6 +20,7 @@ const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 const Tenant = require('../models/Tenant');
 const logger = require('../config/logger');
 const notificationService = require('../services/notificationService');
+const emailService = require('../services/emailService');
 const paymentServiceV2 = require('../services/paymentServiceV2');
 
 const VALID_ITEM_TYPES = ['RENT', 'ELECTRICITY', 'WATER', 'MAINTENANCE', 'INTERNET', 'GAS', 'PARKING', 'CLEANING', 'SOCIETY', 'GARBAGE', 'LATE_FEE', 'OTHER'];
@@ -384,7 +385,7 @@ const waiveBillItem = async (req, res, next) => {
 const publishBill = async (req, res, next) => {
   try {
     const bill = await MonthlyBill.findById(req.params.billId)
-      .populate('tenantId')
+      .populate({ path: 'tenantId', populate: [{ path: 'roomId' }, { path: 'propertyId' }] })
       .populate('userId', 'name email');
 
     if (!bill) return res.status(404).json({ success: false, message: 'Bill not found' });
@@ -410,7 +411,8 @@ const publishBill = async (req, res, next) => {
         tenant     : bill.tenantId,
         dueDate    : bill.dueDate,
         updateTotalRent: true,
-      }
+          suppressNotifications: true,
+        }
     );
 
     // Always sync bill total → rent record so electricity/water/etc are included
@@ -436,6 +438,17 @@ const publishBill = async (req, res, next) => {
       type      : 'bill_generated',
       data      : { billId: bill._id, rentRecordId: rentRecord._id },
     }).catch(() => null);
+
+    if (bill.userId && bill.userId.email) {
+      emailService.sendBillGeneratedEmail({
+        user: bill.userId,
+        role: 'tenant',
+        rentRecord: rentRecord,
+        property: bill.tenantId.propertyId,
+        room: bill.tenantId.roomId,
+        tenantUser: bill.userId
+      }).catch(err => console.error(`[EMAIL ERROR] Failed to send bill generated email: ${err.message}`));
+    }
 
     logger.info(`[MONTHLY BILL] Published bill ${bill._id} for tenant ${bill.tenantId._id} month=${bill.month} total=₹${bill.totalAmount}`);
 
@@ -561,7 +574,9 @@ const bulkPublishBills = async (req, res, next) => {
   try {
     const { billIds } = req.body;
     if (!Array.isArray(billIds) || billIds.length === 0) return res.status(400).json({ success: false, message: 'No bills specified' });
-    const bills = await MonthlyBill.find({ _id: { $in: billIds }, status: 'DRAFT' }).populate('tenantId').populate('userId', 'name email');
+    const bills = await MonthlyBill.find({ _id: { $in: billIds }, status: 'DRAFT' })
+        .populate({ path: 'tenantId', populate: [{ path: 'roomId' }, { path: 'propertyId' }] })
+        .populate('userId', 'name email');
     
     if (req.user.role === 'owner') {
       const unauth = bills.some(b => String(b.ownerId) !== String(req.user._id));
@@ -575,7 +590,7 @@ const bulkPublishBills = async (req, res, next) => {
         bill.tenantId._id || bill.tenantId,
         bill.month,
         bill.totalAmount,
-        { notes: `Bill generated with ${bill.items.length} line items`, allowVacated: true, tenant: bill.tenantId, dueDate: bill.dueDate, updateTotalRent: true }
+        { notes: `Bill generated with ${bill.items.length} line items`, allowVacated: true, tenant: bill.tenantId, dueDate: bill.dueDate, updateTotalRent: true, suppressNotifications: true }
       );
       if (rentRecord.totalRent !== bill.totalAmount) {
         rentRecord.totalRent = bill.totalAmount;
@@ -596,6 +611,28 @@ const bulkPublishBills = async (req, res, next) => {
         type: 'bill_generated',
         data: { billId: bill._id, rentRecordId: rentRecord._id }
       }).catch(() => null);
+      
+      if (bill.userId && bill.userId.email) {
+        emailService.sendBillGeneratedEmail({
+          user: bill.userId,
+          role: 'tenant',
+          rentRecord: rentRecord,
+          property: bill.tenantId.propertyId,
+          room: bill.tenantId.roomId,
+          tenantUser: bill.userId
+        }).catch(err => console.error(`[EMAIL ERROR] Failed to send bill generated email: ${err.message}`));
+      }
+      // REMOVED DUPLICATE
+      if (false) {
+          emailService.sendBillGeneratedEmail({
+            user: bill.userId,
+            role: 'tenant',
+            rentRecord: rentRecord,
+            property: bill.tenantId.propertyId,
+            room: bill.tenantId.roomId,
+            tenantUser: bill.userId
+          }).catch(err => console.error(`[EMAIL ERROR] Failed to send bill generated email: ${err.message}`));
+        }
       publishedIds.push(bill._id);
     }
     res.json({ success: true, message: `${publishedIds.length} bills published`, publishedIds });
