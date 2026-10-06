@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { getBillDetail, waiveBillItem, publishBill, MonthlyBill, BillItem } from '../../api/billing';
+import { getBillDetail, waiveBillItem, publishBill, deleteBill, MonthlyBill, BillItem } from '../../api/billing';
 import { spacing, radius, shadows } from '../../theme';
 import { useTheme } from '../../theme/ThemeProvider';
 import { AppButton, KeyboardSafeBottomSheet } from '../../components';
@@ -77,6 +77,16 @@ export const BillDetailScreen: React.FC<BillDetailScreenProps> = ({ billId }) =>
     onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to publish bill'),
   });
 
+  const mutationDelete = useMutation({
+    mutationFn: () => deleteBill(billId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ownerBills'] });
+      Alert.alert('Deleted', 'Draft bill has been deleted.');
+      router.back();
+    },
+    onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to delete bill'),
+  });
+
   const handleWaiveSubmit = () => {
     if (!waiveItem) return;
     const payload: any = { waiverReason: waiveReason || undefined };
@@ -111,9 +121,22 @@ export const BillDetailScreen: React.FC<BillDetailScreenProps> = ({ billId }) =>
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: colors.text.primary }]}>{formatMonth(bill.month)}</Text>
-        <TouchableOpacity onPress={() => refetch()} style={styles.backBtn}>
-          <Ionicons name="refresh" size={22} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row' }}>
+          {bill.status === 'DRAFT' && (
+            <TouchableOpacity 
+              onPress={() => Alert.alert('Delete Bill', 'Are you sure you want to delete this draft bill?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => mutationDelete.mutate() }
+              ])} 
+              style={[styles.backBtn, { marginRight: 8 }]}
+            >
+              <Ionicons name="trash-outline" size={22} color={colors.error} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => refetch()} style={styles.backBtn}>
+            <Ionicons name="refresh" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={[styles.scrollContent, bill.status === 'DRAFT' && { paddingBottom: spacing.lg }]} showsVerticalScrollIndicator={false}>
