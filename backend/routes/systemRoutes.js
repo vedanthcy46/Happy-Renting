@@ -106,15 +106,29 @@ router.get('/queue-metrics', authenticate, authorize('superadmin'), async (req, 
 });
 
 // ── POST /api/system/trigger-daily-cron ────────────────────────────────────
-router.post('/trigger-daily-cron', authenticate, authorize('superadmin'), async (req, res, next) => {
+// Supports two auth methods:
+//  1. JWT superadmin token (manual trigger from dashboard)
+//  2. CRON_SECRET header (for external cron services like cron-job.org)
+router.post('/trigger-daily-cron', async (req, res, next) => {
   try {
-    // Run asynchronously to avoid blocking the API response
+    const cronSecret = process.env.CRON_SECRET;
+    const providedSecret = req.headers['x-cron-secret'];
+
+    // Allow if valid CRON_SECRET header is provided
+    const hasValidSecret = cronSecret && providedSecret === cronSecret;
+
+    // Otherwise fall back to JWT superadmin auth
+    if (!hasValidSecret) {
+      return authenticate(req, res, async () => {
+        authorize('superadmin')(req, res, async () => {
+          runDailyJobs().catch(err => console.error('[TRIGGER CRON] Failed:', err));
+          res.status(200).json({ success: true, message: 'Daily cron triggered.' });
+        });
+      });
+    }
+
     runDailyJobs().catch(err => console.error('[TRIGGER CRON] Failed:', err));
-    
-    res.status(200).json({
-      success: true,
-      message: 'Daily rent status check and bill generation triggered successfully in the background.'
-    });
+    res.status(200).json({ success: true, message: 'Daily cron triggered via secret.' });
   } catch (err) {
     next(err);
   }
