@@ -99,13 +99,20 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
 
     logger.info(`[CRON-V2] Found ${tenancies.length} eligible tenants`);
 
-    // Bulk pre-fetch existing records to avoid N+1 queries in the loop
-    const allRecords = await MonthlyBill.find({
+    // Bulk pre-fetch existing records (both legacy and new) to avoid N+1 queries in the loop
+    const allLegacyRecords = await MonthlyRentRecord.find({
+      tenantId: { $in: tenancies.map(t => t._id) }
+    }).select('tenantId month status').lean();
+
+    const allNewBills = await MonthlyBill.find({
       tenantId: { $in: tenancies.map(t => t._id) }
     }).select('tenantId month status').lean();
 
     const existingMap = new Map();
-    for (const r of allRecords) {
+    for (const r of allLegacyRecords) {
+      existingMap.set(`${r.tenantId}_${r.month}`, r.status);
+    }
+    for (const r of allNewBills) {
       existingMap.set(`${r.tenantId}_${r.month}`, r.status);
     }
 
@@ -153,13 +160,8 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
               endMonthIndex = exitMonth;
             }
           } else if (tenant.status === 'vacated') {
-            const vacDate = new Date(tenant.updatedAt || tenant.createdAt || Date.now());
-            const vacYear = vacDate.getFullYear();
-            const vacMonth = vacDate.getMonth();
-            if (!isNaN(vacYear) && !isNaN(vacMonth)) {
-              endYear = vacYear;
-              endMonthIndex = vacMonth;
-            }
+            logger.info(`[BILLING SKIPPED] Tenant ${tenant._id} is vacated but has no exitDate. Skipping to prevent over-billing.`);
+            continue;
           }
         }
 
