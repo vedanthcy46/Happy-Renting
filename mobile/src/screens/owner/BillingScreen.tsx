@@ -40,7 +40,8 @@ const currentMonthKey = () => {
 const monthOptions = () => {
   const opts: { label: string; value: string }[] = [];
   const now = new Date();
-  for (let i = 0; i < 6; i++) {
+  // Include next month (i = -1) so owners can prepare bills in advance
+  for (let i = -1; i < 6; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     opts.push({ label: formatMonth(val), value: val });
