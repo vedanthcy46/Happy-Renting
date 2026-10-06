@@ -176,15 +176,22 @@ const createBill = async (req, res, next) => {
       return res.status(409).json({ success: false, message: `A bill for ${month} already exists for this tenant`, bill: existing });
     }
 
-    const monthlyRent = tenant.roomId?.monthlyRent || 0;
+    const { calculateOccupiedDays, calculateProratedRent } = require('../utils/billingCalculationService');
+    const baseRent = tenant.roomId?.monthlyRent || 0;
+    
+    // Calculate prorated rent if this is the join month or exit month
+    const joinDate = new Date(tenant.moveInDate || tenant.joinDate || Date.now());
+    const exitDate = tenant.exitDate ? new Date(tenant.exitDate) : null;
+    const { occupiedDays, totalDays, isProrated } = calculateOccupiedDays(month, joinDate, exitDate);
+    const billedRent = isProrated ? calculateProratedRent(baseRent, occupiedDays, totalDays) : baseRent;
 
     // Build items: start with rent
     const items = [
       {
         type       : 'RENT',
-        description: 'Monthly Rent',
-        amount     : monthlyRent,
-        effectiveAmount: monthlyRent,
+        description: isProrated ? `Monthly Rent (Prorated ${occupiedDays}/${totalDays} days)` : 'Monthly Rent',
+        amount     : billedRent,
+        effectiveAmount: billedRent,
       },
     ];
 
