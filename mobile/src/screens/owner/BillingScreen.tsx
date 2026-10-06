@@ -34,16 +34,20 @@ const STATUS_CONFIG: Record<BillStatus, { color: string; bg: string; label: stri
 
 const currentMonthKey = () => {
   const now = new Date();
-  // Default to previous month since billing is post-generation
-  now.setMonth(now.getMonth() - 1);
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // Safe previous month calculation (prevents 31st day overflow)
+  let year = now.getFullYear();
+  let prevMonth = now.getMonth(); // getMonth is 0-indexed (0=Jan, 11=Dec). So current month index IS the previous month's 1-indexed number!
+  if (prevMonth === 0) {
+    prevMonth = 12;
+    year -= 1;
+  }
+  return `${year}-${String(prevMonth).padStart(2, '0')}`;
 };
 
 const monthOptions = () => {
   const opts: { label: string; value: string }[] = [];
   const now = new Date();
-  // Include next month (i = -1) so owners can prepare bills in advance
-  for (let i = -1; i < 6; i++) {
+  for (let i = 0; i < 6; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     opts.push({ label: formatMonth(val), value: val });
