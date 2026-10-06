@@ -69,12 +69,12 @@ export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = (
       visible={visible}
       transparent={transparent}
       animationType="slide"
-      presentationStyle="overFullScreen"
       onRequestClose={onClose}
+      statusBarTranslucent
     >
       <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.45)', paddingBottom: insets.bottom + 64 }, overlayStyle]}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: colors.surface, maxHeight }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.surface, maxHeight, minHeight: 420 }]}>
           <View style={[styles.handleArea]}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
           </View>

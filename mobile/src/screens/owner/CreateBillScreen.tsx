@@ -1,20 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, ActivityIndicator, TextInput,
+  Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
-  createBill, addBillItem, publishBill, deleteBill,
+  createBill, addBillItem, publishBill, deleteBill, getBillDetail, updateBillItem, removeBillItem,
   MonthlyBill, BillItem, BillItemType,
 } from '../../api/billing';
 import { getOwnerTenants } from '../../api/owner';
 import { spacing, radius, shadows } from '../../theme';
 import { useTheme } from '../../theme/ThemeProvider';
-import { AppButton, AppInput } from '../../components';
+import { AppButton, AppInput, KeyboardSafeBottomSheet } from '../../components';
+import { CalendarPicker } from '../../components/CalendarPicker';
 
 const formatCurrency = (n: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -56,7 +57,11 @@ const CHARGE_TYPES: { type: BillItemType; label: string; icon: string }[] = [
 
 type Step = 'select' | 'charges' | 'preview';
 
-export const CreateBillScreen: React.FC = () => {
+interface CreateBillScreenProps {
+  editBillId?: string;
+}
+
+export const CreateBillScreen: React.FC<CreateBillScreenProps> = ({ editBillId }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -64,14 +69,16 @@ export const CreateBillScreen: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Step 1 state
-  const [step, setStep] = useState<Step>('select');
+  const [step, setStep] = useState<Step>(editBillId ? 'charges' : 'select');
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(monthOptions()[0].value);
   const [dueDate, setDueDate] = useState(defaultDueDate());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Step 2 state
   const [bill, setBill] = useState<MonthlyBill | null>(null);
   const [showAddCharge, setShowAddCharge] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [chargeType, setChargeType] = useState<BillItemType>('ELECTRICITY');
   const [chargeDesc, setChargeDesc] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
@@ -81,6 +88,18 @@ export const CreateBillScreen: React.FC = () => {
   const [ratePerUnit, setRatePerUnit] = useState('7');
 
   const months = useMemo(() => monthOptions(), []);
+
+  // Load existing draft when editing
+  const { data: editBillData, isLoading: isLoadingBill } = useQuery({
+    queryKey: ['billDetail', editBillId],
+    queryFn: () => getBillDetail(editBillId!),
+    enabled: !!editBillId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Sync fetched bill into local state
+  const editedBill = editBillData?.bill ?? null;
+  const activeBill = bill ?? editedBill;
 
   const { data: tenantsData, isLoading: loadingTenants } = useQuery({
     queryKey: ['ownerTenants', 'active'],
@@ -100,7 +119,7 @@ export const CreateBillScreen: React.FC = () => {
 
   const mutationAddItem = useMutation({
     mutationFn: (payload: Parameters<typeof addBillItem>[1]) =>
-      addBillItem(bill!._id, payload),
+      addBillItem(activeBill!._id, payload),
     onSuccess: (res) => {
       setBill(res.bill);
       resetChargeForm();
@@ -109,8 +128,28 @@ export const CreateBillScreen: React.FC = () => {
     onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to add charge'),
   });
 
+  const mutationUpdateItem = useMutation({
+    mutationFn: ({ itemId, payload }: { itemId: string; payload: any }) =>
+      updateBillItem(activeBill!._id, itemId, payload),
+    onSuccess: (res) => {
+      setBill(res.bill);
+      resetChargeForm();
+      setEditingItemId(null);
+      setShowAddCharge(false);
+    },
+    onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to update charge'),
+  });
+
+  const mutationRemoveItem = useMutation({
+    mutationFn: (itemId: string) => removeBillItem(activeBill!._id, itemId),
+    onSuccess: (res) => {
+      setBill(res.bill);
+    },
+    onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to remove charge'),
+  });
+
   const mutationPublish = useMutation({
-    mutationFn: () => publishBill(bill!._id),
+    mutationFn: () => publishBill(activeBill!._id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ownerBills'] });
       Alert.alert('✓ Bill Generated', 'Tenant has been notified.', [
@@ -121,7 +160,7 @@ export const CreateBillScreen: React.FC = () => {
   });
 
   const mutationDelete = useMutation({
-    mutationFn: () => deleteBill(bill!._id),
+    mutationFn: () => deleteBill(activeBill!._id),
     onSuccess: () => router.back(),
   });
 
@@ -133,11 +172,32 @@ export const CreateBillScreen: React.FC = () => {
     setCurrReading('');
     setRatePerUnit('7');
     setElecMethod('meter');
+    setEditingItemId(null);
+  };
+
+  const handleEditItem = (item: BillItem) => {
+    setEditingItemId(item._id);
+    setChargeType(item.type);
+    setChargeDesc(item.description);
+    if (item.type === 'ELECTRICITY' && item.metadata?.previousReading != null) {
+      setElecMethod('meter');
+      setPrevReading(String(item.metadata.previousReading));
+      setCurrReading(String(item.metadata.currentReading));
+      setRatePerUnit(String(item.metadata.ratePerUnit));
+      setChargeAmount('');
+    } else {
+      setElecMethod('fixed');
+      setChargeAmount(String(item.amount));
+      setPrevReading('');
+      setCurrReading('');
+      setRatePerUnit('7');
+    }
+    setShowAddCharge(true);
   };
 
   const handleAddCharge = () => {
-    if (!bill) return;
-    const payload: Parameters<typeof addBillItem>[1] = {
+    if (!activeBill) return;
+    const payload: any = {
       type: chargeType,
       description: chargeDesc || CHARGE_TYPES.find(c => c.type === chargeType)?.label || chargeType,
     };
@@ -159,7 +219,12 @@ export const CreateBillScreen: React.FC = () => {
       }
       payload.amount = amt;
     }
-    mutationAddItem.mutate(payload);
+
+    if (editingItemId) {
+      mutationUpdateItem.mutate({ itemId: editingItemId, payload });
+    } else {
+      mutationAddItem.mutate(payload);
+    }
   };
 
   const handleDiscardDraft = () => {
@@ -171,7 +236,13 @@ export const CreateBillScreen: React.FC = () => {
 
   const selectedTenant = tenants.find(t => t._id === selectedTenantId);
 
-  // ── Step 1: Select tenant & month ─────────────────────────────────────────
+  if (editBillId && isLoadingBill) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
   if (step === 'select') {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -183,8 +254,12 @@ export const CreateBillScreen: React.FC = () => {
           <View style={{ width: 44 }} />
         </View>
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>BILLING MONTH</Text>
           <View style={styles.chipRow}>
             {months.map(m => (
               <TouchableOpacity
@@ -203,12 +278,17 @@ export const CreateBillScreen: React.FC = () => {
           </View>
 
           <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>DUE DATE</Text>
-          <AppInput
-            label=""
-            placeholder="YYYY-MM-DD"
-            value={dueDate}
-            onChangeText={setDueDate}
-          />
+          <TouchableOpacity
+            style={[styles.dateField, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+            <Text style={[styles.dateFieldText, { color: dueDate ? colors.text.primary : colors.text.tertiary }]}>
+              {dueDate ? new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Select due date'}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+          </TouchableOpacity>
 
           <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>SELECT TENANT</Text>
           {loadingTenants ? (
@@ -248,12 +328,26 @@ export const CreateBillScreen: React.FC = () => {
             style={{ marginTop: spacing.xxl }}
           />
         </ScrollView>
+        </KeyboardAvoidingView>
+
+        <KeyboardSafeBottomSheet
+          visible={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          title="Select Due Date"
+        >
+          <CalendarPicker
+            value={dueDate}
+            minDate={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()}
+            onChange={(d) => { setDueDate(d); setShowDatePicker(false); }}
+          />
+        </KeyboardSafeBottomSheet>
       </View>
     );
   }
 
   // ── Step 2: Add charges ───────────────────────────────────────────────────
-  if (step === 'charges' && bill) {
+  if (step === 'charges' && activeBill) {
+    const bill = activeBill;
     const elecUnits = chargeType === 'ELECTRICITY' && elecMethod === 'meter'
       ? Math.max(0, Number(currReading) - Number(prevReading))
       : 0;
@@ -269,6 +363,11 @@ export const CreateBillScreen: React.FC = () => {
           <View style={{ width: 44 }} />
         </View>
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {/* Bill header */}
           <View style={[styles.billHeader, { backgroundColor: colors.surface }, shadows.sm]}>
@@ -294,9 +393,21 @@ export const CreateBillScreen: React.FC = () => {
                     </Text>
                   )}
                 </View>
-                <Text style={[styles.lineItemAmt, { color: colors.text.primary }]}>
-                  {formatCurrency(item.effectiveAmount)}
-                </Text>
+                <View style={styles.lineItemRight}>
+                  <Text style={[styles.lineItemAmt, { color: colors.text.primary }]}>
+                    {formatCurrency(item.effectiveAmount)}
+                  </Text>
+                  {item.type !== 'RENT' && (
+                    <View style={styles.itemActions}>
+                      <TouchableOpacity onPress={() => handleEditItem(item)} style={[styles.itemActionBtn, { borderColor: colors.border }]} activeOpacity={0.7}>
+                        <Ionicons name="pencil" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => Alert.alert('Delete Charge?', `Remove ${item.description}?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => mutationRemoveItem.mutate(item._id) }])} style={[styles.itemActionBtn, { borderColor: colors.error }]} activeOpacity={0.7}>
+                        <Ionicons name="trash" size={14} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
               </View>
             ))}
             <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
@@ -383,7 +494,7 @@ export const CreateBillScreen: React.FC = () => {
 
               <View style={styles.formBtns}>
                 <AppButton title="Cancel" onPress={() => { setShowAddCharge(false); resetChargeForm(); }} variant="ghost" style={{ flex: 1, marginRight: spacing.sm }} />
-                <AppButton title="Add Charge" onPress={handleAddCharge} loading={mutationAddItem.isPending} style={{ flex: 1, marginLeft: spacing.sm }} />
+                <AppButton title={editingItemId ? 'Update Charge' : 'Add Charge'} onPress={handleAddCharge} loading={mutationAddItem.isPending || mutationUpdateItem.isPending} style={{ flex: 1, marginLeft: spacing.sm }} />
               </View>
             </View>
           )}
@@ -395,12 +506,14 @@ export const CreateBillScreen: React.FC = () => {
             disabled={bill.items.length === 0}
           />
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     );
   }
 
   // ── Step 3: Preview & publish ─────────────────────────────────────────────
-  if (step === 'preview' && bill) {
+  if (step === 'preview' && activeBill) {
+    const bill = activeBill;
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
@@ -411,6 +524,11 @@ export const CreateBillScreen: React.FC = () => {
           <View style={{ width: 44 }} />
         </View>
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={[styles.previewCard, { backgroundColor: colors.surface }, shadows.md]}>
             <Text style={[styles.previewTenant, { color: colors.text.primary }]}>
@@ -453,6 +571,7 @@ export const CreateBillScreen: React.FC = () => {
             <AppButton title="Generate Bill" onPress={() => mutationPublish.mutate()} loading={mutationPublish.isPending} style={{ flex: 1, marginLeft: spacing.sm }} />
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     );
   }
@@ -474,6 +593,8 @@ const makeStyles = (colors: any) => StyleSheet.create({
   tenantAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   tenantName: { fontSize: 15, fontWeight: '600' },
   tenantRoom: { fontSize: 13, marginTop: 2 },
+  dateField: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1.5, marginBottom: spacing.sm },
+  dateFieldText: { flex: 1, fontSize: 15, fontWeight: '500' },
   billHeader: { borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md },
   billHeaderName: { fontSize: 17, fontWeight: '700' },
   billHeaderSub: { fontSize: 13, marginTop: 2 },
@@ -482,6 +603,9 @@ const makeStyles = (colors: any) => StyleSheet.create({
   lineItemDesc: { fontSize: 14, fontWeight: '500' },
   lineItemMeta: { fontSize: 12, marginTop: 2 },
   lineItemAmt: { fontSize: 15, fontWeight: '600' },
+  lineItemRight: { alignItems: 'flex-end', gap: spacing.xs },
+  itemActions: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  itemActionBtn: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, borderTopWidth: 1 },
   totalLabel: { fontSize: 15, fontWeight: '700' },
   totalAmt: { fontSize: 18, fontWeight: '700' },

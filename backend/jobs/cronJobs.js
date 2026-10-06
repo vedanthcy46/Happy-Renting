@@ -20,8 +20,6 @@ const backupService = require('../services/backupService');
 const ledgerQueueService = require('../services/ledgerQueueService');
 const walletService = require('../services/walletService');
 const dailyDigestService = require('../services/dailyDigestService');
-const MonthlyBill = require('../models/MonthlyBill');
-const MonthlyRentRecord = require('../models/MonthlyRentRecord');
 
 const dailyJobsGuard = createConcurrencyGuard('daily-jobs', logger);
 const queueProcessorGuard = createConcurrencyGuard('queue-processor', logger);
@@ -91,25 +89,6 @@ const runDailyJobs = async () => {
       await billingServiceV2.purgePrivacyData();
     } catch (err) {
       logger.error(`[CRON ERROR] purgePrivacyData failed: ${err.message}`);
-    }
-
-    // Sync MonthlyBill status from MonthlyRentRecord (paid/overdue/partial)
-    try {
-      logger.info('[CRON-V2] Syncing MonthlyBill statuses from rent records...');
-      const STATUS_MAP = { paid: 'PAID', overdue: 'OVERDUE', partial: 'PARTIAL', pending: 'PENDING', waived: 'WAIVED', overpaid: 'PAID' };
-      const records = await MonthlyRentRecord.find({ status: { $in: ['paid', 'overdue', 'partial', 'waived', 'overpaid'] } }).select('_id status').lean();
-      for (const rec of records) {
-        const newStatus = STATUS_MAP[rec.status];
-        if (newStatus) {
-          await MonthlyBill.updateOne(
-            { rentRecordId: rec._id, status: { $ne: newStatus } },
-            { $set: { status: newStatus } }
-          );
-        }
-      }
-      logger.info(`[CRON-V2] Bill status sync complete for ${records.length} records.`);
-    } catch (err) {
-      logger.error(`[CRON ERROR] MonthlyBill status sync failed: ${err.message}`);
     }
 
     try {

@@ -36,9 +36,10 @@ interface AddPaymentModalProps {
   onClose: () => void;
   onSaved: () => void;
   t: (key: string) => string;
+  defaultAmount?: number;
 }
 
-const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId, onClose, onSaved, t }) => {
+const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId, onClose, onSaved, t, defaultAmount }) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [amount, setAmount] = useState('');
@@ -48,8 +49,8 @@ const AddPaymentModal: React.FC<AddPaymentModalProps> = ({ visible, rentRecordId
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   useEffect(() => {
-    if (visible) { setAmount(''); setMethod('cash'); setPaymentDate(new Date().toISOString().split('T')[0]); setNote(''); setImageUri(null); }
-  }, [visible]);
+    if (visible) { setAmount(defaultAmount ? defaultAmount.toString() : ''); setMethod('cash'); setPaymentDate(new Date().toISOString().split('T')[0]); setNote(''); setImageUri(null); }
+  }, [visible, defaultAmount]);
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -459,6 +460,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
           qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
         }}
         t={t}
+        defaultAmount={rentRecord?.remainingAmount}
       />
 
       {/* Waive Charge Modal */}

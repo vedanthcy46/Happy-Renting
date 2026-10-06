@@ -41,11 +41,34 @@ const syncBillToRentRecord = async (bill) => {
     const newTotal = bill.totalAmount;
     record.totalRent = newTotal;
     record.fullRentAmount = newTotal;
+    record.rentAmountAtGeneration = newTotal;
     // remainingAmount is recalculated in MonthlyRentRecord pre-save hook
     await record.save();
     logger.info(`[MONTHLY BILL] Synced bill ${bill._id} totalAmount ₹${newTotal} → rentRecord ${record._id}`);
   } catch (err) {
     logger.error(`[MONTHLY BILL] Failed to sync bill to rent record: ${err.message}`);
+  }
+};
+
+/**
+ * Sync MonthlyRentRecord payment status back to the linked MonthlyBill.
+ * Called after any payment transaction is recorded.
+ */
+const syncRentRecordToBill = async (rentRecordId) => {
+  if (!rentRecordId) return;
+  try {
+    const record = await MonthlyRentRecord.findById(rentRecordId).select('status').lean();
+    if (!record) return;
+    const STATUS_MAP = { paid: 'PAID', overdue: 'OVERDUE', partial: 'PARTIAL', pending: 'PENDING', waived: 'WAIVED', overpaid: 'PAID' };
+    const billStatus = STATUS_MAP[record.status];
+    if (billStatus) {
+      await MonthlyBill.updateOne(
+        { rentRecordId, status: { $nin: ['DRAFT'] } },
+        { $set: { status: billStatus } }
+      );
+    }
+  } catch (err) {
+    logger.error(`[MONTHLY BILL] Failed to sync rent record status to bill: ${err.message}`);
   }
 };
 
@@ -386,13 +409,15 @@ const publishBill = async (req, res, next) => {
         allowVacated: true,
         tenant     : bill.tenantId,
         dueDate    : bill.dueDate,
+        updateTotalRent: true,
       }
     );
 
-    // If the record already existed with a different amount, update it
+    // Always sync bill total → rent record so electricity/water/etc are included
     if (rentRecord.totalRent !== bill.totalAmount) {
       rentRecord.totalRent = bill.totalAmount;
       rentRecord.fullRentAmount = bill.totalAmount;
+      rentRecord.rentAmountAtGeneration = bill.totalAmount;
       await rentRecord.save();
     }
 
@@ -546,4 +571,5 @@ module.exports = {
   createRecurringCharge,
   updateRecurringCharge,
   deleteRecurringCharge,
+  syncRentRecordToBill,
 };

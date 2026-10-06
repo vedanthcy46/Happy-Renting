@@ -11,12 +11,64 @@ require('../models/Room');
 require('../models/Property');
 const Tenant = require('../models/Tenant');
 const MonthlyRentRecord = require('../models/MonthlyRentRecord');
+const MonthlyBill = require('../models/MonthlyBill');
+const RecurringCharge = require('../models/RecurringCharge');
 const MigrationHistory = require('../models/MigrationHistory');
 const paymentServiceV2 = require('./paymentServiceV2');
 const cloudinary = require('../config/cloudinaryConfig');
 const logger = require('../config/logger');
 const emailService = require('./emailService');
 const notificationService = require('./notificationService');
+
+/**
+ * ensureMonthlyBillDraft(tenant, month, rentRecord)
+ * Idempotently creates a DRAFT MonthlyBill for the given tenant/month if one
+ * doesn't already exist. Auto-populates rent + active recurring charges.
+ * Called by the cron after a MonthlyRentRecord is created.
+ */
+const ensureMonthlyBillDraft = async (tenant, month) => {
+  const { calculateDueDate } = require('../utils/billingCalculationService');
+  const dueDate = calculateDueDate(month);
+  const existing = await MonthlyBill.findOne({ tenantId: tenant._id, month });
+  if (existing) return existing;
+
+  const monthlyRent = tenant.roomId?.monthlyRent || 0;
+  const items = [{
+    type: 'RENT',
+    description: 'Monthly Rent',
+    amount: monthlyRent,
+    effectiveAmount: monthlyRent,
+  }];
+
+  const recurring = await RecurringCharge.find({ tenantId: tenant._id, isActive: true });
+  for (const charge of recurring) {
+    items.push({
+      type: charge.type,
+      description: charge.description,
+      amount: charge.amount,
+      effectiveAmount: charge.amount,
+    });
+  }
+
+  try {
+    const bill = await MonthlyBill.create({
+      tenantId  : tenant._id,
+      userId    : tenant.userId._id || tenant.userId,
+      roomId    : tenant.roomId._id || tenant.roomId,
+      propertyId: tenant.propertyId,
+      ownerId   : tenant.ownerId,
+      month,
+      dueDate   : dueDate,
+      items,
+      status    : 'DRAFT',
+    });
+    logger.info(`[MONTHLY BILL] Auto-created DRAFT bill ${bill._id} for tenant ${tenant._id} month=${month}`);
+    return bill;
+  } catch (err) {
+    if (err.code === 11000) return MonthlyBill.findOne({ tenantId: tenant._id, month });
+    throw err;
+  }
+};
 
 /**
  * generateMonthlyBills(ownerId, tenantId)
@@ -48,7 +100,7 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
     logger.info(`[CRON-V2] Found ${tenancies.length} eligible tenants`);
 
     // Bulk pre-fetch existing records to avoid N+1 queries in the loop
-    const allRecords = await MonthlyRentRecord.find({
+    const allRecords = await MonthlyBill.find({
       tenantId: { $in: tenancies.map(t => t._id) }
     }).select('tenantId month status').lean();
 
@@ -140,40 +192,26 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
             const isFinalMonth = tenant.status === 'vacated' && tenant.exitDate && new Date(tenant.exitDate).toISOString().slice(0, 7) === iterMonthStr;
             const isCurrentMonth = iterMonthStr === currentMonthStr;
 
-            if ((isFinalMonth || isCurrentMonth) && existingStatus !== 'paid') {
-              await paymentServiceV2.ensureMonthlyRentRecord(
-                tenant._id,
-                iterMonthStr,
-                tenantMonthlyRent,
-                { allowVacated: true, tenant }
-              );
-            }
+            // Legacy MonthlyRentRecord logic removed.
           } else {
-            // Generate using payment service
-            const newRecord = await paymentServiceV2.ensureMonthlyRentRecord(
-              tenant._id,
-              iterMonthStr,
-              tenantMonthlyRent,
-              {
-                notes: `System generated calendar monthly billing for ${iterMonthStr}`,
-                allowVacated: true,
-                tenant
-              }
+            // Auto-create a DRAFT MonthlyBill (single source of truth)
+            const bill = await ensureMonthlyBillDraft(tenant, iterMonthStr).catch(err =>
+              logger.error(`[MONTHLY BILL] Failed to create draft bill for tenant ${tenant._id} month=${iterMonthStr}: ${err.message}`)
             );
-            
-            billingResults.created++;
-            logger.info(`[CRON-V2] Created rent record for tenant ${tenant._id}`);
 
-            // Track created records for emailing after the loop (so historical
-            // backfills can be consolidated into a single email instead of spamming)
-            if (!tenant.isMigratedTenant || tenant.migrationBackfillCompleted) {
-              createdRecords.push(newRecord);
+            if (bill) {
+              billingResults.created++;
+              logger.info(`[CRON-V2] Created MonthlyBill for tenant ${tenant._id}`);
 
-              if (tenant.ownerId) {
-                const ownerIdKey = String(tenant.ownerId._id || tenant.ownerId);
-                const currentData = ownerSummaryMap.get(ownerIdKey) || { owner: tenant.ownerId, count: 0 };
-                currentData.count++;
-                ownerSummaryMap.set(ownerIdKey, currentData);
+              if (!tenant.isMigratedTenant || tenant.migrationBackfillCompleted) {
+                createdRecords.push(bill);
+
+                if (tenant.ownerId) {
+                  const ownerIdKey = String(tenant.ownerId._id || tenant.ownerId);
+                  const currentData = ownerSummaryMap.get(ownerIdKey) || { owner: tenant.ownerId, count: 0 };
+                  currentData.count++;
+                  ownerSummaryMap.set(ownerIdKey, currentData);
+                }
               }
             }
           }
@@ -186,38 +224,10 @@ const generateMonthlyBills = async (ownerId, tenantId) => {
           }
         }
 
-        // ── Email newly created bills ─────────────────────────────────────────
-        // If more than 2 bills were backfilled at once, send ONE consolidated
-        // email covering the whole range (from → to) instead of one email per bill.
-        if (createdRecords.length > 2) {
-          if (tenant.userId) {
-            const fromMonth = createdRecords[0].month;
-            const toMonth = createdRecords[createdRecords.length - 1].month;
-            const totalAmount = createdRecords.reduce((sum, rec) => sum + (rec.totalRent || 0), 0);
-            await emailService.sendBillBackfillSummaryEmail({
-              user: tenant.userId,
-              role: 'tenant',
-              property: tenant.propertyId,
-              room: tenant.roomId,
-              tenantUser: tenant.userId,
-              fromMonth,
-              toMonth,
-              count: createdRecords.length,
-              totalAmount,
-            }).catch(() => null);
-          }
-        } else {
-          for (const createdRecord of createdRecords) {
-            const isFinalMonth = tenant.status === 'vacated' && tenant.exitDate && new Date(tenant.exitDate).toISOString().slice(0, 7) === createdRecord.month;
-
-            if (isFinalMonth) {
-              if (tenant.userId) await emailService.sendFinalSettlementEmail({ user: tenant.userId, role: 'tenant', rentRecord: createdRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
-            } else {
-              if (tenant.userId) await emailService.sendBillGeneratedEmail({ user: tenant.userId, role: 'tenant', rentRecord: createdRecord, property: tenant.propertyId, room: tenant.roomId, tenantUser: tenant.userId }).catch(()=>null);
-            }
-          }
-        }
-
+        // ── Email newly created bills ──
+        // DRAFT bills are not emailed to tenants automatically. 
+        // Owners must finalize and send them.
+        
         // Mark backfill completed if it was a migrated tenant
         if (tenant.isMigratedTenant && !tenant.migrationBackfillCompleted) {
           tenant.migrationBackfillCompleted = true;

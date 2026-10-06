@@ -7,10 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { getBillDetail, waiveBillItem, MonthlyBill, BillItem } from '../../api/billing';
+import { getBillDetail, waiveBillItem, publishBill, MonthlyBill, BillItem } from '../../api/billing';
 import { spacing, radius, shadows } from '../../theme';
 import { useTheme } from '../../theme/ThemeProvider';
-import { AppButton, KeyboardSafeModal } from '../../components';
+import { AppButton, KeyboardSafeBottomSheet } from '../../components';
 
 const formatCurrency = (n: number) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -50,7 +50,8 @@ export const BillDetailScreen: React.FC<BillDetailScreenProps> = ({ billId }) =>
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['billDetail', billId],
     queryFn: () => getBillDetail(billId),
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   const mutationWaive = useMutation({
@@ -64,6 +65,16 @@ export const BillDetailScreen: React.FC<BillDetailScreenProps> = ({ billId }) =>
       setWaivePartialAmt('');
     },
     onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to waive item'),
+  });
+
+  const mutationPublish = useMutation({
+    mutationFn: () => publishBill(billId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['billDetail', billId] });
+      queryClient.invalidateQueries({ queryKey: ['ownerBills'] });
+      Alert.alert('✓ Bill Published', 'Tenant has been notified.');
+    },
+    onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to publish bill'),
   });
 
   const handleWaiveSubmit = () => {
@@ -105,7 +116,7 @@ export const BillDetailScreen: React.FC<BillDetailScreenProps> = ({ billId }) =>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, bill.status === 'DRAFT' && { paddingBottom: spacing.lg }]} showsVerticalScrollIndicator={false}>
         {/* Summary header */}
         <View style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
           <View style={styles.summaryTop}>
@@ -206,22 +217,30 @@ export const BillDetailScreen: React.FC<BillDetailScreenProps> = ({ billId }) =>
         )}
       </ScrollView>
 
-      {/* Waive item modal */}
-      <KeyboardSafeModal
-        visible={!!waiveItem}
-        animationType="slide"
-        overlayStyle={[styles.modalOverlay, { paddingBottom: insets.bottom + 64 }]}
-        onRequestClose={() => setWaiveItem(null)}
-      >
-        <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.xxl }]}>
-          <View style={styles.modalHandle} />
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Waive Charge</Text>
-            <TouchableOpacity onPress={() => setWaiveItem(null)}>
-              <Ionicons name="close" size={24} color={colors.text.primary} />
-            </TouchableOpacity>
-          </View>
+      {/* Draft action bar */}
+      {bill.status === 'DRAFT' && (
+        <View style={[styles.draftBar, { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.md }]}>
+          <AppButton
+            title="Edit Bill"
+            variant="outline"
+            onPress={() => router.push(`/owner/billing/create?billId=${bill._id}`)}
+            fullWidth
+          />
+          <AppButton
+            title="Publish Bill"
+            onPress={() => mutationPublish.mutate()}
+            loading={mutationPublish.isPending}
+            fullWidth
+          />
+        </View>
+      )}
 
+      {/* Waive item bottom sheet */}
+      <KeyboardSafeBottomSheet
+        visible={!!waiveItem}
+        onClose={() => setWaiveItem(null)}
+        title="Waive Charge"
+      >
           {waiveItem && (
             <View style={[styles.waiveInfoBox, { backgroundColor: colors.primaryLight }]}>
               <Text style={[styles.waiveInfoText, { color: colors.text.secondary }]}>
@@ -281,8 +300,7 @@ export const BillDetailScreen: React.FC<BillDetailScreenProps> = ({ billId }) =>
               style={{ flex: 1, marginLeft: spacing.sm, backgroundColor: colors.success }}
             />
           </View>
-        </View>
-      </KeyboardSafeModal>
+      </KeyboardSafeBottomSheet>
     </View>
   );
 };
@@ -322,11 +340,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
   payLabel: { fontSize: 14 },
   payValue: { fontSize: 14, fontWeight: '600' },
   divider: { height: 1 },
-  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl + 4, borderTopRightRadius: radius.xxl + 4, padding: spacing.xxl, maxHeight: '80%' },
-  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  modalTitle: { fontSize: 20, fontWeight: '700' },
   waiveInfoBox: { borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.xl },
   waiveInfoText: { fontSize: 14, fontWeight: '500' },
   fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: spacing.sm },
@@ -336,5 +349,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
   inputWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2 },
   inputPrefix: { fontSize: 16, fontWeight: '600', marginRight: spacing.xs },
   input: { flex: 1, fontSize: 15, paddingVertical: 0 },
+  draftBar: { flexDirection: 'row', paddingHorizontal: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, gap: spacing.md },
   formBtns: { flexDirection: 'row', marginTop: spacing.xl },
 });

@@ -351,6 +351,10 @@ const addPaymentTransaction = async (params, caller) => {
 
     // Automatically apply advance balance to subsequent bills
     await applyAdvanceBalance(tenantId, transaction._id).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
+
+    // Sync payment status back to the MonthlyBill invoice layer
+    const { syncRentRecordToBill } = require('../controllers/monthlyBillController');
+    await syncRentRecordToBill(rentRecordId).catch(err => logger.error(`[BILL SYNC] ${err.message}`));
   }
 
   if (caller.role === 'owner') {
@@ -1015,6 +1019,10 @@ const verifyTransaction = async (transactionId, caller) => {
 
     // Automatically apply advance balance to subsequent bills
     await applyAdvanceBalance(transaction.tenantId, transaction._id).catch(err => logger.error(`Auto-apply advance failed: ${err.message}`));
+
+    // Sync payment status back to the MonthlyBill invoice layer
+    const { syncRentRecordToBill } = require('../controllers/monthlyBillController');
+    await syncRentRecordToBill(transaction.rentRecordId).catch(err => logger.error(`[BILL SYNC] ${err.message}`));
   }
 
   if (caller.role === 'owner') {
@@ -1230,6 +1238,10 @@ const waiveCharge = async (rentRecordId, params, caller) => {
   if (notes) rentRecord.waiverNotes = notes;
 
   await rentRecord.save(); // pre-save hook recalculates remainingAmount and status
+
+  // Sync waiver status back to the MonthlyBill invoice layer
+  const { syncRentRecordToBill } = require('../controllers/monthlyBillController');
+  await syncRentRecordToBill(rentRecordId).catch(err => logger.error(`[BILL SYNC] ${err.message}`));
 
   logger.info(
     `[WAIVER] rentRecordId=${rentRecordId} amount=₹${amountToWaive} totalWaived=₹${rentRecord.waivedAmount} by=${caller.id}`

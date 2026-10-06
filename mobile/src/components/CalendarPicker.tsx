@@ -17,9 +17,10 @@ interface CalendarPickerProps {
   value: string;
   onChange: (dateKey: string) => void;
   maxDate?: string;
+  minDate?: string;
 }
 
-export const CalendarPicker: React.FC<CalendarPickerProps> = ({ value, onChange, maxDate }) => {
+export const CalendarPicker: React.FC<CalendarPickerProps> = ({ value, onChange, maxDate, minDate }) => {
   const { colors } = useTheme();
   const [viewYear, setViewYear] = useState(() => {
     const v = value ? new Date(value) : new Date();
@@ -30,7 +31,8 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ value, onChange,
     return isNaN(v.getTime()) ? new Date().getMonth() : v.getMonth();
   });
 
-  const maxKey = maxDate ?? toDateKey(new Date());
+  const maxKey = maxDate ?? null;
+  const minKey = minDate ?? null;
   const todayKey = toDateKey(new Date());
 
   const firstDay = new Date(viewYear, viewMonth, 1).getDay();
@@ -74,9 +76,8 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ value, onChange,
         </Text>
         <TouchableOpacity
           onPress={goToNextMonth}
-          disabled={isFutureMonth()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={[styles.nav, !isFutureMonth() && { opacity: 0.3 }]}
+          style={styles.nav}
         >
           <Ionicons name="chevron-forward" size={20} color={colors.text.primary} />
         </TouchableOpacity>
@@ -96,7 +97,7 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ value, onChange,
           const dayKey = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           const isSelected = dayKey === value;
           const isToday = dayKey === todayKey;
-          const isDisabled = !!maxKey && dayKey > maxKey;
+          const isDisabled = (!!maxKey && dayKey > maxKey) || (!!minKey && dayKey < minKey);
 
           return (
             <TouchableOpacity

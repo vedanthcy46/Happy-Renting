@@ -8,7 +8,13 @@ const paymentTransactionSchema = new mongoose.Schema(
     rentRecordId: {
       type     : mongoose.Schema.Types.ObjectId,
       ref      : 'MonthlyRentRecord',
-      required : [true, 'Rent record reference is required'],
+      default  : null,
+    },
+    // New single source of truth reference
+    monthlyBillId: {
+      type     : mongoose.Schema.Types.ObjectId,
+      ref      : 'MonthlyBill',
+      default  : null,
     },
     // For quick lookups and filtering
     tenantId: {
