@@ -34,6 +34,8 @@ const STATUS_CONFIG: Record<BillStatus, { color: string; bg: string; label: stri
 
 const currentMonthKey = () => {
   const now = new Date();
+  // Default to previous month since billing is post-generation
+  now.setMonth(now.getMonth() - 1);
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 };
 
