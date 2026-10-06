@@ -25,11 +25,11 @@ export default function OwnerTabLayout() {
   const tabBarHeight = getTabBarHeight(insets.bottom);
 
   const tabTargets = useMemo(() => {
-    const tabWidth = width / 5;
+    const tabWidth = width / 6;
     const top = height - tabBarHeight + 6;
     const w = tabWidth - 8;
     const h = tabBarHeight - 14;
-    return [0, 1, 2, 3, 4].map((i) => ({
+    return [0, 1, 2, 3, 4, 5].map((i) => ({
       left: tabWidth * i + 4,
       top,
       width: w,
@@ -68,11 +68,18 @@ export default function OwnerTabLayout() {
         target: tabTargets[3],
       },
       {
+        id: 'billing',
+        title: 'Billing',
+        description: 'Monthly bills & charges',
+        icon: 'receipt',
+        target: tabTargets[4],
+      },
+      {
         id: 'profile',
         title: t('tabs.profile'),
         description: t('tabs.profileDesc'),
         icon: 'person',
-        target: tabTargets[4],
+        target: tabTargets[5],
       },
     ],
     [t, tabTargets]
@@ -186,6 +193,19 @@ export default function OwnerTabLayout() {
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? 'wallet' : 'wallet-outline'}
+                size={24}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="billing"
+          options={{
+            title: 'Billing',
+            tabBarIcon: ({ focused, color }) => (
+              <Ionicons
+                name={focused ? 'receipt' : 'receipt-outline'}
                 size={24}
                 color={color}
               />

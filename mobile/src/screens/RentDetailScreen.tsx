@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createCashfreeOrder, getCashfreePaymentStatus, submitManualPayment, waiveCharge } from '../api/payment';
+import { getBills } from '../api/billing';
 import { cachedRentRecordDetail } from '../repositories';
 import { PaymentTransaction } from '../types/payment';
 import { AppCard, AppButton, AppInput, StatusBadge, GradientCard, KeyboardSafeModal } from '../components';
@@ -71,6 +72,21 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
     queryKey: ['rentRecordDetail', rentRecordId],
     queryFn: cachedRentRecordDetail(rentRecordId),
   });
+
+  // Fetch linked MonthlyBill for itemised breakdown
+  const { data: billData } = useQuery({
+    queryKey: ['tenantBillForRecord', rentRecordId],
+    queryFn: async () => {
+      const res = await getBills({ limit: 1 });
+      // Find the bill whose rentRecordId matches
+      return res.bills.find((b: any) =>
+        b.rentRecordId?._id === rentRecordId ||
+        b.rentRecordId === rentRecordId
+      ) ?? null;
+    },
+    staleTime: 60 * 1000,
+  });
+  const linkedBill = billData ?? null;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -454,6 +470,62 @@ export const RentDetailScreen: React.FC<RentDetailScreenProps> = ({ rentRecordId
             <Ionicons name="download-outline" size={20} color="#FFFFFF" />
             <Text style={styles.downloadReceiptText}>{t('rentDetail.downloadReceipt')}</Text>
           </TouchableOpacity>
+        )}
+
+        {/* Bill breakdown — shown when a MonthlyBill exists for this record */}
+        {linkedBill && linkedBill.items && linkedBill.items.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>{t('rentDetail.billBreakdown', { defaultValue: 'BILL BREAKDOWN' })}</Text>
+            <AppCard variant="elevated" padding={spacing.md}>
+              {linkedBill.items.map((item: any, idx: number) => (
+                <View
+                  key={item._id}
+                  style={[
+                    styles.txnItem,
+                    idx === linkedBill.items.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <View style={styles.txnLeft}>
+                    <View style={[styles.txnIcon, { backgroundColor: item.isWaived ? colors.successLight : colors.primaryLight }]}>
+                      <Ionicons
+                        name={item.type === 'RENT' ? 'home-outline'
+                          : item.type === 'ELECTRICITY' ? 'flash-outline'
+                          : item.type === 'WATER' ? 'water-outline'
+                          : item.type === 'MAINTENANCE' ? 'construct-outline'
+                          : item.type === 'INTERNET' ? 'wifi-outline'
+                          : 'receipt-outline'}
+                        size={16}
+                        color={item.isWaived ? colors.success : colors.primary}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.txnMethod}>{item.description}</Text>
+                      {item.metadata?.unitsConsumed != null && (
+                        <Text style={styles.txnDate}>
+                          {item.metadata.unitsConsumed} units × ₹{item.metadata.ratePerUnit}
+                        </Text>
+                      )}
+                      {item.isWaived && (
+                        <Text style={[styles.txnDate, { color: colors.success }]}>Waived</Text>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={[
+                    styles.txnAmount,
+                    item.isWaived && { textDecorationLine: 'line-through', color: colors.text.tertiary },
+                  ]}>
+                    {formatCurrency(item.amount)}
+                  </Text>
+                </View>
+              ))}
+              <View style={[styles.txnItem, { borderBottomWidth: 0, paddingTop: spacing.md }]}>
+                <Text style={[styles.txnMethod, { color: colors.text.primary }]}>Total</Text>
+                <Text style={[styles.txnAmount, { color: colors.primary, fontSize: 17 }]}>
+                  {formatCurrency(linkedBill.totalAmount)}
+                </Text>
+              </View>
+            </AppCard>
+          </>
         )}
 
         <Text style={styles.sectionTitle}>{t('rentDetail.transactionHistory')}</Text>
