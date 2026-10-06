@@ -352,15 +352,23 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                   </>
                 ) : (
                   <>
-                    <Text style={[styles.bulkActionText, { color: colors.text.primary }]}>
-                      {draftBills.length} Draft{draftBills.length > 1 ? 's' : ''} Ready
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.bulkActionText, { color: colors.text.primary }]} numberOfLines={1}>
+                        {draftBills.length} Draft{draftBills.length > 1 ? 's' : ''} Ready
+                      </Text>
+                    </View>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TouchableOpacity 
                         style={[styles.bulkBtn, { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1 }]}
                         onPress={() => setSelectionMode(true)}
                       >
                         <Text style={[styles.bulkBtnText, { color: colors.text.primary }]}>Select</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.bulkBtn, { backgroundColor: colors.background, borderColor: colors.error, borderWidth: 1 }]}
+                        onPress={() => handleBulkDelete(draftBills.map(b => b._id), true)}
+                      >
+                        <Text style={[styles.bulkBtnText, { color: colors.error }]}>Delete All</Text>
                       </TouchableOpacity>
                       <TouchableOpacity 
                         style={[styles.bulkBtn, { backgroundColor: colors.primary }]}
@@ -425,7 +433,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   bulkActionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 12, marginTop: 12 },
   bulkActionText: { fontSize: 14, fontWeight: '700' },
-  bulkBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  bulkBtn: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   bulkBtnText: { fontSize: 13, fontWeight: '700' },
   listContent: { paddingBottom: spacing.huge + 40 },
   billRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: radius.lg, padding: spacing.lg, marginHorizontal: spacing.lg, marginTop: spacing.md },
