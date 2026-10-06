@@ -39,6 +39,8 @@ const {
   createRecurringCharge,
   updateRecurringCharge,
   deleteRecurringCharge,
+  bulkPublishBills,
+  bulkDeleteBills,
 } = require('../controllers/monthlyBillController');
 
 router.use(authenticate);
@@ -52,6 +54,8 @@ router.delete('/recurring/:chargeId', authorize('superadmin', 'owner'), deleteRe
 // ── Bills ─────────────────────────────────────────────────────────────────────
 router.get('/',        authorize('superadmin', 'owner', 'tenant'), getBills);
 router.post('/',       authorize('superadmin', 'owner'), createBill);
+router.post('/bulk-publish', authorize('superadmin', 'owner'), bulkPublishBills);
+router.post('/bulk-delete', authorize('superadmin', 'owner'), bulkDeleteBills);
 router.get('/:billId', authorize('superadmin', 'owner', 'tenant'), getBillDetail);
 router.delete('/:billId', authorize('superadmin', 'owner'), deleteBill);
 

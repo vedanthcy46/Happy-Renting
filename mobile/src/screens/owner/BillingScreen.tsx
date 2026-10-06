@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, RefreshControl,
-  TextInput, ActivityIndicator,
+  TextInput, ActivityIndicator, Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { getBills, MonthlyBill, BillStatus } from '../../api/billing';
+import { getBills, MonthlyBill, BillStatus, bulkPublishBills, bulkDeleteBills } from '../../api/billing';
 import { spacing, radius, shadows } from '../../theme';
 import { useTheme } from '../../theme/ThemeProvider';
 import { EmptyState } from '../../components';
@@ -84,6 +84,52 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
   }, [bills, search]);
 
   // Summary stats
+  const queryClient = useQueryClient();
+
+  const draftBills = useMemo(() => bills.filter(b => b.status === 'DRAFT'), [bills]);
+
+  const mutationBulkPublish = useMutation({
+    mutationFn: (ids: string[]) => bulkPublishBills(ids),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['ownerBills'] });
+      Alert.alert('Success', `${data.publishedIds.length} bills published successfully.`);
+    },
+    onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to publish bills'),
+  });
+
+  const mutationBulkDelete = useMutation({
+    mutationFn: (ids: string[]) => bulkDeleteBills(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ownerBills'] });
+      Alert.alert('Success', 'Draft bills deleted.');
+    },
+    onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to delete bills'),
+  });
+
+  const handleBulkPublish = () => {
+    if (draftBills.length === 0) return;
+    Alert.alert(
+      'Publish All Drafts',
+      `Are you sure you want to publish ${draftBills.length} draft bills for ${formatMonth(selectedMonth)}? Tenants will be notified.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Publish', style: 'default', onPress: () => mutationBulkPublish.mutate(draftBills.map(b => b._id)) }
+      ]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (draftBills.length === 0) return;
+    Alert.alert(
+      'Delete All Drafts',
+      `Are you sure you want to delete ${draftBills.length} draft bills? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => mutationBulkDelete.mutate(draftBills.map(b => b._id)) }
+      ]
+    );
+  };
+
   const stats = useMemo(() => {
     const totalBilled = bills.reduce((s, b) => s + b.totalAmount, 0);
     const collected = bills
@@ -246,6 +292,29 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* Bulk Actions */}
+            {draftBills.length > 0 && !search && (
+              <View style={[styles.bulkActionBar, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.bulkActionText, { color: colors.primary }]}>
+                  {draftBills.length} Draft{draftBills.length > 1 ? 's' : ''} Ready
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity 
+                    style={[styles.bulkBtn, { backgroundColor: colors.background, borderColor: colors.error, borderWidth: 1 }]}
+                    onPress={handleBulkDelete}
+                  >
+                    <Text style={[styles.bulkBtnText, { color: colors.error }]}>Delete All</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.bulkBtn, { backgroundColor: colors.primary }]}
+                    onPress={handleBulkPublish}
+                  >
+                    <Text style={[styles.bulkBtnText, { color: '#FFF' }]}>Publish All</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         }
         ListEmptyComponent={

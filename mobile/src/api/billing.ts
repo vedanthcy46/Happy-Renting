@@ -144,6 +144,16 @@ export const deleteBill = async (billId: string): Promise<{ success: boolean }> 
   return data;
 };
 
+export const bulkPublishBills = async (billIds: string[]): Promise<{ success: boolean; publishedIds: string[] }> => {
+  const { data } = await client.post('/v2/bills/bulk-publish', { billIds });
+  return data;
+};
+
+export const bulkDeleteBills = async (billIds: string[]): Promise<{ success: boolean }> => {
+  const { data } = await client.post('/v2/bills/bulk-delete', { billIds });
+  return data;
+};
+
 // ── Recurring Charges ─────────────────────────────────────────────────────────
 
 export const getRecurringCharges = async (tenantId?: string): Promise<{ success: boolean; charges: RecurringCharge[] }> => {
