@@ -61,6 +61,8 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDraftIds, setSelectedDraftIds] = useState<string[]>([]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['ownerBills', selectedMonth],
@@ -88,6 +90,13 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
 
   const draftBills = useMemo(() => bills.filter(b => b.status === 'DRAFT'), [bills]);
 
+  React.useEffect(() => {
+    if (draftBills.length === 0) {
+      setSelectionMode(false);
+      setSelectedDraftIds([]);
+    }
+  }, [draftBills.length]);
+
   const mutationBulkPublish = useMutation({
     mutationFn: (ids: string[]) => bulkPublishBills(ids),
     onSuccess: (data) => {
@@ -106,26 +115,26 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
     onError: (e: any) => Alert.alert('Error', e.response?.data?.message || 'Failed to delete bills'),
   });
 
-  const handleBulkPublish = () => {
-    if (draftBills.length === 0) return;
+  const handleBulkPublish = (ids: string[], isAll: boolean) => {
+    if (ids.length === 0) return;
     Alert.alert(
-      'Publish All Drafts',
-      `Are you sure you want to publish ${draftBills.length} draft bills for ${formatMonth(selectedMonth)}? Tenants will be notified.`,
+      isAll ? 'Publish All Drafts' : 'Publish Selected',
+      `Are you sure you want to publish ${ids.length} draft bills? Tenants will be notified.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Publish', style: 'default', onPress: () => mutationBulkPublish.mutate(draftBills.map(b => b._id)) }
+        { text: 'Publish', style: 'default', onPress: () => { mutationBulkPublish.mutate(ids); setSelectionMode(false); setSelectedDraftIds([]); } }
       ]
     );
   };
 
-  const handleBulkDelete = () => {
-    if (draftBills.length === 0) return;
+  const handleBulkDelete = (ids: string[], isAll: boolean) => {
+    if (ids.length === 0) return;
     Alert.alert(
-      'Delete All Drafts',
-      `Are you sure you want to delete ${draftBills.length} draft bills? This action cannot be undone.`,
+      isAll ? 'Delete All Drafts' : 'Delete Selected',
+      `Are you sure you want to delete ${ids.length} draft bills? This action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => mutationBulkDelete.mutate(draftBills.map(b => b._id)) }
+        { text: 'Delete', style: 'destructive', onPress: () => { mutationBulkDelete.mutate(ids); setSelectionMode(false); setSelectedDraftIds([]); } }
       ]
     );
   };
@@ -154,25 +163,40 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
     const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.PENDING;
     const paid = rr?.totalPaid ?? 0;
     const remaining = rr?.remainingAmount ?? item.totalAmount;
+    
+    const isSelected = selectedDraftIds.includes(item._id);
 
     return (
       <TouchableOpacity
-        style={[styles.billRow, { backgroundColor: colors.surface }, shadows.sm]}
-        onPress={() => router.navigate(`/owner/billing/${item._id}` as any)}
+        style={[styles.billRow, { backgroundColor: colors.surface, borderColor: isSelected ? colors.primary : 'transparent', borderWidth: isSelected ? 1 : 0 }, shadows.sm]}
+        onPress={() => {
+          if (selectionMode && item.status === 'DRAFT') {
+            setSelectedDraftIds(prev => prev.includes(item._id) ? prev.filter(id => id !== item._id) : [...prev, item._id]);
+          } else {
+            router.navigate(`/owner/billing/${item._id}` as any);
+          }
+        }}
         activeOpacity={0.75}
       >
-        <View style={styles.billRowLeft}>
-          <Text style={[styles.billTenantName, { color: colors.text.primary }]} numberOfLines={1}>
-            {user?.name ?? 'Tenant'}
-          </Text>
-          <Text style={[styles.billRoomLabel, { color: colors.text.secondary }]}>
-            Room {room?.roomNumber ?? '—'}
-          </Text>
-          {item.status !== 'DRAFT' && paid > 0 && (
-            <Text style={[styles.billPaidLabel, { color: colors.success }]}>
-              Paid {formatCurrency(paid)}
-            </Text>
+        <View style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}>
+          {selectionMode && item.status === 'DRAFT' && (
+            <View style={{ marginRight: 12 }}>
+              <Ionicons name={isSelected ? "checkmark-circle" : "ellipse-outline"} size={24} color={isSelected ? colors.primary : colors.text.tertiary} />
+            </View>
           )}
+          <View style={styles.billRowLeft}>
+            <Text style={[styles.billTenantName, { color: colors.text.primary }]} numberOfLines={1}>
+              {user?.name ?? 'Tenant'}
+            </Text>
+            <Text style={[styles.billRoomLabel, { color: colors.text.secondary }]}>
+              Room {room?.roomNumber ?? '—'}
+            </Text>
+            {item.status !== 'DRAFT' && paid > 0 && (
+              <Text style={[styles.billPaidLabel, { color: colors.success }]}>
+                Paid {formatCurrency(paid)}
+              </Text>
+            )}
+          </View>
         </View>
         <View style={styles.billRowRight}>
           <Text style={[styles.billAmount, { color: colors.text.primary }]}>
@@ -189,7 +213,7 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
         </View>
       </TouchableOpacity>
     );
-  }, [colors, router, styles]);
+  }, [colors, router, styles, selectionMode, selectedDraftIds]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -295,24 +319,58 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ onNavigate }) => {
 
             {/* Bulk Actions */}
             {draftBills.length > 0 && !search && (
-              <View style={[styles.bulkActionBar, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.bulkActionText, { color: colors.primary }]}>
-                  {draftBills.length} Draft{draftBills.length > 1 ? 's' : ''} Ready
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity 
-                    style={[styles.bulkBtn, { backgroundColor: colors.background, borderColor: colors.error, borderWidth: 1 }]}
-                    onPress={handleBulkDelete}
-                  >
-                    <Text style={[styles.bulkBtnText, { color: colors.error }]}>Delete All</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.bulkBtn, { backgroundColor: colors.primary }]}
-                    onPress={handleBulkPublish}
-                  >
-                    <Text style={[styles.bulkBtnText, { color: '#FFF' }]}>Publish All</Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={[styles.bulkActionBar, { backgroundColor: selectionMode ? colors.primaryLight : colors.surface, borderColor: selectionMode ? colors.primary : colors.border, borderWidth: 1 }]}>
+                {selectionMode ? (
+                  <>
+                    <Text style={[styles.bulkActionText, { color: colors.primary }]}>
+                      {selectedDraftIds.length} Selected
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity 
+                        style={[styles.bulkBtn, { backgroundColor: 'transparent' }]}
+                        onPress={() => { setSelectionMode(false); setSelectedDraftIds([]); }}
+                      >
+                        <Text style={[styles.bulkBtnText, { color: colors.text.secondary }]}>Cancel</Text>
+                      </TouchableOpacity>
+                      {selectedDraftIds.length > 0 && (
+                        <>
+                          <TouchableOpacity 
+                            style={[styles.bulkBtn, { backgroundColor: colors.error }]}
+                            onPress={() => handleBulkDelete(selectedDraftIds, false)}
+                          >
+                            <Text style={[styles.bulkBtnText, { color: '#FFF' }]}>Delete</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={[styles.bulkBtn, { backgroundColor: colors.primary }]}
+                            onPress={() => handleBulkPublish(selectedDraftIds, false)}
+                          >
+                            <Text style={[styles.bulkBtnText, { color: '#FFF' }]}>Publish</Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.bulkActionText, { color: colors.text.primary }]}>
+                      {draftBills.length} Draft{draftBills.length > 1 ? 's' : ''} Ready
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity 
+                        style={[styles.bulkBtn, { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1 }]}
+                        onPress={() => setSelectionMode(true)}
+                      >
+                        <Text style={[styles.bulkBtnText, { color: colors.text.primary }]}>Select</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.bulkBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => handleBulkPublish(draftBills.map(b => b._id), true)}
+                      >
+                        <Text style={[styles.bulkBtnText, { color: '#FFF' }]}>Publish All</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             )}
           </View>
