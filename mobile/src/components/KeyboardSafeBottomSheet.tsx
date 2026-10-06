@@ -60,8 +60,8 @@ export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = (
     });
   }, [keyboardHeight, keyboardPad]);
 
-  const scrollContentStyle = useAnimatedStyle(() => ({
-    paddingBottom: insets.bottom + keyboardPad.value + spacing.xxxl,
+  const overlayAnimatedStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboardPad.value,
   }));
 
   return (
@@ -72,9 +72,9 @@ export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = (
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.45)', paddingBottom: insets.bottom + 64 }, overlayStyle]}>
+      <Animated.View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.45)' }, overlayStyle, overlayAnimatedStyle]}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: colors.surface, maxHeight, minHeight: 420 }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.surface, maxHeight, minHeight: 420, paddingBottom: insets.bottom + 64 }]}>
           <View style={[styles.handleArea]}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
           </View>
@@ -90,7 +90,7 @@ export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = (
           ) : null}
           <Animated.ScrollView
             style={styles.body}
-            contentContainerStyle={[styles.scrollContent, scrollContentStyle]}
+            contentContainerStyle={[styles.scrollContent]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             bounces={false}
@@ -98,7 +98,7 @@ export const KeyboardSafeBottomSheet: React.FC<KeyboardSafeBottomSheetProps> = (
             {children}
           </Animated.ScrollView>
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 };
