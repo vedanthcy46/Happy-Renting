@@ -693,6 +693,7 @@ const migrateExistingTenants = async () => {
 };
 
 module.exports = {
+  ensureMonthlyBillDraft,
   generateMonthlyBills,
   updateOverduePayments,
   getSummaryMetrics,
