@@ -8,6 +8,7 @@ const logger        = require('../config/logger');
 const tenantService = require('../services/tenantService');
 const logActivity   = require('../utils/activityLogger');
 const emailService  = require('../services/emailService');
+const billingServiceV2 = require('../services/billingServiceV2');
 const MoveOutRequest = require('../models/MoveOutRequest');
 const entitlementService = require('../services/entitlementService');
 
@@ -347,6 +348,16 @@ const moveOutTenant = async (req, res, next) => {
         populatedTenant.propertyId, 
         populatedTenant.roomId
       ).catch(() => null);
+    }
+    
+    // Auto-generate the final DRAFT bill immediately for the exit month so the owner can settle it
+    if (exitDate) {
+      try {
+        const exitMonthStr = new Date(exitDate).toISOString().slice(0, 7);
+        await billingServiceV2.ensureMonthlyBillDraft(populatedTenant, exitMonthStr);
+      } catch (err) {
+        console.error(`[MOVE OUT] Failed to auto-generate exit month draft: ${err.message}`);
+      }
     }
 
     res.status(200).json({
