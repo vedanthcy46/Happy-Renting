@@ -27,17 +27,24 @@ const notificationService = require('./notificationService');
  * Called by the cron after a MonthlyRentRecord is created.
  */
 const ensureMonthlyBillDraft = async (tenant, month) => {
-  const { calculateDueDate } = require('../utils/billingCalculationService');
+  const { calculateDueDate, calculateOccupiedDays, calculateProratedRent } = require('../utils/billingCalculationService');
   const dueDate = calculateDueDate(month);
   const existing = await MonthlyBill.findOne({ tenantId: tenant._id, month });
   if (existing) return existing;
 
-  const monthlyRent = tenant.roomId?.monthlyRent || 0;
+  const baseRent = tenant.roomId?.monthlyRent || 0;
+  
+  // Calculate prorated rent if this is the join month or exit month
+  const joinDate = new Date(tenant.moveInDate || tenant.joinDate || Date.now());
+  const exitDate = tenant.exitDate ? new Date(tenant.exitDate) : null;
+  const { occupiedDays, totalDays, isProrated } = calculateOccupiedDays(month, joinDate, exitDate);
+  const billedRent = isProrated ? calculateProratedRent(baseRent, occupiedDays, totalDays) : baseRent;
+
   const items = [{
     type: 'RENT',
-    description: 'Monthly Rent',
-    amount: monthlyRent,
-    effectiveAmount: monthlyRent,
+    description: isProrated ? `Monthly Rent (Prorated ${occupiedDays}/${totalDays} days)` : 'Monthly Rent',
+    amount: billedRent,
+    effectiveAmount: billedRent,
   }];
 
   const recurring = await RecurringCharge.find({ tenantId: tenant._id, isActive: true });
