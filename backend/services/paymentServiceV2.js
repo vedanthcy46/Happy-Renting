@@ -65,19 +65,8 @@ const ensureMonthlyRentRecord = async (tenantId, month, totalRent, options = {})
   // Pre-calculate Proration Math using Strict Calculation Service
   const [year, monthNum] = month.split('-').map(Number);
 
-  // POSTPAID billing: a bill for occupancy `month` is generated in the
-  // following month (e.g. a July bill is generated in August). Its rent is
-  // therefore due on the 5th of THAT following month, not the 5th of the
-  // (already passed) occupancy month. Anchoring to the occupancy month would
-  // make every generated bill instantly overdue.
-  let dueYear = year;
-  let dueMonthNum = monthNum + 1;
-  if (dueMonthNum > 12) {
-    dueMonthNum = 1;
-    dueYear = year + 1;
-  }
-  const dueMonthStr = `${dueYear}-${String(dueMonthNum).padStart(2, '0')}`;
-  const dueDate = billingCalculationService.calculateDueDate(dueMonthStr);
+  // Align dueDate with MonthlyBill (PREPAID by default: 5th of the current month)
+  const dueDate = billingCalculationService.calculateDueDate(month);
   
   const joinDate = new Date(tenant.moveInDate || tenant.joinDate || Date.now());
   const exitDate = tenant.exitDate ? new Date(tenant.exitDate) : null;
