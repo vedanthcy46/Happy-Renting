@@ -441,33 +441,19 @@ export const registerTenantUser = async (payload: {
   return data;
 };
 
-export const addTenant = async (payload: {
-  userId: string;
-  roomId: string;
-  propertyId: string;
-  joinDate: string;
-  advancePaid?: number;
-  securityDeposit?: number;
-  notes?: string;
-  phone: string;
-  idProof?: string;
-  bedId?: string;
-  coOccupants?: { name: string; phone?: string; idProof?: string }[];
-  tempPassword?: string;
-}) => {
-  const { data } = await client.post('/tenants', payload);
+export const addTenant = async (payload: any) => {
+  const isFormData = payload instanceof FormData;
+  const { data } = await client.post('/tenants', payload, {
+    headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+  });
   return data;
 };
 
-export const updateTenant = async (id: string, payload: Partial<{
-  advancePaid: number;
-  securityDeposit: number;
-  name: string;
-  email: string;
-  phone: string;
-  idProof: string;
-}>) => {
-  const { data } = await client.patch(`/tenants/${id}`, payload);
+export const updateTenant = async (id: string, payload: any) => {
+  const isFormData = payload instanceof FormData;
+  const { data } = await client.patch(`/tenants/${id}`, payload, {
+    headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+  });
   return data;
 };
 

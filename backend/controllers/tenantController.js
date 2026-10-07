@@ -171,13 +171,21 @@ const addTenant = async (req, res, next) => {
       ? req.user._id
       : req.body.ownerId;   // superadmin can specify ownerId
 
+    let govDocument = undefined;
+    if (req.file) {
+      govDocument = {
+        secureUrl: req.file.path,
+        publicId: req.file.filename,
+      };
+    }
+
     const tenant = await tenantService.moveIn(
       { 
         userId, roomId, propertyId, ownerId, joinDate, moveInDate,
         advancePaid, securityDeposit, notes, phone, idProof, coOccupants,
-        customBillingDay, isMigratedTenant, bedId,
-        tempPassword: req.body.tempPassword || req.body.password 
-      },
+        customBillingDay, isMigratedTenant, bedId, govDocument,
+          tempPassword: req.body.tempPassword || req.body.password 
+        },
       req.user._id
     );
 

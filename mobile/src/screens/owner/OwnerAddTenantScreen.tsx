@@ -1,10 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
+  View,
+  Image, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
   ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Modal, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -222,6 +225,50 @@ export const OwnerAddTenantScreen: React.FC = () => {
 
   const [phone, setPhone] = useState('');
   const [idProof, setIdProof] = useState('');
+  const [govDocumentUri, setGovDocumentUri] = useState<string | null>(null);
+
+  const pickGovDocument = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to make this work!');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setGovDocumentUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+  
+  const takeGovDocumentPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Sorry, we need camera permissions to make this work!');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setGovDocumentUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  };
   const [joinDate, setJoinDate] = useState(today);
   const [joinDatePickerVisible, setJoinDatePickerVisible] = useState(false);
   const [securityDeposit, setSecurityDeposit] = useState('');
@@ -618,6 +665,27 @@ export const OwnerAddTenantScreen: React.FC = () => {
 
               <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelIdNumber')}</Text>
               <TextInput style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text.primary }]} value={idProof} onChangeText={setIdProof}                  placeholder={t('owner.addTenant.placeholderIdNumber')} placeholderTextColor={colors.text.tertiary} />
+                  
+                  <Text style={[styles.fieldLabel, { color: colors.text.secondary, marginTop: spacing.md }]}>Gov Document Photo (Optional)</Text>
+                  {govDocumentUri ? (
+                    <View style={styles.documentPreviewContainer}>
+                      <Image source={{ uri: govDocumentUri }} style={styles.documentPreview as any} resizeMode="cover" />
+                      <TouchableOpacity style={styles.removeDocumentBtn} onPress={() => setGovDocumentUri(null)}>
+                        <Ionicons name="close-circle" size={24} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.documentPickerRow}>
+                      <TouchableOpacity style={[styles.documentPickerBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={takeGovDocumentPhoto}>
+                        <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                        <Text style={[styles.documentPickerText, { color: colors.text.primary }]}>Camera</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.documentPickerBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={pickGovDocument}>
+                        <Ionicons name="image-outline" size={20} color={colors.primary} />
+                        <Text style={[styles.documentPickerText, { color: colors.text.primary }]}>Gallery</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
               <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('owner.addTenant.labelJoinDate')}</Text>
               <TouchableOpacity

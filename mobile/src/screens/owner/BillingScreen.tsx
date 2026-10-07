@@ -34,14 +34,9 @@ const STATUS_CONFIG: Record<BillStatus, { color: string; bg: string; label: stri
 
 const currentMonthKey = () => {
   const now = new Date();
-  // Safe previous month calculation (prevents 31st day overflow)
-  let year = now.getFullYear();
-  let prevMonth = now.getMonth(); // getMonth is 0-indexed (0=Jan, 11=Dec). So current month index IS the previous month's 1-indexed number!
-  if (prevMonth === 0) {
-    prevMonth = 12;
-    year -= 1;
-  }
-  return `${year}-${String(prevMonth).padStart(2, '0')}`;
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // getMonth() is 0-indexed, so +1 for current month
+  return `${year}-${String(month).padStart(2, '0')}`;
 };
 
 const monthOptions = () => {

@@ -40,6 +40,11 @@ const tenantSchema = new mongoose.Schema(
       trim     : true,
       default  : '',
     },
+    // Uploaded gov document (image/pdf)
+    govDocument: {
+      secureUrl: { type: String, default: null },
+      publicId : { type: String, default: null },
+    },
     exitDate: {
       type   : Date,
       default: null,

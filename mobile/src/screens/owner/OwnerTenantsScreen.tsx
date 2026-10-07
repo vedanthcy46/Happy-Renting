@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
+  Image,
   Text,
   StyleSheet,
   ScrollView,
@@ -75,11 +76,12 @@ interface TenantDetailSheetProps {
   onAddCoOccupant: (tenant: OwnerTenant) => void;
   onEditCoOccupant: (tenant: OwnerTenant, co: CoOccupant) => void;
   onDeleteCoOccupant: (tenant: OwnerTenant, co: CoOccupant) => void;
+  onViewDocument: (url: string) => void;
   t: (key: string) => string;
 }
 
 const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
-  tenant, visible, onClose, onMoveOut, onReverseOut, onEdit, onSettleRefund, onAddCoOccupant, onEditCoOccupant, onDeleteCoOccupant, t
+  tenant, visible, onClose, onMoveOut, onReverseOut, onEdit, onSettleRefund, onAddCoOccupant, onEditCoOccupant, onDeleteCoOccupant, onViewDocument, t
 }) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -127,6 +129,14 @@ const TenantDetailSheet: React.FC<TenantDetailSheetProps> = ({
             {tenant.exitDate && row(t('owner.tenants.detailExit'), formatDate(tenant.exitDate))}
             {tenant.phone && row(t('owner.tenants.detailPhone'), tenant.phone)}
             {tenant.idProof && row(t('owner.tenants.detailIdNumber'), tenant.idProof)}
+            {tenant.govDocument?.secureUrl && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>Gov Document</Text>
+                <TouchableOpacity onPress={() => onViewDocument(tenant.govDocument!.secureUrl)}>
+                  <Image source={{ uri: tenant.govDocument.secureUrl }} style={{ width: 80, height: 60, borderRadius: 4, backgroundColor: colors.surface }} resizeMode="cover" />
+                </TouchableOpacity>
+              </View>
+            )}
             {tenant.securityDeposit != null && row(t('owner.tenants.detailSecurityDeposit'), `₹${Number(tenant.securityDeposit).toLocaleString('en-IN')}`)}
             {tenant.advancePaid != null && row(t('owner.tenants.detailAdvancePaid'), `₹${Number(tenant.advancePaid).toLocaleString('en-IN')}`)}
             {tenant.notes ? row(t('owner.tenants.detailNotes'), tenant.notes) : null}
@@ -1219,6 +1229,8 @@ type FilterTab = 'all' | 'active' | 'vacated';
 // ─── Main screen ──────────────────────────────────────────────────────────
 
 export const OwnerTenantsScreen: React.FC = () => {
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  
   const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();

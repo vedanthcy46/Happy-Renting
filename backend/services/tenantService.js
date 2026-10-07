@@ -106,7 +106,7 @@ const recomputeRentRecordTotals = async (rentRecordId, session) => {
 const moveIn = async (params, performedBy) => {
   const {
     userId, roomId, propertyId, ownerId, joinDate, moveInDate, advancePaid, securityDeposit, notes,
-    phone, idProof, coOccupants = [], customBillingDay, isMigratedTenant, bedId
+    phone, idProof, coOccupants = [], customBillingDay, isMigratedTenant, bedId, govDocument
   } = params;
 
   // ── Pre-transaction checks ──
