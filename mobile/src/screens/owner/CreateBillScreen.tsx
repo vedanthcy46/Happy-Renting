@@ -72,9 +72,7 @@ export const CreateBillScreen: React.FC<CreateBillScreenProps> = ({ editBillId }
   const [step, setStep] = useState<Step>(editBillId ? 'charges' : 'select');
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(monthOptions()[1].value);
-  const [dueDate, setDueDate] = useState(defaultDueDate());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
+    
   // Step 2 state
   const [bill, setBill] = useState<MonthlyBill | null>(null);
   const [showAddCharge, setShowAddCharge] = useState(false);
@@ -277,19 +275,6 @@ export const CreateBillScreen: React.FC<CreateBillScreenProps> = ({ editBillId }
             ))}
           </View>
 
-          <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>DUE DATE</Text>
-          <TouchableOpacity
-            style={[styles.dateField, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-            <Text style={[styles.dateFieldText, { color: dueDate ? colors.text.primary : colors.text.tertiary }]}>
-              {dueDate ? new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Select due date'}
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-          </TouchableOpacity>
-
           <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>SELECT TENANT</Text>
           {loadingTenants ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
@@ -330,17 +315,7 @@ export const CreateBillScreen: React.FC<CreateBillScreenProps> = ({ editBillId }
         </ScrollView>
         </KeyboardAvoidingView>
 
-        <KeyboardSafeBottomSheet
-          visible={showDatePicker}
-          onClose={() => setShowDatePicker(false)}
-          title="Select Due Date"
-        >
-          <CalendarPicker
-            value={dueDate}
-            minDate={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()}
-            onChange={(d) => { setDueDate(d); setShowDatePicker(false); }}
-          />
-        </KeyboardSafeBottomSheet>
+        
       </View>
     );
   }
