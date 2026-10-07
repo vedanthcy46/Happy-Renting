@@ -861,6 +861,10 @@ const reverseTransaction = async (transactionId, reason, caller) => {
         }
       }
       await rented.save();
+
+      // Sync reversed payment status back to the MonthlyBill invoice layer
+      const { syncRentRecordToBill } = require('../controllers/monthlyBillController');
+      await syncRentRecordToBill(rented._id).catch(err => logger.error(`[BILL SYNC] ${err.message}`));
     }
   }
 

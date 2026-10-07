@@ -618,6 +618,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
       setEmail(tenant.userId.email || '');
       setPhone(tenant.phone || '');
       setIdProof(tenant.idProof || '');
+      setGovDocumentUri(tenant.govDocument?.secureUrl || null);
       setError('');
     }
   }, [visible, tenant]);
@@ -642,6 +643,15 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
       govDocumentUri: govDocumentUri?.startsWith('http') ? null : govDocumentUri, // Only pass if it's a new local file
     });
   };
+
+  const hasChanges = 
+    deposit !== String(tenant?.securityDeposit ?? '') ||
+    advance !== String(tenant?.advancePaid ?? '') ||
+    name !== (tenant?.userId.name || '') ||
+    email !== (tenant?.userId.email || '') ||
+    phone !== (tenant?.phone || '') ||
+    idProof !== (tenant?.idProof || '') ||
+    (govDocumentUri && !govDocumentUri.startsWith('http'));
 
   return (
     <KeyboardSafeModal
@@ -790,10 +800,10 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
             <Text style={[styles.modalBtnText, { color: colors.text.secondary }]}>{t('owner.commonOwner.cancel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.modalBtn, { backgroundColor: colors.primary }]}
+            style={[styles.modalBtn, { backgroundColor: (!hasChanges || saving) ? colors.border : colors.primary }]}
             onPress={handleSave}
             activeOpacity={0.8}
-            disabled={saving}
+            disabled={!hasChanges || saving}
           >
             {saving ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
