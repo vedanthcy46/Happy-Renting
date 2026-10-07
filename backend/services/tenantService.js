@@ -234,6 +234,7 @@ const moveIn = async (params, performedBy) => {
           moveInDate: moveInDate || joinDate,
           phone,
           idProof,
+          govDocument,
           advancePaid: advancePaid || 0,
           securityDeposit: securityDeposit || 0,
           notes,

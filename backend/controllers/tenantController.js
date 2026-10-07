@@ -233,6 +233,12 @@ const updateTenant = async (req, res, next) => {
     if (rentDueDay     !== undefined) tenant.rentDueDay  = rentDueDay;
     if (phone          !== undefined) tenant.phone        = phone;
     if (idProof        !== undefined) tenant.idProof      = idProof;
+    if (req.file) {
+      tenant.govDocument = {
+        secureUrl: req.file.path,
+        publicId: req.file.filename,
+      };
+    }
     if (customBillingDay !== undefined) tenant.customBillingDay = customBillingDay;
     if (isMigratedTenant !== undefined) tenant.isMigratedTenant = isMigratedTenant;
 
