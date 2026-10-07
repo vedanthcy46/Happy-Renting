@@ -34,8 +34,12 @@ const STATUS_CONFIG: Record<BillStatus, { color: string; bg: string; label: stri
 
 const currentMonthKey = () => {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // getMonth() is 0-indexed, so +1 for current month
+  let year = now.getFullYear();
+  let month = now.getMonth(); // 0-indexed, so it naturally represents the previous month
+  if (month === 0) {
+    month = 12;
+    year -= 1;
+  }
   return `${year}-${String(month).padStart(2, '0')}`;
 };
 

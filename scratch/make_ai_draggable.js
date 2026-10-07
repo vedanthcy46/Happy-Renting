@@ -1,4 +1,7 @@
-import React, { useRef } from 'react';
+const fs = require('fs');
+const path = require('path');
+
+const code = `import React, { useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, PanResponder, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
@@ -102,3 +105,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+`;
+
+fs.writeFileSync(path.join(__dirname, '..', 'mobile', 'src', 'components', 'AiLauncher.tsx'), code);
+console.log("Updated AiLauncher to be draggable");

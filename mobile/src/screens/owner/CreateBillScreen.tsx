@@ -71,7 +71,7 @@ export const CreateBillScreen: React.FC<CreateBillScreenProps> = ({ editBillId }
   // Step 1 state
   const [step, setStep] = useState<Step>(editBillId ? 'charges' : 'select');
   const [selectedTenantId, setSelectedTenantId] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(monthOptions()[0].value);
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions()[1].value);
   const [dueDate, setDueDate] = useState(defaultDueDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
