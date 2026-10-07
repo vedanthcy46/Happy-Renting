@@ -293,6 +293,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
     onMutate: (id) => setVerifyingId(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setVerifyingId(null);
       Alert.alert(t('owner.payments.verifiedAlertTitle'), t('owner.payments.verifiedAlertMsg'));
@@ -307,6 +308,7 @@ export const OwnerPaymentsScreen: React.FC = () => {
     mutationFn: ({ id, reason }: { id: string; reason: string }) => rejectTransaction(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       setRejectModalVisible(false);
       setRejectTargetId(null);
       Alert.alert(t('owner.payments.rejectedAlertTitle'), t('owner.payments.rejectedAlertMsg'));

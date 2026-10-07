@@ -198,6 +198,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
     },
     onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.transactions.errVerify')),
@@ -208,6 +209,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
     },
     onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.transactions.errReject')),
   });
@@ -217,6 +219,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setReverseTarget(null);
       setReverseReason('');
@@ -236,6 +239,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       Alert.alert(t('owner.transactions.undoneAlertTitle'), t('owner.transactions.undoneAlertMsg'));
     },
@@ -255,6 +259,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
       setWaiveVisible(false);
       resetWaiveForm();
@@ -457,6 +462,7 @@ export const OwnerTransactionDetailScreen: React.FC<{ rentRecordId: string }> = 
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ['ownerPaymentDetail', rentRecordId] });
           qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
           qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
         }}
         t={t}

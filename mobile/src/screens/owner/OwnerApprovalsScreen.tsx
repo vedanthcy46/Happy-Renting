@@ -45,6 +45,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerPendingApprovals'] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       qc.invalidateQueries({ queryKey: ['ownerPaymentSummary'] });
     },
     onError: (err: any) => Alert.alert(t('owner.commonOwner.error'), err?.message || t('owner.approvals.errVerify')),
@@ -55,6 +56,7 @@ export const OwnerApprovalsScreen: React.FC = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ownerPendingApprovals'] });
       qc.invalidateQueries({ queryKey: ['ownerRentRecords'] });
+      qc.invalidateQueries({ queryKey: ['ownerBills'] });
       setRejectTarget(null);
       setRejectReason('');
     },
