@@ -54,6 +54,7 @@ export interface CoOccupant {
   name: string;
   phone?: string;
   idProof?: string;
+  govDocument?: { secureUrl: string; publicId: string };
   status?: string;
 }
 
