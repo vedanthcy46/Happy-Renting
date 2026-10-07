@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -569,6 +570,7 @@ interface EditTenantModalProps {
     email: string;
     phone: string;
     idProof: string;
+    govDocumentUri: string | null;
   }) => void;
   saving: boolean;
   t: (key: string) => string;
@@ -586,7 +588,26 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [idProof, setIdProof] = useState('');
+  const [govDocumentUri, setGovDocumentUri] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  const pickGovDocument = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') return Alert.alert('Permission needed', 'Sorry, we need camera roll permissions!');
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8 });
+      if (!result.canceled) setGovDocumentUri(result.assets[0].uri);
+    } catch (e) { console.warn(e); }
+  };
+  
+  const takeGovDocumentPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') return Alert.alert('Permission needed', 'Sorry, we need camera permissions!');
+      const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8 });
+      if (!result.canceled) setGovDocumentUri(result.assets[0].uri);
+    } catch (e) { console.warn(e); }
+  };
 
   React.useEffect(() => {
     if (visible && tenant) {
@@ -618,6 +639,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
       email: email.trim(),
       phone: phone.trim(),
       idProof: idProof.trim(),
+      govDocumentUri: govDocumentUri?.startsWith('http') ? null : govDocumentUri, // Only pass if it's a new local file
     });
   };
 
@@ -1321,7 +1343,25 @@ export const OwnerTenantsScreen: React.FC = () => {
     });
   };
 
-  const handleEditSave = (payload: Parameters<typeof updateTenant>[1]) => {
+  const handleEditSave = (rawPayload: any) => {
+    if (!editTarget) return;
+    
+    let payload = rawPayload;
+    if (rawPayload.govDocumentUri) {
+      payload = new FormData();
+      Object.entries(rawPayload).forEach(([key, value]) => {
+        if (key !== 'govDocumentUri' && value !== undefined && value !== null) {
+          payload.append(key, String(value));
+        }
+      });
+      const uri = rawPayload.govDocumentUri;
+      const filename = uri.split('/').pop() || 'document.jpg';
+      const match = /\.([a-zA-Z]+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      payload.append('govDocument', { uri, name: filename, type } as any);
+    }
+    
+    
     if (!editTarget) return;
     editMutation.mutate({ id: editTarget._id, payload });
   };
@@ -1550,6 +1590,7 @@ export const OwnerTenantsScreen: React.FC = () => {
         onAddCoOccupant={openAddCoOccupant}
         onEditCoOccupant={openEditCoOccupant}
         onDeleteCoOccupant={triggerDeleteCoOccupant}
+        onViewDocument={setLightboxUrl}
         t={t}
       />
 

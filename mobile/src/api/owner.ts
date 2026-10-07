@@ -54,7 +54,6 @@ export interface CoOccupant {
   name: string;
   phone?: string;
   idProof?: string;
-  govDocument?: { secureUrl: string; publicId: string };
   status?: string;
 }
 
@@ -66,6 +65,7 @@ export interface OwnerTenant {
   exitDate?: string;
   phone?: string;
   idProof?: string;
+  govDocument?: { secureUrl: string; publicId: string };
   advancePaid?: number;
   advanceRefundAmount?: number;
   refundSettled?: boolean;
