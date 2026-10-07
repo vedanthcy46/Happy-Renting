@@ -22,7 +22,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, radius, shadows } from '../../theme';
 import { appEvents, OPEN_DRAWER_EVENT } from '../../utils/events';
 import { getOwnerTenants, moveOutTenant, reverseMoveOutTenant, updateTenant, markRefundSettled, addCoOccupant, updateCoOccupant, deleteCoOccupant, type OwnerTenant, type CoOccupant, type RefundSettlementPayload } from '../../api/owner';
-import { KeyboardSafeModal } from '../../components';
+import { KeyboardSafeModal, ImageLightbox } from '../../components';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
