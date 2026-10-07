@@ -109,7 +109,7 @@ export const CreateBillScreen: React.FC<CreateBillScreenProps> = ({ editBillId }
   const tenants = tenantsData?.tenants ?? [];
 
   const mutationCreate = useMutation({
-    mutationFn: () => createBill({ tenantId: selectedTenantId, month: selectedMonth, dueDate }),
+    mutationFn: () => createBill({ tenantId: selectedTenantId, month: selectedMonth }),
     onSuccess: (res) => {
       setBill(res.bill);
       setStep('charges');

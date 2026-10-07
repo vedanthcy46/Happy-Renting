@@ -82,7 +82,7 @@ export const getBillDetail = async (billId: string): Promise<{ success: boolean;
 export const createBill = async (payload: {
   tenantId: string;
   month: string;
-  dueDate: string;
+  dueDate?: string;
   notes?: string;
 }): Promise<{ success: boolean; bill: MonthlyBill }> => {
   const { data } = await client.post('/v2/bills', payload);

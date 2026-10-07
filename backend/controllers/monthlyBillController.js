@@ -156,8 +156,8 @@ const createBill = async (req, res, next) => {
   try {
     const { tenantId, month, dueDate, notes } = req.body;
 
-    if (!tenantId || !month || !dueDate) {
-      return res.status(400).json({ success: false, message: 'tenantId, month, and dueDate are required' });
+    if (!tenantId || !month) {
+      return res.status(400).json({ success: false, message: 'tenantId and month are required' });
     }
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
       return res.status(400).json({ success: false, message: 'month must be in YYYY-MM format' });
@@ -176,7 +176,10 @@ const createBill = async (req, res, next) => {
       return res.status(409).json({ success: false, message: `A bill for ${month} already exists for this tenant`, bill: existing });
     }
 
-    const { calculateOccupiedDays, calculateProratedRent } = require('../utils/billingCalculationService');
+    const { calculateOccupiedDays, calculateProratedRent, calculateDueDate } = require('../utils/billingCalculationService');
+    
+    // Automatically calculate the universal due date (e.g. 5th of the month)
+    const computedDueDate = calculateDueDate(month);
     const baseRent = tenant.roomId?.monthlyRent || 0;
     
     // Calculate prorated rent if this is the join month or exit month
