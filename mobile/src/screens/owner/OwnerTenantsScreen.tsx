@@ -750,6 +750,28 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({
                   placeholderTextColor={colors.text.tertiary}
                 />
               </View>
+              <View style={styles.formField}>
+                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>Gov Document Photo (Optional)</Text>
+                {govDocumentUri ? (
+                  <View style={styles.documentPreviewContainer}>
+                    <Image source={{ uri: govDocumentUri }} style={styles.documentPreview as any} resizeMode="cover" />
+                    <TouchableOpacity style={styles.removeDocumentBtn} onPress={() => setGovDocumentUri(null)}>
+                      <Ionicons name="close-circle" size={24} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.documentPickerRow}>
+                    <TouchableOpacity style={[styles.documentPickerBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={takeGovDocumentPhoto}>
+                      <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                      <Text style={[styles.documentPickerText, { color: colors.text.primary }]}>Camera</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.documentPickerBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={pickGovDocument}>
+                      <Ionicons name="image-outline" size={20} color={colors.primary} />
+                      <Text style={[styles.documentPickerText, { color: colors.text.primary }]}>Gallery</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </>
           )}
         </ScrollView>
@@ -1629,6 +1651,12 @@ export const OwnerTenantsScreen: React.FC = () => {
         onSave={handleSaveCoOccupant}
         saving={addCoMutation.isPending || updateCoMutation.isPending}
         t={t}
+      />
+    
+      <ImageLightbox
+        visible={!!lightboxUrl}
+        uri={lightboxUrl || ''}
+        onClose={() => setLightboxUrl(null)}
       />
     </View>
   );
