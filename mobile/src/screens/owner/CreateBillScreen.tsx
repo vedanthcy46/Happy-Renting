@@ -356,7 +356,7 @@ export const CreateBillScreen: React.FC<CreateBillScreenProps> = ({ editBillId }
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
-          <TouchableOpacity onPress={handleDiscardDraft} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
           </TouchableOpacity>
           <Text style={[styles.topBarTitle, { color: colors.text.primary }]}>Add Charges</Text>
